@@ -30,9 +30,8 @@ This document details the specific tasks required to complete Phase 4.
 *   [ ] **TASK-P4-SEC-01:** Conduct security review of authentication/authorization mechanisms (API, WebApp, Adapters).
 *   [ ] **TASK-P4-SEC-02:** Implement security headers in `Nucleus.Api` and `Nucleus.WebApp` (CSP, HSTS, etc.).
 *   [ ] **TASK-P4-SEC-03:** Scan dependencies for known vulnerabilities (e.g., using GitHub Dependabot or `dotnet list package --vulnerable`).
-*   [ ] **TASK-P4-SEC-04:** Review Key Vault access policies; ensure least privilege.
-*   [ ] **TASK-P4-SEC-05:** Review Cosmos DB network security settings (e.g., firewall rules, private endpoints).
-*   [ ] **TASK-P4-SEC-06:** Review Blob Storage access controls (e.g., SAS tokens, private endpoints).
+*   [ ] **TASK-P4-SEC-04:** Implement RBAC for Admin UI/API endpoints.
+*   [ ] **TASK-P4-SEC-05:** Review Key Vault access policies and secret rotation.
 *   [ ] **TASK-P4-SEC-07:** Ensure sensitive data is not logged inadvertently.
 
 ## `ISSUE-MAT-PERF-01`: Performance Analysis & Optimization
@@ -92,10 +91,9 @@ This document details the specific tasks required to complete Phase 4.
 *   [ ] **TASK-P4-DEPLOY-04:** Implement deployment strategies (e.g., Blue/Green, Canary) if needed.
 *   [ ] **TASK-P4-DEPLOY-05:** Automate Key Vault secret provisioning/updates during deployment.
 
-## `ISSUE-MAT-BACKUP-01`: Define Backup/Recovery Strategy
+## `ISSUE-MAT-BACKUP-01`: Implement Backup and Recovery
 
 *   [ ] **TASK-P4-BACKUP-01:** Configure Cosmos DB backup policies (periodic/continuous).
-*   [ ] **TASK-P4-BACKUP-02:** Configure Azure Blob Storage backup/redundancy options (soft delete, versioning, GRS/RA-GRS).
 *   [ ] **TASK-P4-BACKUP-03:** Document disaster recovery procedures (restore process, RPO/RTO targets).
 *   [ ] **TASK-P4-BACKUP-04:** Test backup restoration process periodically.
 

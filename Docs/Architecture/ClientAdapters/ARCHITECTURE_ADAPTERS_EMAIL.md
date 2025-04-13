@@ -20,7 +20,7 @@ Depends on the chosen protocol:
 *   **Microsoft Graph API:** Requires Azure AD App Registration with appropriate permissions (e.g., `Mail.ReadWrite`, `Mail.Send`) and authentication (client credentials or managed identity).
 
 
-## Persistent Storage
+## Generated Artifact Handling
 
 *   **Conversations:** Email messages are stored persistently on the email server (e.g., Exchange, Gmail, IMAP server).
 *   **Generated Artifacts:** Personas can generate artifacts (files, reports). The Email Adapter **must** use the appropriate email protocol (e.g., MS Graph API, SMTP/IMAP) to:

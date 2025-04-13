@@ -69,7 +69,7 @@ This document details the specific tasks required to complete Phase 3.
 *   [ ] **TASK-P3-TEST-02:** Choose mocking framework (e.g., Moq, NSubstitute).
 *   [ ] **TASK-P3-TEST-03:** Write initial unit tests for key services and logic implemented in P1-P3.
 *   [ ] **TASK-P3-TEST-04:** Set up Integration Test project (`tests/Nucleus.IntegrationTests`).
-*   [ ] **TASK-P3-TEST-05:** Integrate Testcontainers (or similar) for emulating dependencies (Cosmos DB, Azurite, Service Bus) in integration tests. *(Aligns with KANBAN TASK-ID-006 / existing backlog item)*
+*   [ ] **TASK-P3-TEST-05:** Integrate Testcontainers (or similar) for emulating dependencies (Cosmos DB, Service Bus) in integration tests. *(Aligns with KANBAN TASK-ID-006 / existing backlog item)*
 *   [ ] **TASK-P3-TEST-06:** Write initial integration tests for core workflows (e.g., ingest-process-store, basic query).
 *   [ ] **TASK-P3-TEST-07:** Integrate test execution into CI pipeline (GitHub Actions / ADO).
 

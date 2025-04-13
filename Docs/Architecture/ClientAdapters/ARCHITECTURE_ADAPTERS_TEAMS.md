@@ -17,7 +17,7 @@ The Teams Client Adapter (`Nucleus.Adapters.Teams`) serves as the bridge between
 *   **User Authentication:** User identity is typically derived from the Teams context provided in incoming activities.
 *   **Graph API Access:** Requires separate Azure AD App Registration with appropriate Microsoft Graph API permissions (e.g., `Sites.Selected`, `Files.ReadWrite`, `User.Read`, `ChannelMessage.Send`) granted via admin consent. Authentication uses client credentials flow or Managed Identity.
 
-## Persistent Storage Interaction
+## Generated Artifact Handling
 
 *   **Source File Storage:** Files shared in channels are stored in SharePoint Online (Team's document library). Files in chats are stored in the sender's OneDrive for Business.
 *   **Conversation Storage:** Messages in channels and chats are stored persistently in Azure.

@@ -16,7 +16,7 @@ Enables interaction with Nucleus Personas within a Slack workspace.
 
 Requires a Slack Bot Token obtained from the Slack App administration interface. Necessary permissions (scopes) must be granted, potentially including privileged intents depending on required functionality.
 
-## Persistent Storage
+## Generated Artifact Handling
 
 *   **Conversations & Files:** Slack stores message history and uploaded files persistently based on workspace plan/settings.
 *   **Generated Artifacts:** Personas generate artifacts (files, reports, visualization images/data). The Slack Adapter **must** use the Slack API (`files.upload` or newer methods) to upload these artifacts back into the relevant channel or thread. Nucleus then creates `ArtifactMetadata` for the uploaded file using the identifiers (`id`, `permalink`) returned by the Slack API.

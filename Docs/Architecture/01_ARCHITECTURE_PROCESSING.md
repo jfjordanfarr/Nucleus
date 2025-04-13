@@ -86,7 +86,7 @@ This flow assumes a single Azure Container App (ACA) instance hosting the API, I
 4.  **Background Task Execution:**
     *   The ACA's background task runner picks up the scheduled task.
     *   Retrieves the `IngestionRecord` from Cosmos DB using the `IngestionID`.
-    *   Fetches the raw artifact data from temporary storage.
+    *   Fetches the raw artifact data from ephemeral container storage.
     *   Accesses necessary configuration or *carefully managed* session context (if passed directly or accessible via a thread-safe in-memory store scoped to the instance/request).
     *   **Crucially, `ArtifactMetadata` creation/initialization begins *here*.**
 5.  **Content Extraction:**
@@ -103,7 +103,7 @@ This flow assumes a single Azure Container App (ACA) instance hosting the API, I
         *   Updates `ArtifactMetadata`.
 8.  **Finalization & Cleanup:**
     *   Updates the main `ArtifactMetadata` record (overall status).
-    *   Cleans up/deletes the temporary raw artifact data.
+    *   Cleans up/deletes the raw artifact data from ephemeral container storage.
     *   (No external queue message to acknowledge here for this internal flow).
 
 ## 5. Embedding Generation

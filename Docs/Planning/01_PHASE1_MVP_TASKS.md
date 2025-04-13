@@ -13,7 +13,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 
 *   [X] **TASK-MVP-SETUP-01:** Create Solution Structure (`NucleusOmniRAG.sln`, `src/`, `tests/`, `aspire/`, `docs/`, etc.).
 *   [X] **TASK-MVP-SETUP-02:** Set up `Nucleus.AppHost` project using Aspire.
-*   [X] **TASK-MVP-SETUP-03:** Configure Aspire AppHost to launch required emulated services (Cosmos DB, Azurite - Blobs). *(Queues/Service Bus emulation deferred unless specific external integration requires them in MVP)*.
+*   [X] **TASK-MVP-SETUP-03:** Configure Aspire AppHost to launch required emulated services (Cosmos DB). *(Queues/Service Bus emulation deferred unless specific external integration requires them in MVP)*.
 *   [X] **TASK-MVP-SETUP-04:** Create core projects: `Nucleus.Abstractions`, `Nucleus.Core`, `Nucleus.Infrastructure`, `Nucleus.Personas`.
 *   [X] **TASK-MVP-SETUP-05:** Create `Nucleus.Api` (ASP.NET Core WebAPI) project and add to AppHost.
 *   [X] **TASK-MVP-SETUP-06:** Create `Nucleus.Console` (.NET Console App) project and add to AppHost.

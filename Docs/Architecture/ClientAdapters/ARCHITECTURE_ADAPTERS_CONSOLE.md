@@ -16,9 +16,9 @@ Describes a basic interaction surface with Nucleus personas, tailored for accele
 
 No specific authentication model is required for the basic console adapter. It runs under the local user's context.
 
-## Persistent Storage
+## Generated Artifact Handling
 
-While the console itself isn't a persistent store like SharePoint, it **simulates artifact persistence** by interacting with the local filesystem.
+While the console itself isn't a persistent store, it interacts with the **user's local filesystem** to handle generated artifacts.
 
 *   **Configured Local Directory:** Generated artifacts (e.g., files, `viz.html`) are saved to a configurable local directory (e.g., `./.nucleus/console_artifacts/` within the workspace, potentially gitignored). This provides developers with easy access to outputs.
 *   **Storage Interface:** The adapter still uses the standard `IFileStorage` abstraction, but its implementation writes/reads directly to/from this configured local path.
@@ -57,7 +57,7 @@ Standard console I/O does not have a native concept of attachments like other co
 
 Presentation capabilities are limited to standard console text output. The adapter **cannot render** rich HTML, interactive visualizations, or images directly.
 
-*   **Artifact Referencing:** However, when a Persona generates a rich artifact (like a `viz.html` file stored locally via the Persistent Storage mechanism), the console adapter **can present a reference** to it (e.g., printing the local file path or a `file://` hyperlink) allowing the developer to open and view it manually.
+*   **Artifact Referencing:** However, when a Persona generates a rich artifact (like a `viz.html` file stored locally via the Generated Artifact Handling mechanism described above), the console adapter **can present a reference** to it (e.g., printing the local file path or a `file://` hyperlink) allowing the developer to open and view it manually.
 *   **Simulation Focus:** The primary goal is to test the Persona's ability to *request* and *generate* the rich artifact payload, not the final rendering within the console itself.
 
 ## Limitations

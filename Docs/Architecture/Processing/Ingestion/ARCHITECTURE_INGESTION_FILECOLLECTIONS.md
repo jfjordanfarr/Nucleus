@@ -34,7 +34,7 @@ This processor adheres to the overall ingestion principles ([ARCHITECTURE_PROCES
 *   **LLM Dependency:** The quality of the synthesized output heavily depends on the Plaintext processor's LLM's ability to interpret the bundled components and synthesis instructions correctly.
 *   **Error Handling:** Needs robust handling for corrupted archives, errors during multimedia processing, and potential failures during the final LLM synthesis step.
 *   **Nested Collections:** Can still handle nested archives by recursively invoking itself, but the final synthesis step happens at each level for the components within that specific container.
-*   **Resource Limits:** Still needs to manage resources for unpacking and holding intermediate components in memory/temp storage before the final synthesis dispatch.
+*   **Resource Limits:** Still needs to manage resources for unpacking and holding intermediate components in memory/ephemeral container storage before the final synthesis dispatch.
 
 This processor ensures complex container artifacts are deconstructed, their essential textual/visual information is captured (via raw text or LLM descriptions), and then intelligently re-synthesized into a single, coherent Markdown representation by the Plaintext processor's LLM.
 
