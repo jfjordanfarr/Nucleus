@@ -1,15 +1,15 @@
-Okay, let's develop the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 9**. This age often marks a significant step up in academic complexity, typically falling within 3rd or 4th grade. Children are expected to apply foundational skills more independently and tackle more abstract concepts.
-
-**Reasoning for Age 9 Trees:**
-
-*   **Application Focus:** Basic facts (math, phonics) are assumed to be largely mastered; the emphasis is on using them in multi-step problems, longer texts, and structured writing.
-*   **Increased Abstraction:** Concepts like multiplication/division relationships, fractions on a number line, historical cause/effect, ecosystems, and basic governmental functions become more central.
-*   **Research & Organization Skills:** Introduction to basic research skills – using text features, taking simple notes, organizing information logically.
-*   **Complex Text Comprehension:** Reading and understanding longer chapter books and informational texts, identifying themes, summarizing, and comparing texts.
-*   **Structured Writing:** Writing multi-paragraph pieces with clearer organization, introductions/conclusions, and supporting details.
-*   **Developing Independence:** Greater expectation for self-management in completing tasks, organizing materials, and monitoring own understanding.
-
 ---
+title: Educator Knowledge Trees - Age 9 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 9-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 9 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 9**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 9 (typically 3rd or 4th Grade) marks a transition towards more complex comprehension, mathematical operations, independent research, and nuanced social understanding.
 
 ## Pedagogical Tree: Age 9 (End-of-Year Capabilities)
 

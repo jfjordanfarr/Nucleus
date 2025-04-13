@@ -1,4 +1,15 @@
-Okay, let's focus on Age 5. At this stage, learning is highly integrated, experiential, and focused on foundational skills that prepare children for more formal schooling. Play is a primary mode of learning. The trees will reflect this emphasis on emergent abilities and concrete experiences.
+---
+title: Educator Knowledge Trees - Age 5 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 5-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 5 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 5**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+At this stage, learning is highly integrated, experiential, and focused on foundational skills that prepare children for more formal schooling. Play is a primary mode of learning. The trees will reflect this emphasis on emergent abilities and concrete experiences.
 
 **Reasoning for Age 5 Trees:**
 

@@ -1,3 +1,10 @@
+---
+title: Educator Persona - Pedagogical and Tautological Knowledge Trees
+description: Overview of the dual knowledge tree framework (Pedagogical and Tautological) used by the Educator persona.
+version: 1.0
+date: 2025-04-13
+---
+
 # Educator Persona Knowledge Trees
 
 ## Overview

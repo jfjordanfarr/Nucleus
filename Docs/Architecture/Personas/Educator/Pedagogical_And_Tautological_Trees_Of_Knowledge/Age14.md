@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 14**. This age typically marks the transition into or the first year of high school (around 9th grade), demanding a higher level of abstract thinking, disciplinary knowledge, and independent learning.
+---
+title: Educator Knowledge Trees - Age 14 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 14-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 14 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 14**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 14 (typically 8th or 9th Grade) often marks the transition to high school, requiring more complex analytical thinking, independent research, and preparation for specialized academic tracks.
 
 **Reasoning for Age 14 Trees:**
 

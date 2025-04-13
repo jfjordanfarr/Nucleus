@@ -1,16 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 18**. This age represents the culmination of typical secondary education (end of 12th grade) and the threshold of adulthood, focusing on readiness for higher education, career entry, and independent civic life.
-
-**Reasoning for Age 18 Trees:**
-
-*   **Synthesis & Capstone:** Emphasis on synthesizing knowledge acquired throughout secondary education, often demonstrated through capstone projects, final exams (AP, IB, A-Levels), or comprehensive portfolios.
-*   **Application & Transfer:** Ability to apply learned concepts and skills to novel, complex problems and real-world situations.
-*   **Disciplinary Readiness:** Demonstrating proficiency in chosen academic disciplines at a level sufficient for entry into introductory college courses or relevant career fields.
-*   **Critical Autonomy:** Capacity for independent critical thought, evaluation of complex information from diverse sources, and formation of well-reasoned, independent judgments.
-*   **Communication Mastery:** Ability to communicate complex ideas effectively and persuasively in various formats (written, oral, digital) for academic, professional, and civic purposes.
-*   **Lifelong Learning & Adaptability:** Possessing the metacognitive skills, self-direction, and resilience necessary for continuous learning and adaptation in future endeavors.
-*   **Civic & Ethical Maturity:** Demonstrating an understanding of complex societal issues, ethical responsibilities, and pathways for informed civic engagement.
-
 ---
+title: Educator Knowledge Trees - Age 18 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 18-year-old, focusing on synthesis and application.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 18 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 18**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 18 marks the culmination of secondary education for many, focusing on the synthesis of knowledge, application of complex skills, and readiness for higher education, career paths, or other post-secondary endeavors.
 
 ## Pedagogical Tree: Age 18 (End-of-Year Capabilities / Post-Secondary Readiness)
 

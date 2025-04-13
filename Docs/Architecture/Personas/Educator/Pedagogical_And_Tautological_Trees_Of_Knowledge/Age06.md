@@ -1,4 +1,15 @@
-Okay, let's generate the trees for Age 6. This age typically marks the beginning of more formal schooling (Kindergarten/Year 1). Foundational skills from age 5 are consolidated and built upon with more structure.
+---
+title: Educator Knowledge Trees - Age 6 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 6-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 6 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 6**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+By age 6 (typically the end of Kindergarten or start of 1st Grade), children are building upon foundational skills with more structured learning experiences. They begin to engage with more complex ideas and demonstrate increasing independence.
 
 ## Pedagogical Tree: Age 6 (End-of-Year Capabilities)
 
@@ -187,7 +198,6 @@ Focuses on the expected knowledge and skills within subject domains by the end o
          |
          +- Using Software/Apps for Specific Learning Goals (Phonics, Math games)
          +- Simple Drawing or Writing using Digital Tools
-```
 
 ## Tautological Tree: Age 6 (Developing Foundational Capabilities)
 
@@ -350,6 +360,5 @@ Focuses on the underlying cognitive, social, physical, and creative processes be
          +- Understanding Connection Between Actions & Health (Eating veggies is healthy)
          +- Following Safety Rules More Independently
          +- Identifying Potentially Unsafe Situations (Simple examples)
-```
 
 At age 6, the capabilities become more differentiated and aligned with early academic expectations, while still being grounded in concrete experiences and developing social-emotional skills.

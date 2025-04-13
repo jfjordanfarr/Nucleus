@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Nucleus.ApiService\Nucleus.ApiService.csproj" />
     <ProjectReference Include="..\Nucleus.Web\Nucleus.Web.csproj" />
+    <ProjectReference Include="..\Nucleus.Console\Nucleus.Console.csproj" />
   </ItemGroup>
 
   <ItemGroup>

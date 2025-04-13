@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 11**. This age typically corresponds to 5th or 6th grade, a critical transition period demanding greater independence, abstract thinking, and organizational skills.
+---
+title: Educator Knowledge Trees - Age 11 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 11-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 11 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 11**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 11 (often 5th or 6th Grade) marks the transition towards middle school thinking, involving greater complexity in subject matter, increased expectations for analytical skills, and more sophisticated research and communication.
 
 **Reasoning for Age 11 Trees:**
 

@@ -1,17 +1,20 @@
+---
+title: Architecture - Personas & Verticals
+description: Details the architecture for implementing specialized AI assistants (Personas/Verticals) within the Nucleus OmniRAG platform.
+version: 1.1
+date: 2025-04-07
+---
+
 # Nucleus OmniRAG: Persona/Vertical Architecture
 
 **Version:** 1.1
 **Date:** 2025-04-07
 
-This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform.
+This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md).
 
 ## 1. Core Concept: Personas as Specialized Agents
 
-Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, analysis capabilities, and interaction patterns, leveraging the core platform's infrastructure for data ingestion, processing, storage, and retrieval.
-
-The terms "Persona" and "Vertical" are often used interchangeably. "Vertical" emphasizes the target market or application area, while "Persona" focuses on the specific AI agent's characteristics and behavior.
-
-**Extensibility:** A core design goal is to allow developers and end-users (particularly in self-hosted scenarios) to create and integrate their own custom Personas by implementing the `IPersona` interface.
+Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, analysis capabilities, and interaction patterns, leveraging the core platform's infrastructure for data ingestion, processing (see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)), storage (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), and retrieval from the [Database](./04_ARCHITECTURE_DATABASE.md).
 
 ## 2. The `IPersona` Interface
 
@@ -53,8 +56,8 @@ public record PersonaQueryResult(string ResponseText, List<string> SourceReferen
 
 Key responsibilities defined by `IPersona`:
 *   **Identification:** Provide unique ID and descriptive info.
-*   **Content Analysis:** Process the **standardized content (e.g., Markdown)** provided by the pipeline, identify relevant sections *within that content*, and generate structured insights.
-*   **Query Handling:** Respond to user queries within its domain.
+*   **Content Analysis:** Process the **standardized content (e.g., Markdown)** provided by the [Processing Pipeline](./01_ARCHITECTURE_PROCESSING.md), identify relevant sections *within that content*, and generate structured insights stored as `PersonaKnowledgeEntry` records in the [Database](./04_ARCHITECTURE_DATABASE.md).
+*   **Query Handling:** Respond to user queries (originating from [Clients](./05_ARCHITECTURE_CLIENTS.md)) within its domain.
 *   **Configuration:** Load persona-specific settings.
 
 ## 3. Hybrid Project Structure

@@ -1,14 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 8**. This age typically corresponds to 2nd or 3rd grade, where foundational skills are consolidated, and children begin tackling more complex academic tasks and social situations.
-
-**Reasoning for Age 8 Trees:**
-
-*   **Increased Academic Rigor:** Expectation for greater fluency in reading and math facts (addition/subtraction mastery, beginning multiplication). Writing becomes more structured and longer.
-*   **Emerging Abstract Thinking:** Children start grasping concepts beyond the immediately observable, like multi-digit place value, multiplication as arrays/groups, simple historical timelines, and basic scientific systems (e.g., water cycle).
-*   **Developing Independence & Responsibility:** Ability to manage multi-step tasks, organize materials (basic), and work independently for short periods increases. Understanding of personal responsibility grows.
-*   **Complex Social Dynamics:** Peer relationships become more central and complex. Understanding of fairness, rules, and consequences deepens. Ability to see things from others' perspectives improves, though still developing.
-*   **Information Gathering:** Beginning to use resources (simple dictionaries, glossaries, guided internet searches) to find information.
-
 ---
+title: Educator Knowledge Trees - Age 8 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 8-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 8 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 8**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+At age 8 (typically 2nd or 3rd Grade), children become more fluent readers and writers, tackle multi-step problems, begin to understand more abstract concepts, and develop more complex social interactions.
 
 ## Pedagogical Tree: Age 8 (End-of-Year Capabilities)
 
@@ -214,7 +215,6 @@ Focuses on the *domains* of knowledge and skill typically mastered or significan
          +- Using Search Engines with Specific Keywords (Guided)
          +- Beginning to Evaluate Simple Website Credibility (Is it from a known source?)
          +- Understanding Responsible Use of Technology (Time limits, sharing info safely)
-```
 
 ---
 
@@ -379,6 +379,5 @@ Focuses on the underlying *cognitive, social, physical, and creative processes* 
          +- Understanding the Link Between Nutrition, Exercise, & Health
          +- Making Informed Choices about Healthy Habits (Simple)
          +- Understanding & Applying Safety Rules in Various Environments
-```
 
 At age 8, children are becoming more capable learners and social beings, able to handle more complex information, manage themselves better, and think more systematically across various domains.

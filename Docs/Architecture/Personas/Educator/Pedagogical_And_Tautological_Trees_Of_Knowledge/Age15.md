@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 15**. This age typically corresponds to 10th grade, a year where students deepen their understanding in core subjects and often begin exploring more specialized areas, building significantly on their foundational high school skills.
+---
+title: Educator Knowledge Trees - Age 15 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 15-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 15 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 15**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 15 (typically 9th or 10th Grade) involves deeper engagement with specialized high school subjects, development of critical analysis, and beginning considerations for future academic or career paths.
 
 **Reasoning for Age 15 Trees:**
 

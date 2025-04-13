@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 17**. This age typically corresponds to 12th grade (senior year of high school), a year focused on culminating academic experiences, demonstrating mastery, and preparing for post-secondary transitions (college, career, etc.).
+---
+title: Educator Knowledge Trees - Age 17 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 17-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 17 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 17**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 17 (typically 11th or 12th Grade) is often focused on applying knowledge in complex ways, completing college applications or post-secondary plans, and demonstrating intellectual independence.
 
 **Reasoning for Age 17 Trees:**
 

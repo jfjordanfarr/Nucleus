@@ -12,26 +12,26 @@ date: 2025-04-13
 
 ## 1. Introduction
 
-Security and responsible data governance are paramount for the Nucleus OmniRAG platform, especially given its interaction with potentially sensitive user information and its deployment in both individual (Cloud-Hosted) and team/organizational (Self-Hosted) contexts. This document outlines the core security principles, data boundaries, authentication/authorization strategies, and responsibilities.
+Security and responsible data governance are paramount for the Nucleus OmniRAG platform, especially given its interaction with potentially sensitive user information and its deployment in both individual (Cloud-Hosted) and team/organizational (Self-Hosted) contexts, as outlined in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). This document outlines the core security principles, data boundaries, authentication/authorization strategies, and responsibilities.
 
 ## 2. Data Governance & Boundaries
 
 Nucleus is designed to process user data, not to be its primary custodian.
 
-*   **Primary Data Source:** Original user files (documents, images, etc.) **always reside in the user's designated cloud storage** (e.g., Personal OneDrive/GDrive for Individuals, Team SharePoint/Shared Drives for Teams). Nucleus interacts with these sources via API, respecting the permissions granted by the user/organization.
+*   **Primary Data Source:** Original user files (documents, images, etc.) **always reside in the user's designated cloud storage** (e.g., Personal OneDrive/GDrive for Individuals, Team SharePoint/Shared Drives for Teams - see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)). Nucleus interacts with these sources via API, respecting the permissions granted by the user/organization.
 *   **Nucleus ArtifactMetadata:**
-    *   Stored within the **Nucleus Database (Cosmos DB)**.
-    *   Contain metadata *about* the source file (identifiers, hashes, timestamps, content type, processing status, originating context, etc.).
+    *   Stored within the **Nucleus [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md)**.
+    *   Contain metadata *about* the source file (identifiers, hashes, timestamps, content type, [processing](./01_ARCHITECTURE_PROCESSING.md) status, originating context, etc.).
     *   **Policy:** ArtifactMetadata should avoid storing sensitive PII directly from the source document. Fields like `displayName` are acceptable.
 *   **Nucleus Database (Cosmos DB):**
-    *   Stores `PersonaKnowledgeEntry` documents.
-    *   Contains: **Derived knowledge, salient text snippets, and vector embeddings** (derived data), persona-specific analysis (`TAnalysisData`), `sourceIdentifier` linking back to the ArtifactMetadata, timestamps.
-    *   **PII Consideration:** Text previews or `TAnalysisData` fields *might* contain sensitive information derived from the source. Personas generating this data should be designed with potential sensitivity in mind. Redaction/scrubbing strategies are persona-specific implementation details.
+    *   Stores [`PersonaKnowledgeEntry`](./04_ARCHITECTURE_DATABASE.md) documents.
+    *   Contains: **Derived knowledge, salient text snippets, and vector embeddings** (derived data), [persona-specific](./02_ARCHITECTURE_PERSONAS.md) analysis (`TAnalysisData`), `sourceIdentifier` linking back to the ArtifactMetadata, timestamps.
+    *   **PII Consideration:** Text previews or `TAnalysisData` fields *might* contain sensitive information derived from the source. [Personas](./02_ARCHITECTURE_PERSONAS.md) generating this data should be designed with potential sensitivity in mind. Redaction/scrubbing strategies are persona-specific implementation details.
 *   **Chat Logs:**
-    *   Inbound chat messages are inspected for salience and may be processed by Nucleus components (Functions/Workers) to generate responses.
+    *   Inbound chat messages are inspected for salience and may be processed by Nucleus components ([Functions/Workers](./01_ARCHITECTURE_PROCESSING.md)) to generate responses.
     *   Salient portions of chat may be bundled into an artifact and placed into the user's long-term storage as an artifact that could be later retrieved for specifics.
     *   The Nucleus backend **does not persist raw chat conversation logs**.
-*   **Data Flow:** Data fetched from user storage is processed transiently by Nucleus components (Functions/Workers). Only derived metadata, embeddings, previews, and analysis are persisted in the Nucleus Database. Original content is not duplicated or stored by Nucleus; while Self-Hosted deployments might integrate external organizational caching, the core Nucleus system remains ephemeral regarding source content.
+*   **Data Flow:** Data fetched from user [storage](./03_ARCHITECTURE_STORAGE.md) is processed transiently by Nucleus components ([Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)). Only derived metadata, embeddings, previews, and analysis are persisted in the Nucleus [Database](./04_ARCHITECTURE_DATABASE.md). Original content is not duplicated or stored by Nucleus; while Self-Hosted [deployments](./07_ARCHITECTURE_DEPLOYMENT.md) might integrate external organizational caching, the core Nucleus system remains ephemeral regarding source content.
 
 ### Data Flow & Security Boundaries Diagram
 
@@ -84,10 +84,16 @@ graph TD
 
 **Explanation:** This diagram illustrates the core security boundaries and data flow:
 *   The **User's Domain** holds the original sensitive artifacts in their designated cloud storage.
-*   The **Nucleus Domain** interacts with the User's Domain via APIs, using securely managed OAuth tokens obtained via user consent.
-*   Sensitive configuration secrets (API keys, connection strings) are stored securely in **Azure Key Vault** (or equivalent).
-*   Incoming source data is processed **ephemerally** within the Processing Service. This is the only place within the Nucleus domain where sensitive source data exists, and only transiently during active processing.
-*   Persistent storage within Nucleus (**Cosmos DB**) is strictly limited to non-sensitive `ArtifactMetadata` and derived `PersonaKnowledgeEntry` data (snippets, structured analysis, vectors). **No raw source content is persisted here.**
+*   The **Nucleus Domain** contains the application components:
+    *   [Adapters/API](./05_ARCHITECTURE_CLIENTS.md) handle user interaction and external requests.
+    *   Transient [Processing Services](./01_ARCHITECTURE_PROCESSING.md) handle sensitive data ephemerally during analysis.
+    *   [Persona Modules](./02_ARCHITECTURE_PERSONAS.md) perform specialized analysis.
+    *   The [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md) stores only derived metadata and knowledge.
+    *   Key Vault secures credentials.
+*   **Interactions:**
+    *   Adapters authenticate with Key Vault and interact with external storage APIs using OAuth tokens.
+    *   Data flows ephemerally through processing and persona layers.
+    *   Only derived metadata/knowledge is persisted to the Nucleus Database.
 *   Access to user data is governed by the permissions granted during the OAuth flow, respecting the source system's controls.
 
 ### Where Sensitive Information is Okay
@@ -111,12 +117,13 @@ One additional benefit that this secure design allows is for tagging of files wi
 A multi-layered approach handles user identity and access to resources.
 
 *   **User Authentication (Nucleus Login):**
-    *   **Hosted Model:** Primarily uses Azure AD B2C or direct Social Sign-in (Google/Microsoft/Steam via OpenID Connect) to establish the user's identity within the Nucleus application. Steam identity may be particularly relevant for verticals like EduFlow distributed via desktop applications.
-    *   **Self-Hosted Model:** Integrates with the organization's existing Identity Provider (Entra ID, Okta, etc.) via standard protocols (OpenID Connect, SAML).
-    *   **Account Linking:** When supporting multiple identity providers (e.g., Google, Microsoft, Steam), a mechanism must exist to allow users to link these external identities to a single, unified Nucleus user profile. This ensures a consistent user experience regardless of the login method used.
-*   **Service Authorization (Cloud Storage Access):**
-    *   Requires a **separate, explicit OAuth 2.0 consent flow** initiated by the user *after* logging into Nucleus (e.g., "Connect Google Drive"). This applies regardless of the primary login method (including Steam).
-    *   Nucleus requests specific, least-privilege scopes (e.g., read-only access if sufficient).
+    *   **Cloud-Hosted:** Users authenticate via a primary identity provider (e.g., Microsoft Entra ID - formerly Azure AD, Google Identity) using OpenID Connect (OIDC).
+    *   **Self-Hosted:** Configurable to use the organization's preferred IdP (Entra ID, Okta, etc.) via OIDC or potentially SAML.
+*   **Storage Provider Authentication (OAuth 2.0):**
+    *   To access files in the user's cloud storage (OneDrive, SharePoint, GDrive), Nucleus initiates a separate OAuth 2.0 authorization code flow, specific to that storage provider.
+    *   The user grants Nucleus (represented by its Client ID) explicit permission to access their files.
+    *   This flow is initiated via the [Client/Adapter](./05_ARCHITECTURE_CLIENTS.md) layer.
+    *   Nucleus requests specific, least-privilege scopes (e.g., read-only access if sufficient, details in [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)).
 *   **Token Management:**
     *   **Hosted Model (Transitory Access):**
         *   **MUST NOT** request the `offline_access` scope during the storage OAuth flow.
@@ -129,23 +136,23 @@ A multi-layered approach handles user identity and access to resources.
         *   If requested and granted, receives a **refresh token** in addition to the access token.
         *   **CRITICAL:** The hosting organization is **solely responsible** for storing refresh tokens with extreme security (e.g., Azure Key Vault, HashiCorp Vault, HSM-backed encryption). Nucleus code provides the mechanism but relies on secure infrastructure configuration.
         *   Background workers use the refresh token to obtain new access tokens as needed.
-*   **RBAC Delegation:** Nucleus operates within the permissions granted through the OAuth consent flow. Access control to specific files/folders within the user/team storage is **governed by the underlying storage provider's RBAC rules**, not by Nucleus itself.
+*   **RBAC Delegation:** Nucleus operates within the permissions granted through the OAuth consent flow. Access control to specific files/folders within the user/team storage is **governed by the underlying storage provider's RBAC rules** ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), not by Nucleus itself.
 
 ## 4. Secrets Management
 
 All sensitive configuration values must be managed securely.
 
-*   **Secrets Include:** AI Service API Keys, Database Connection Strings, Message Queue Connection Strings, OAuth Client IDs/Secrets, Token Signing Keys, Refresh Tokens (Self-Hosted).
-*   **Mandatory Practice:** Use secure secret management solutions appropriate for the deployment environment:
+*   **Secrets Include:** [AI Service](./02_ARCHITECTURE_PERSONAS.md) API Keys, [Database](./04_ARCHITECTURE_DATABASE.md) Connection Strings, Message Queue Connection Strings, OAuth Client IDs/Secrets, Token Signing Keys, Refresh Tokens (Self-Hosted).
+*   **Mandatory Practice:** Use secure secret management solutions appropriate for the [deployment](./07_ARCHITECTURE_DEPLOYMENT.md) environment:
     *   **Cloud-Hosted:** Azure Key Vault, integrated with App Services/Functions via Managed Identity.
     *   **Self-Hosted:** Azure Key Vault, HashiCorp Vault, Kubernetes Secrets (with appropriate backend), secure environment variables.
 *   **Policy:** **NO hardcoded secrets** in source code or configuration files checked into version control.
 
 ## 5. Infrastructure Security
 
-Secure configuration of underlying infrastructure is essential.
+Secure configuration of underlying infrastructure (detailed in [Deployment Architecture](./07_ARCHITECTURE_DEPLOYMENT.md)) is essential.
 
-*   **Network Security:** Employ standard practices like network segmentation, firewalls, and potentially Private Endpoints (especially for Self-Hosted access to PaaS services like Cosmos DB/Service Bus).
+*   **Network Security:** Employ standard practices like network segmentation, firewalls, and potentially Private Endpoints (especially for Self-Hosted access to PaaS services like [Cosmos DB](./04_ARCHITECTURE_DATABASE.md)/Service Bus).
 *   **Service Configuration:** Apply least-privilege principles to service identities (e.g., Managed Identities), database access rules, storage account security settings (network rules, access keys), API security (authentication, rate limiting).
 
 ## 6. AI & Prompt Security
@@ -154,10 +161,10 @@ Leverage platform capabilities and best practices.
 
 *   **Provider Safeguards:** Rely primarily on the **built-in safety features and content filters** provided by the chosen AI service providers (e.g., Azure OpenAI Content Filters, Google Gemini Safety Settings). Configure these appropriately according to policy and use case.
 *   **Input Handling:** While provider filters are the main defense, basic input sanitization on user prompts can add a layer of defense against simple injection attempts.
-*   **Data Minimization:** Personas should be designed to only send necessary context (**retrieved snippets/derived data**, query) to the AI provider, minimizing exposure of potentially sensitive data.
+*   **Data Minimization:** [Personas](./02_ARCHITECTURE_PERSONAS.md) should be designed to only send necessary context (**retrieved snippets/derived data**, query) to the AI provider, minimizing exposure of potentially sensitive data.
 
 ## 7. Compliance & Auditing
 
-*   **Audit Logs (Future):** While not detailed in V1.0, future iterations, particularly for team/enterprise use, may require robust audit logging of user actions, data access, and administrative changes. The architecture should facilitate adding such capabilities later (e.g., logging interactions via the API layer, processing events).
+*   **Audit Logs (Future):** While not detailed in V1.0, future iterations, particularly for team/enterprise use, may require robust audit logging of user actions, data access, and administrative changes. The architecture should facilitate adding such capabilities later (e.g., logging interactions via the [API layer](./07_ARCHITECTURE_DEPLOYMENT.md), [processing events](./01_ARCHITECTURE_PROCESSING.md)).
 
 This document serves as the guiding framework for security decisions within the Nucleus OmniRAG project. It will be updated as the architecture evolves.

@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 16**. This age typically corresponds to 11th grade (junior year of high school), a critical year focused on advanced coursework, preparation for standardized tests (SAT/ACT), and initial steps towards post-secondary planning.
+---
+title: Educator Knowledge Trees - Age 16 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 16-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 16 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 16**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 16 (typically 11th grade, junior year of high school), often involves advanced coursework, preparation for standardized tests (SAT/ACT), and initial steps towards post-secondary planning.
 
 **Reasoning for Age 16 Trees:**
 

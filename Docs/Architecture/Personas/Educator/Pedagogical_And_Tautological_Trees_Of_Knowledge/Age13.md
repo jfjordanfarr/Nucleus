@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 13**. This age typically falls within 7th or 8th grade, a time of significant cognitive development towards more abstract and analytical thinking, and increased academic specialization.
+---
+title: Educator Knowledge Trees - Age 13 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 13-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 13 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 13**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 13 (typically 7th or 8th Grade) involves increasing complexity in academic subjects, the development of argumentative skills, and greater personal and social awareness.
 
 **Reasoning for Age 13 Trees:**
 

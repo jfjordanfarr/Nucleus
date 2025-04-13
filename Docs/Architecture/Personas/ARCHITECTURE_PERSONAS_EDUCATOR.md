@@ -1,5 +1,5 @@
 ---
-title: Persona: Educator ('EduFlow OmniEducator')
+title: Persona - Educator ('EduFlow OmniEducator')
 description: Describes a pre-build persona for Nucleus OmniRAG that is focused on educational use cases, including classroom chats, one-on-one precision teaching, personalized learning experiences, and rich reporting capabilities.
 version: 1.0
 date: 2025-04-13

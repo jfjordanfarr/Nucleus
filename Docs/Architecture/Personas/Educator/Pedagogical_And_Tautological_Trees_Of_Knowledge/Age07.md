@@ -1,3 +1,16 @@
+---
+title: Educator Knowledge Trees - Age 7 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 7-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 7 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 7**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+At age 7 (typically 1st or 2nd Grade), children demonstrate more independence in reading and writing, begin exploring more complex mathematical concepts, and develop a stronger sense of community and rules.
+
 ## Pedagogical Tree: Age 7 (End-of-Year Capabilities)
 
 Focuses on the *domains* of knowledge and skill typically mastered or significantly developed during the seventh year.
@@ -185,7 +198,6 @@ Focuses on the *domains* of knowledge and skill typically mastered or significan
          +- Using Technology for Specific Learning Tasks (Assigned apps/websites)
          +- Simple Word Processing (Typing name, simple sentences)
          +- Introduction to Safe Internet Search (Guided)
-```
 
 ---
 
@@ -349,6 +361,5 @@ Focuses on the underlying *cognitive, social, physical, and creative processes* 
          +- Making Simple Healthy Food Choices
          +- Following Safety Rules More Independently
          +- Understanding Connection Between Actions & Health Outcomes (Simple)
-```
 
 At age 7, the capabilities outlined show a clear progression towards more independent learning, logical thought, and social understanding, setting the stage for the more complex demands of later elementary years.

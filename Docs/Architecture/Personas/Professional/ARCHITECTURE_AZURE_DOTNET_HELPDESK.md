@@ -1,6 +1,13 @@
+---
+title: Reference Implementation - Azure .NET IT Helpdesk Persona
+description: Describes a reference architecture for the Nucleus Professional Persona in an IT Helpdesk scenario, deployed on Azure using .NET.
+version: 1.0
+date: 2025-04-13
+---
+
 # Reference Implementation: Azure .NET IT Helpdesk
 
-This document outlines a reference architecture for implementing the Nucleus OmniRAG system specifically for an IT Helpdesk scenario, deployed within a Microsoft Azure environment using .NET technologies.
+This document outlines a reference architecture for implementing the Nucleus OmniRAG system specifically for an IT Helpdesk scenario, deployed within a Microsoft Azure environment using .NET technologies. It provides a specific implementation example for the general concepts described in the main [Professional Colleague Persona Overview](../ARCHITECTURE_PERSONAS_PROFESSIONAL.md).
 
 ## 1. High-Level Component Architecture
 

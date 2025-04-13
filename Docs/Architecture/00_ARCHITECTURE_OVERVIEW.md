@@ -23,6 +23,8 @@ This document provides a high-level map of the system's components, interactions
 *   [03_ARCHITECTURE_STORAGE.md](./03_ARCHITECTURE_STORAGE.md)
 *   [04_ARCHITECTURE_DATABASE.md](./04_ARCHITECTURE_DATABASE.md)
 *   [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md)
+*   [06_ARCHITECTURE_SECURITY.md](./06_ARCHITECTURE_SECURITY.md)
+*   [07_ARCHITECTURE_DEPLOYMENT.md](./07_ARCHITECTURE_DEPLOYMENT.md)
 
 ## 2. Deployment Models: Individuals vs. Teams
 
@@ -40,7 +42,7 @@ Nucleus OmniRAG supports two primary operational flavors:
     *   **Chats:** Can be configured to archive chats to *shared team* spaces, enabling collective review.
     *   **Deployment:** Typically aligns with a **Self-Hosted** model within the organization's infrastructure, but a team-focused hosted model is also possible. **(Note:** Full self-hosted deployment tooling likely Phase 2+).
 
-The core components are designed to function in both models, with configuration and specific service implementations adapting as needed (e.g., authentication, background processing capabilities).
+The core components are designed to function in both models, with configuration and specific service implementations adapting as needed (e.g., authentication, background processing capabilities). See [07_ARCHITECTURE_DEPLOYMENT.md](./07_ARCHITECTURE_DEPLOYMENT.md) for more details on deployment strategies.
 
 ## 3. High-Level Component Architecture
 
@@ -94,8 +96,8 @@ graph LR
 **Key Components:**
 
 *   **User Interaction Channels:** Users interact via:
-    *   **Console Application (`Nucleus.Console` - MVP):** The primary interface for the initial development phase and MVP release, allowing command-line interaction with the Nucleus API.
-    *   **Platform Bots (Teams/Slack/etc. - Phase 2+):** Integrate directly into collaboration platforms.
+    *   **Console Application (`Nucleus.Console`):** The primary MVP interface for commands.
+    *   **Platform Bots/Adapters (Phase 2+):** Integration with Teams, Slack, Email, etc., providing a more user-friendly interface. (See [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md))
     *   **Email Interface (Phase 2+):** Allows interaction via email triggers.
     *   **Platform Adapters (Phase 2+):** Bridge between platform-specific protocols (e.g., Teams Bot Framework) and the internal Nucleus API/Messaging system.
 *   **API (ASP.NET Core):** The central backend service handling synchronous requests, orchestrating workflows, managing authentication/authorization, and interacting with other backend components.

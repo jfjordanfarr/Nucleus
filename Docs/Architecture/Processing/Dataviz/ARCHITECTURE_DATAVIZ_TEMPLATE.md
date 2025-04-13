@@ -9,7 +9,7 @@ date: 2025-04-13
 
 ## 1. Introduction
 
-This report details an architecture for generating and delivering interactive, AI-driven data visualizations within Microsoft Teams. It builds upon the previous analysis, incorporating the requirements for:
+This report details an architecture for generating and delivering interactive, AI-driven data visualizations within Microsoft Teams, based on the concepts outlined in the [Data Visualization Overview](../ARCHITECTURE_PROCESSING_DATAVIZ.md). It builds upon the previous analysis, incorporating the requirements for:
 
 1. **Self-Contained Artifact:** Generating a single `viz.html` file containing all necessary HTML, CSS (branded), JavaScript, the AI-generated Python script, and the associated data.
 2. **Teams/SharePoint Storage:** Storing this `viz.html` file as a persistent artifact within the relevant Team's SharePoint document library (specifically in a `.Nucleus/Artifacts/` folder).

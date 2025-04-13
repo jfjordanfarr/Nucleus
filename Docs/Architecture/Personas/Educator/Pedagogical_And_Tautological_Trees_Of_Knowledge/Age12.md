@@ -1,4 +1,15 @@
-Okay, let's generate the Pedagogical and Tautological trees for the capabilities expected by the end of **Age 12**. This age typically corresponds to 6th or 7th grade, marking a deeper dive into middle school curriculum and requiring more sophisticated abstract thinking and independent learning skills.
+---
+title: Educator Knowledge Trees - Age 12 Capabilities
+description: Defines the Pedagogical and Tautological knowledge trees outlining expected capabilities for a typical 12-year-old.
+version: 1.0
+date: 2025-04-13
+---
+
+# Age 12 Knowledge Trees
+
+This document outlines the specific **Pedagogical** and **Tautological** knowledge trees for capabilities typically expected by the end of **Age 12**. It forms part of the framework described in the main [Educator Persona Knowledge Trees](../ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md) document.
+
+Age 12 (typically 6th or 7th Grade) often marks the entry into middle school, characterized by increasing academic specialization, abstract reasoning, and the need for effective study habits.
 
 **Reasoning for Age 12 Trees:**
 

@@ -1,21 +1,28 @@
+---
+title: Architecture - Storage & Metadata Management
+description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence.
+version: 1.6
+date: 2025-04-13
+---
+
 # Nucleus OmniRAG: Storage Architecture
 
 **Version:** 1.6
 **Date:** 2025-04-13
 
-This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system. A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters, respecting existing permissions. Nucleus's own persistent storage (Cosmos DB) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
+This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
 ## 1. Core Principles
 
-*   **User Source System is Authoritative:** The original artifact (user-provided *or* Nucleus-generated) resides and is managed within the user's designated source system (SharePoint, Slack Files, Google Drive, etc.). Nucleus interacts with these systems via adapters (see `05_ARCHITECTURE_CLIENTS.md`).
-*   **Metadata in Nucleus DB:** Essential metadata about the source artifact (`ArtifactMetadata`) and persona-specific analysis (`PersonaKnowledgeEntry`) are stored in Nucleus's own database layer (Cosmos DB, see `04_ARCHITECTURE_DATABASE.md`). This metadata contains pointers (`sourceUri`) to the actual artifact in the user's system.
-*   **No Intermediate Storage:** Nucleus avoids creating its own persistent store for artifacts. Temporary, in-memory streams or extremely short-lived local caches might be used during processing, but **no intermediate persistence** (like Azure Blob Storage or dedicated file shares) should be relied upon.
-*   **Permission-Based Access:** Nucleus accesses artifacts in the source system using the permissions granted to its corresponding bot or application identity within that platform (e.g., Teams bot permissions to read/write files in a channel).
-*   **Support Diverse Sources:** The architecture must accommodate artifacts from various locations accessible via APIs (cloud drives, collaboration platforms, email attachments).
+*   **User Source System is Authoritative:** The original artifact (user-provided *or* Nucleus-generated) resides and is managed within the user's designated source system (SharePoint, Slack Files, Google Drive, etc.). Nucleus interacts with these systems via [adapters](./05_ARCHITECTURE_CLIENTS.md).
+*   **Metadata in Nucleus DB:** Essential metadata about the source artifact (`ArtifactMetadata`) and persona-specific analysis (`PersonaKnowledgeEntry`) are stored in Nucleus's own [database layer (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md). This metadata contains pointers (`sourceUri`) to the actual artifact in the user's system.
+*   **No Intermediate Storage:** Nucleus avoids creating its own persistent store for artifacts. Temporary, in-memory streams or extremely short-lived local caches might be used during [processing](./01_ARCHITECTURE_PROCESSING.md), but **no intermediate persistence** (like Azure Blob Storage or dedicated file shares) should be relied upon, aligning with Memory `08b60bec`.
+*   **Permission-Based Access:** Nucleus accesses artifacts in the source system using the permissions granted to its corresponding bot or application identity within that platform (e.g., Teams bot permissions to read/write files in a channel). See [Security Architecture](./06_ARCHITECTURE_SECURITY.md).
+*   **Support Diverse Sources:** The architecture must accommodate artifacts from various locations accessible via APIs (cloud drives, collaboration platforms, email attachments) through the [Client/Adapter Architecture](./05_ARCHITECTURE_CLIENTS.md).
 
 ## 2. Key Metadata Structure: `ArtifactMetadata`
 
-The `ArtifactMetadata` record is the central object persisted in the `ArtifactMetadataContainer` within Cosmos DB for *every* unique artifact Nucleus interacts with. It represents Nucleus's understanding of the artifact's properties and context, derived primarily from the source system via Adapters.
+The `ArtifactMetadata` record is the central object persisted in the `ArtifactMetadataContainer` within [Cosmos DB](./04_ARCHITECTURE_DATABASE.md) for *every* unique artifact Nucleus interacts with. It represents Nucleus's understanding of the artifact's properties and context, derived primarily from the source system via [Adapters](./05_ARCHITECTURE_CLIENTS.md).
 
 **Conceptual Fields (Illustrative - Not Exhaustive):**
 
