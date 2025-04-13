@@ -23,7 +23,7 @@ The primary client interface for the Nucleus OmniRAG MVP is a .NET Console Appli
 *   Serve as the initial integration point for developers and AI assistants working on the project.
 
 **Technology Stack:**
-*   **.NET 8 Console Application:** The core project type.
+*   **.NET 9 Console Application:** The core project type.
 *   **`System.CommandLine`:** For robust command parsing, argument handling, and help generation.
 *   **`Microsoft.Extensions.Http` (`IHttpClientFactory`):** For making resilient HTTP requests to the `Nucleus.Api`.
 *   **`Spectre.Console` (Optional but Recommended):** For richer terminal output (tables, spinners, formatted text).

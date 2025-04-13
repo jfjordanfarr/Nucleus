@@ -119,7 +119,7 @@ graph LR
 | **Content Extractors**        | Extracts text/data from various file formats (PDF, DOCX, Images via OCR).                               | Tika.NET, Azure AI Vision (**Phase 2+**), Azure Document Intelligence (**Phase 2+**) |
 | **Persona Logic**             | Core AI reasoning units. Each persona analyzes content, generates insights, and handles queries.          | .NET, Semantic Kernel, Azure OpenAI                                |
 | **Embedding Generator**       | Creates vector embeddings for relevant text chunks identified by Personas.                                   | Azure OpenAI Embedding Models                                      |
-| **Source Storage**            | Stores original uploaded artifacts and associated `ArtifactMetadata`.                                        | Azure Blob Storage (or local file system/Azurite)                |
+| **Source Storage**            | Stores original uploaded artifacts and associated `ArtifactMetadata`.                                        | Configured object/file storage (e.g., Google Cloud Storage, Azure Blob, S3, File Share) |
 | **Knowledge Database (DB)**   | Stores processed `PersonaKnowledgeEntry` records (embeddings, analysis, metadata references).             | Azure Cosmos DB for NoSQL (or emulator)                            |
 
 ## 5. High-Level Codebase Structure (Conceptual)
@@ -163,3 +163,65 @@ This structure promotes separation of concerns, testability, and modularity, all
 *   **Efficiency:** Utilizes LLM provider-level prompt/context caching (**Planned for Phase 2+**) where available (e.g., Gemini, Azure OpenAI) to minimize redundant processing of large contexts, reducing cost and latency.
 
 This overview provides the foundational understanding of the Nucleus OmniRAG system. Refer to the specific architecture documents for detailed designs of each major component.
+
+## System Overview Example (IT Helpdesk Use Case)
+
+**Purpose:** Describes the core components and their interaction in addressing a specific IT support knowledge retrieval problem.
+
+```mermaid
+graph TD
+    subgraph IT Support Environment at Target Organization
+        A[Incoming Helpdesk Tickets & User Queries]
+        B[Existing Knowledge Base Articles (KBs)]
+        C[Historical Ticket Data (Solutions, Steps)]
+        D[IT Documentation (SharePoint, Files)]
+    end
+
+    subgraph Proposed Nucleus System Architecture
+        E[IT Staff Member via Microsoft Teams] --> F{Nucleus Helpdesk Bot};
+        F --> G[Backend Processing & Analysis Engine];
+        G -- Processes & Analyzes --> A & B & C & D;
+        G -- Stores Metadata & Derived Knowledge --> H((Knowledge Store <br/>[Cosmos DB - ArtifactMetadata & PersonaKnowledgeEntries]));
+        G -- Retrieves Derived Knowledge --> H;
+        G --> F;
+        F --> K[Retrieved Solutions, KB Links, <br/>Relevant Snippets];
+        K --> E;
+    end
+```
+
+**Explanation:** This diagram outlines a potential deployment. IT staff interact with a Nucleus Helpdesk Bot within Microsoft Teams. The bot interfaces with a backend processing engine. This engine fetches fresh source data (helpdesk tickets, KBs, documentation) when needed for a user request, processes it ephemerally, and analyzes it using Personas. It stores structured metadata (`ArtifactMetadata`) and derived knowledge (`PersonaKnowledgeEntry` - identified solutions, steps, snippets, vectors) in a dedicated Cosmos DB store. When queried by IT staff via the Teams bot, the engine retrieves relevant derived knowledge from the Cosmos DB store and presents it back, aiming to surface past solutions and relevant documentation efficiently.
+
+## Data Processing Approach Comparison (Nucleus vs. Standard RAG)
+
+**Purpose:** Contrasts the Nucleus system's data processing and retrieval method with standard RAG techniques, highlighting the focus on structured understanding and ephemeral processing.
+
+```mermaid
+graph TD
+    subgraph Standard RAG Approach
+        direction LR
+        A[IT Documentation / Ticket Data] --> B(Generic Text Chunking <br/> Fixed Size/Overlap);
+        B --> C(Vectorize All Text Chunks);
+        C --> D((Vector Store <br/> Unstructured Text Chunks + Vectors));
+        E[User Query] --> F{Similarity Retriever};
+        D --> F;
+        F --> G(Retrieve Chunks based on Text Similarity);
+        G --> H{LLM Generator};
+        E --> H;
+        H --> I[Generated Answer <br/> (May lack specific solution structure)];
+    end
+
+    subgraph Nucleus IT Persona Approach
+        direction LR
+        N_A[IT Documentation / Ticket Data] --> N_B(Ephemeral Processing & IT Persona Analysis <br/> Extracts Problem, Solution, Links, Metadata);
+        N_B --> N_C(Structured Knowledge + Snippet Vectorization);
+        N_C --> N_D((Knowledge Store <br/> [Cosmos DB] <br/> PersonaKnowledgeEntry: <br/> Structured Data, Snippets, Vectors));
+        N_E[User Query] --> N_F{Intelligent Retriever <br/> (Vector + Structured Data Filters)};
+        N_D --> N_F;
+        N_F --> N_G(Retrieve Relevant PersonaKnowledgeEntries);
+        N_G --> N_H{LLM Generator / Persona Logic};
+        N_E --> N_H;
+        N_H --> N_I[Contextual Answer <br/> (Grounded in identified solutions/steps)];
+    end
+```
+
+**Explanation:** This illustrates a key difference from standard RAG. Typical systems perform generic text chunking, persist those chunks, and rely solely on text similarity for retrieval, which can be imprecise and use stale data. The Nucleus approach processes source data ephemerally within a session and uses specialized Personas to analyze content contextually (extracting problems, solutions, etc.). This structured information, along with vector embeddings of key snippets, is stored in Cosmos DB. Retrieval then uses both semantic search *and* this structured data, enabling more precise identification of relevant derived knowledge from past analyses, applied to freshly processed context.

@@ -30,9 +30,9 @@ public interface IPersona<TAnalysisData> where TAnalysisData : class
     // Description of the persona's purpose and capabilities
     string Description { get; }
 
-    // Performs persona-specific analysis on provided content,
-    // identifying relevant sections directly from raw text and
-    // producing structured analysis results.
+    // Performs persona-specific analysis on the standardized content (e.g., Markdown)
+    // provided by the upstream processing pipeline, identifying relevant sections
+    // and producing structured analysis results.
     Task<PersonaAnalysisResult<TAnalysisData>> AnalyzeContentAsync(ContentItem content, CancellationToken cancellationToken = default);
 
     // Handles a user query directed at this persona, leveraging retrieval
@@ -44,7 +44,8 @@ public interface IPersona<TAnalysisData> where TAnalysisData : class
 }
 
 // Supporting types (Examples)
-public record ContentItem(string SourceIdentifier, string RawText, ArtifactMetadata Metadata, Dictionary<string, object>? AdditionalContext = null);
+// Represents the input for persona analysis, containing the standardized content.
+public record ContentItem(string SourceIdentifier, string StandardizedContent, ArtifactMetadata Metadata, Dictionary<string, object>? AdditionalContext = null);
 public record PersonaAnalysisResult<TAnalysisData>(TAnalysisData StructuredAnalysis, string RelevantTextSnippetOrSummary) where TAnalysisData : class;
 public record UserQuery(string QueryText, string UserId, Dictionary<string, object> Context);
 public record PersonaQueryResult(string ResponseText, List<string> SourceReferences);
@@ -52,7 +53,7 @@ public record PersonaQueryResult(string ResponseText, List<string> SourceReferen
 
 Key responsibilities defined by `IPersona`:
 *   **Identification:** Provide unique ID and descriptive info.
-*   **Content Analysis:** Process provided raw content (no pre-chunking), identify relevant sections, and generate structured insights.
+*   **Content Analysis:** Process the **standardized content (e.g., Markdown)** provided by the pipeline, identify relevant sections *within that content*, and generate structured insights.
 *   **Query Handling:** Respond to user queries within its domain.
 *   **Configuration:** Load persona-specific settings.
 
@@ -82,7 +83,7 @@ Based on the [Project Mandate](./00_PROJECT_MANDATE.md) and existing project str
     *   Implements `IPersona`.
     *   Primarily focused on the `HandleQueryAsync` aspect, retrieving relevant content from authorized sources based on the user query and potentially user permissions.
     *   Uses RAG (Retrieval Augmented Generation) to synthesize answers based *only* on retrieved content.
-    *   Interacts with artifacts ingested via persistent connections configured in the self-hosted environment (SharePoint, Blob Storage, etc.).
+    *   Interacts with artifacts ingested via persistent connections configured in the self-hosted environment (SharePoint, configured object storage, etc.).
     *   May involve simpler analysis during ingestion compared to other personas, focusing more on accurate retrieval during query time.
     *   Leverages message queues for asynchronous ingestion and processing triggers.
 
@@ -109,7 +110,7 @@ These represent other areas identified for potential persona development, primar
 
 Personas are clients of the core platform services, accessing them via dependency injection. The primary interaction patterns are:
 
-*   **Content Analysis (`AnalyzeContentAsync`):** For analyzing new content, personas typically **receive the raw content (`ContentItem`) directly from the processing pipeline**. They do not usually need to fetch the content themselves for this initial analysis step.
+*   **Content Analysis (`AnalyzeContentAsync`):** For analyzing new content, personas **receive the standardized content (e.g., Markdown) within the `ContentItem` directly from the processing pipeline**. They do not need to fetch the content themselves for this initial analysis step.
 *   **Query Handling (`HandleQueryAsync`):** When responding to user queries, personas may need to access additional information. This involves:
     *   **Retrieval Service (`IRetrievalService` - Name TBC):** Querying the vector database (Knowledge DB) for relevant `PersonaKnowledgeEntry` records based on the user query.
     *   **Storage (`IFileStorage`) / Source APIs:** In some cases, if the retrieved context is insufficient or the persona needs to verify information against the original source, it *might* interact directly with `IFileStorage` or platform-specific APIs (like Microsoft Graph) to access original artifact content, **always respecting user permissions and context**. This is considered a secondary access pattern during querying.
@@ -117,7 +118,7 @@ Personas are clients of the core platform services, accessing them via dependenc
 *   **AI Client (`IChatClient`, `IEmbeddingGenerator` from `Microsoft.Extensions.AI`):** Interacting with LLMs for analysis generation, query answering, and potentially function calling. Note: `IEmbeddingGenerator` is used by the *pipeline*, not typically directly by the persona during analysis.
 *   **Message Queue (Publisher/Subscriber):** Potentially publishing events (e.g., `AnalysisComplete`) or subscribing to relevant platform events (e.g., `NewContentAvailable`) - more common in self-hosted or complex workflow scenarios.
 
-_Note: While personas analyze raw text to identify relevant sections, they do NOT directly generate embeddings - this is the responsibility of the Processing Pipeline after receiving the persona's analysis results._
+_Note: While personas analyze **standardized content** to identify relevant sections, they do NOT directly generate embeddings - this is the responsibility of the Processing Pipeline after receiving the persona's analysis results._
 
 ## 6. Persona-Specific Analysis Schemas
 
@@ -141,14 +142,14 @@ The `IPersona.ConfigureAsync` method provides a hook for personas to load their 
 
 ## 8. Next Steps
 
-1.  **Refine `IPersona` Interface:** Update the interface to standardize on `AnalyzeContentAsync` for content processing, ensuring it accepts raw content and returns both structured analysis and identified relevant text.
+1.  **Refine `IPersona` Interface:** Update the interface to standardize on `AnalyzeContentAsync` for content processing, ensuring it accepts **standardized content (e.g., Markdown via `ContentItem.StandardizedContent`)** and returns both structured analysis and identified relevant text.
 2.  **Create Project Structure:** Set up the `Nucleus.Personas` parent project and initial `Nucleus.Personas.EduFlow` and `Nucleus.Personas.BusinessAssistant` projects. (Partially done, needs BusinessAssistant project).
 3.  **Implement Base Logic:** Create base classes or shared utilities in `Nucleus.Personas` if needed.
-4.  **Refactor EduFlow Implementation:** Update to use `IChatClient` from `Microsoft.Extensions.AI` (replacing `IAiClient`), implement the refined interface, and ensure it works directly with raw content.
+4.  **Refactor EduFlow Implementation:** Update to use `IChatClient` from `Microsoft.Extensions.AI` (replacing `IAiClient`), implement the refined interface, and ensure it works directly with **standardized content**.
 5.  **Develop Business Assistant:** Implement initial query handling logic using `IRetrievalService` and basic RAG.
 6.  **DI Registration:** Ensure personas are discoverable and registered correctly in the application's DI container.
 7.  **Integration Tests:** Test persona interaction with core services (mocked and potentially integrated).
 
 ---
 
-_This architecture document provides the blueprint for personas, emphasizing their role in directly analyzing raw content, identifying relevant sections, and generating structured insights without relying on generic pre-chunking._
+_This architecture document provides the blueprint for personas, emphasizing their role in directly analyzing **standardized content**, identifying relevant sections, and generating structured insights without relying on generic pre-chunking or direct handling of diverse raw formats._

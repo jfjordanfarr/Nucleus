@@ -12,7 +12,7 @@
 
 ## Key Technologies
 
-*   **Language:** C# (using .NET 8.0 - Requires SDK 8.x)
+*   **Language:** C# (using .NET 9.0)
 *   **Core Framework:** Nucleus OmniRAG (.NET Solution), **.NET AI Chat App Template** (Foundation for P1)
 *   **Cloud Platform:** Microsoft Azure (Primary target for hosting)
 *   **Primary Backend (Knowledge Store):** **Azure Cosmos DB (NoSQL API w/ Integrated Vector Search)** - Stores `PersonaKnowledgeEntry` documents.
@@ -22,7 +22,7 @@
 *   **Platform Integration (Phase 2+):** Microsoft Bot Framework SDK / Graph API (Teams), Slack Bolt/API, Discord.NET/API, Email Processing (e.g., MailKit/MimeKit).
 *   **MVP UI (Phase 1):** **Blazor WebAssembly** (from Chat Template)
 *   **MVP API (Phase 1):** **ASP.NET Core WebAPI** (Replacing Template's Minimal API)
-*   **Development:** Git, VS Code / Windsurf, .NET SDK 8.x, NuGet, **DotNet Aspire** (RC1+ for .NET 8), xUnit, Moq/NSubstitute, TDD focus.
+*   **Development:** Git, VS Code / Windsurf, .NET SDK 9.x, NuGet, **DotNet Aspire** (9.2), xUnit, Moq/NSubstitute, TDD focus.
 *   **AI Abstractions:** **`Microsoft.Extensions.AI`** (`IChatClient`, `IEmbeddingGenerator`), **Semantic Kernel** (Used by Chat Template).
 *   **Infrastructure-as-Code (Optional/Later):** Bicep / Terraform.
 
@@ -30,7 +30,7 @@
 
 *   **Interaction:** Users interact directly with the **Blazor WASM UI** provided by the .NET AI Chat App template.
 *   **Frontend:** Blazor WebAssembly application.
-*   **Backend Core:** .NET 8 / Aspire
+*   **Backend Core:** .NET 9 / Aspire
     *   **API Endpoints (`Nucleus.Api` - adapted from Template):** **ASP.NET Core WebAPI** handling requests from the Blazor frontend. Orchestrates interaction with AI services and potentially the `BootstrapperPersona`.
     *   **AI Integration (Template):** Leverages Azure OpenAI for chat completion and Azure AI Search for RAG, orchestrated by Semantic Kernel.
     *   **Persona Implementations (`Nucleus.Personas.*`):** Initial `BootstrapperPersona` needs to be integrated into the template's flow (e.g., potentially as a Semantic Kernel plugin/function or invoked by the API).

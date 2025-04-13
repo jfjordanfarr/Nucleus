@@ -5,7 +5,7 @@
 
 This document details the specific tasks required to complete Phase 1. The focus is on establishing a **Console Application (`Nucleus.Console`)** as the primary interaction point. This approach prioritizes **accelerating the development iteration loop for backend logic, persona integration, and agentic workflows**, providing strong synergy with AI-assisted development before building user-facing UIs.
 
-We will leverage **.NET 8 and Aspire** for local development orchestration and service configuration, including emulated Azure services.
+We will leverage **.NET 9 and Aspire** for local development orchestration and service configuration, including emulated Azure services.
 
 ---
 
@@ -18,7 +18,7 @@ We will leverage **.NET 8 and Aspire** for local development orchestration and s
 *   [X] **TASK-MVP-SETUP-05:** Create `Nucleus.Api` (ASP.NET Core WebAPI) project and add to AppHost.
 *   [X] **TASK-MVP-SETUP-06:** Create `Nucleus.Console` (.NET Console App) project and add to AppHost.
 *   [X] **TASK-MVP-SETUP-07:** Ensure AppHost correctly injects connection strings/service URIs into `Nucleus.Api` and `Nucleus.Console`.
-*   [ ] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Azure OpenAI) and necessary configuration (API keys via user secrets/env vars).
+*   [ ] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Google Gemini) and necessary configuration (API keys via user secrets/env vars).
 
 ## `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for Ingestion)
 
@@ -69,7 +69,7 @@ We will leverage **.NET 8 and Aspire** for local development orchestration and s
     *   API App/Container App for Backend (**`Nucleus.Api`**)
     *   Cosmos DB for NoSQL account & database/container
     *   Azure AI Search (if used for RAG)
-    *   Azure OpenAI Service or other LLM endpoint
+    *   Google Gemini or other LLM endpoint
 *   [ ] **TASK-MVP-INFRA-03:** Write/modify Bicep or Terraform templates for these resources.
 *   [ ] **TASK-MVP-INFRA-04:** Parameterize templates for different environments (dev/test).
 *   [ ] **TASK-MVP-INFRA-05:** Set up basic deployment pipeline (GitHub Actions / ADO / `azd`) for the API and infrastructure.
@@ -81,7 +81,7 @@ We will leverage **.NET 8 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-RET-03:** Choose storage mechanism (Azure Cosmos DB for NoSQL recommended).
 *   [ ] **TASK-MVP-RET-04:** Implement `CosmosDbPersonaKnowledgeRepository` adapter in `Nucleus.Infrastructure`.
 *   [ ] **TASK-MVP-RET-05:** Define `IEmbeddingGenerator` interface (using `Microsoft.Extensions.AI`).
-*   [ ] **TASK-MVP-RET-06:** Implement adapter for chosen embedding model (e.g., `AzureOpenAIEmbeddingGenerator`).
+*   [ ] **TASK-MVP-RET-06:** Implement adapter for chosen embedding model (e.g., `GoogleGeminiEmbeddingGenerator`).
 *   [ ] **TASK-MVP-RET-07:** **(Defer Complex Retrieval)** Define `IRetrievalService` interface (simple initial version?).
 *   [ ] **TASK-MVP-RET-08:** **(Defer Complex Retrieval)** Implement `BasicRetrievalService`.
 *   [ ] **TASK-MVP-RET-09:** Integrate embedding generation and saving `PersonaKnowledgeEntry` into the `BootstrapperPersona`'s interaction flow (e.g., after getting a response, store query+response pair and embeddings via the repository).

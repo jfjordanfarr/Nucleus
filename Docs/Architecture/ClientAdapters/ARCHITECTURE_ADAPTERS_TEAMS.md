@@ -1,0 +1,129 @@
+---
+title: Client Adapter - Teams
+description: Describes a Bot Framework SDK client adapter to bring Nucleus personas into Microsoft Teams.
+version: 1.1
+date: 2025-04-13
+---
+
+# Client Adapter: Teams
+
+## Overview
+
+The Teams Client Adapter (`Nucleus.Adapters.Teams`) serves as the bridge between the core Nucleus OmniRAG platform and the Microsoft Teams environment. It enables users to interact with Nucleus Personas through familiar Teams interfaces like chat messages, channel conversations, and potentially Adaptive Cards. The adapter leverages the Microsoft Bot Framework SDK and Microsoft Graph API to handle communication, file access, and presentation within Teams.
+
+## Auth
+
+*   **Bot Authentication:** Relies on standard Bot Framework authentication mechanisms (App ID/Password or Managed Identity) configured during bot registration in Azure Bot Service / Azure AD.
+*   **User Authentication:** User identity is typically derived from the Teams context provided in incoming activities.
+*   **Graph API Access:** Requires separate Azure AD App Registration with appropriate Microsoft Graph API permissions (e.g., `Sites.Selected`, `Files.ReadWrite`, `User.Read`, `ChannelMessage.Send`) granted via admin consent. Authentication uses client credentials flow or Managed Identity.
+
+## Persistent Storage Interaction
+
+*   **Source File Storage:** Files shared in channels are stored in SharePoint Online (Team's document library). Files in chats are stored in the sender's OneDrive for Business.
+*   **Conversation Storage:** Messages in channels and chats are stored persistently in Azure.
+*   **Adapter Interaction:** The adapter interacts directly with SharePoint Online and OneDrive for Business via the Microsoft Graph API.
+*   **Generated Artifact Storage:** Primarily used for storing generated artifacts (e.g., `viz.html`) within a designated `.Nucleus/Artifacts/` folder in the relevant SharePoint site (Team or User's OneDrive). Requires Graph API permissions (`Sites.Selected`, `Files.ReadWrite`). The adapter **must** use the Graph API to upload these files. Nucleus then creates `ArtifactMetadata` for the uploaded file using the `DriveItem` details returned by the Graph API (`sourceSystemType` will be `SharePoint` or `OneDrive`).
+*   **Source File Access:** When processing files shared *within* Teams, the adapter uses Graph API to retrieve file metadata and content based on the message context.
+
+## Messaging
+
+*   **Receiving:** Handles incoming Activity objects (e.g., `message`, `invoke`) via Bot Framework. Parses messages for user intent, @mentions, context, and attached files.
+*   **Sending:** Sends messages back using `TurnContext.SendActivityAsync`. Can send plain text, mentions, and attachments (Adaptive Cards, File Consent Cards).
+*   **Platform Representation:** Message objects within a channel or chat. Can contain text, @mentions, files, Adaptive Cards.
+*   **Nucleus `ArtifactMetadata` Mapping (for Messages):**
+    *   Each Message gets its own `ArtifactMetadata` record.
+    *   `sourceSystemType`: Set to `MSTeams`.
+    *   `sourceIdentifier`: Generated using Graph API IDs (e.g., `msteams://message/CHANNEL_ID/MESSAGE_ID` or `msteams://message/CHAT_ID/MESSAGE_ID`).
+    *   `sourceUri`: Graph API endpoint URL or Teams deep link (e.g., `https://teams.microsoft.com/l/message/CHANNEL_ID/MESSAGE_ID?...`).
+    *   `displayName`: First N chars of message text.
+    *   `sourceCreatedAt`, `sourceLastModifiedAt`: Timestamps from Graph API.
+    *   `sourceCreatedByUserId`: Azure AD User ID.
+    *   `originatingContext`: Could store `{ "teamId": "...", "channelId": "...", "chatId": "...", "messageId": "..." }`.
+
+## Conversations
+
+*   Leverages Bot Framework conversation management (`ConversationReference`, state) for context.
+*   **Platform Representation:** Team (M365 Group), Channel (within Team), Chat (1:1 or Group), Reply/Thread (in channel messages).
+*   **Nucleus `ArtifactMetadata` Mapping (for Containers):**
+    *   Teams, Channels, and Chats can each be represented by `ArtifactMetadata` records.
+    *   `sourceSystemType`: Set to `MSTeams`.
+    *   `sourceIdentifier`: Graph API IDs (e.g., `msteams://team/TEAM_ID`, `msteams://channel/CHANNEL_ID`, `msteams://chat/CHAT_ID`).
+    *   `displayName`: Team/Channel/Chat name.
+*   **Relationships (`ArtifactMetadata`):**
+    *   `parentSourceIdentifier`:
+        *   Channel: Team `sourceIdentifier`.
+        *   Message in Channel (root): Channel `sourceIdentifier`.
+        *   Reply in Channel Thread: Root message's `sourceIdentifier`.
+        *   Message in Chat: Chat `sourceIdentifier`.
+    *   `replyToSourceIdentifier`: For a reply message in a channel thread, this links to the *root message's* `sourceIdentifier`.
+    *   `threadSourceIdentifier`: For channel messages, this would typically be the *root message's* `sourceIdentifier` for all messages in that thread.
+
+## Attachments
+
+*   **Receiving:** Detects file attachments shared in messages. Retrieves file metadata and content via Graph API. Initiates Nucleus ingestion (storing file via `IFileStorage`, creating `ArtifactMetadata` - `sourceSystemType` is `SharePoint`/`OneDrive` for the file itself).
+*   **Sending:** Can send `FileCard` or `FileConsentCard` attachments linking to files stored in SharePoint/OneDrive, including generated artifacts.
+*   **Platform Representation:** File reference within a message, linking to SharePoint/OneDrive.
+*   **Nucleus `ArtifactMetadata` Mapping (for Files):**
+    *   Each distinct file gets its own primary `ArtifactMetadata` record.
+    *   `sourceSystemType`: Set to `SharePoint` or `OneDrive`.
+    *   `sourceIdentifier`: Graph API DriveItem ID (e.g., `spo://drive/DRIVE_ID/item/ITEM_ID`).
+    *   `sourceUri`: File's `webUrl` from Graph API.
+    *   `parentSourceIdentifier`: While a file exists independently, when attached to a Teams message, the *message's* `ArtifactMetadata` can reference the file's `sourceIdentifier`. This reflects the context of sharing, not ownership.
+    *   `displayName`: Filename.
+
+## Rich Presentations and Embedded Hypermedia
+
+A key capability of the Teams Adapter is presenting rich, interactive content generated by Personas, specifically **Pyodide-based Data Visualizations**.
+
+### Pyodide Visualization Delivery Mechanism
+
+1.  **Trigger:** The adapter receives a response payload from a Persona indicating a data visualization is requested, including the Python script snippet and JSON data.
+2.  **Artifact Generation (`viz.html`):**
+    *   The adapter loads the standard `template.html` for visualizations.
+    *   Injects branding CSS, the escaped Python script, and the JSON data into the template, generating the final HTML content string.
+    *   (See `/Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md` for details on the template and generation process).
+3.  **SharePoint Storage:**
+    *   Uses the Graph API to upload the generated `viz.html` content string to the `.Nucleus/Artifacts/` folder within the SharePoint site associated with the current Teams context (e.g., the Team's default site).
+    *   Stores the `webUrl` or item ID of the uploaded file. Creates `ArtifactMetadata` and `PersonaKnowledgeEntry` records for this file.
+4.  **Caching:**
+    *   Generates a unique identifier (`vizId`).
+    *   Stores the complete `viz.html` content string in a local cache (e.g., `IMemoryCache` managed within the adapter's service) associated with the `vizId`. Sets an appropriate expiration time (e.g., 15-30 minutes). This cache improves responsiveness for immediate Task Module viewing.
+5.  **Task Module Invocation:**
+    *   Creates an Adaptive Card to send to the user/channel.
+    *   The card includes:
+        *   Contextual information about the visualization (e.g., "Persona generated a visualization: [Title]").
+        *   An `Action.Submit` button labeled "View Interactive" (or similar).
+        *   The button's `data` payload includes `{"msteams": {"type": "task/fetch"}, "vizId": "UNIQUE_VIZ_ID"}`.
+        *   (Optional) An `Action.OpenUrl` button linking directly to the artifact stored in SharePoint (`webUrl` from step 3).
+    *   Sends the Adaptive Card using `TurnContext.SendActivityAsync`.
+6.  **Task Module Fetch Handling (`OnTeamsTaskModuleFetchAsync`):**
+    *   The adapter implements the `OnTeamsTaskModuleFetchAsync` method (or equivalent Bot Framework v4 handler).
+    *   When the user clicks the "View Interactive" button, this method is invoked.
+    *   It parses the `vizId` from the incoming `taskModuleRequest.Data`.
+    *   It validates the `vizId` and checks if the corresponding HTML content exists in the cache.
+    *   It constructs the URL pointing to an endpoint hosted *within this Teams Adapter application* (e.g., `https://<your-bot-service-domain>/api/renderViz?id={vizId}`).
+    *   It returns a `TaskModuleResponse` containing a `TaskModuleContinueResponse` with the `url`, desired dimensions (`height`, `width`), and `title` for the Task Module.
+7.  **HTML Serving Endpoint (`/api/renderViz`):**
+    *   The Teams Adapter ASP.NET Core application hosts a minimal API endpoint (e.g., mapped via `app.MapGet` or a dedicated controller).
+    *   This endpoint receives GET requests with the `id` query parameter (`vizId`).
+    *   It attempts to retrieve the corresponding `viz.html` content string from the `IMemoryCache`.
+    *   **If not cached (or as fallback):** It could potentially use the `vizId` (if it maps to the SharePoint item ID) or related context to fetch the `viz.html` content directly from SharePoint via Graph API.
+    *   If found (from cache or SharePoint), it returns the HTML content with `Content-Type: text/html` and, critically, appropriate **Content Security Policy (CSP)** headers. The CSP must allow:
+        *   Scripts from `'self'`, `'unsafe-inline'`, `'unsafe-eval'`, Pyodide CDN, Plotly CDN.
+        *   Styles from `'self'`, `'unsafe-inline'`. 
+        *   Images from `'self'`, `data:`.
+        *   Worker scripts from `'self'`, `blob:`.
+        *   Connections (`connect-src`) ideally restricted to `'self'` unless external data is needed *by the visualization JS itself* (unlikely for this pattern).
+        *   **Crucially:** `frame-ancestors` allowing embedding within Teams domains (`https://teams.microsoft.com`, `https://*.teams.microsoft.com`, etc.).
+    *   If not found, it returns `NotFound` or an appropriate error page.
+8.  **Rendering:** Teams opens the Task Module, loads the URL, receives the HTML from the `/api/renderViz` endpoint, and renders the `viz.html` page within the iframe. The JavaScript within the page then loads Pyodide in its worker, executes the Python script, and renders the interactive visualization.
+9.  **Export:** Export functionality (PNG, SVG, HTML) is embedded within the `viz.html` JavaScript and operates entirely client-side within the Task Module context.
+
+This mechanism allows the Teams Adapter to seamlessly present complex, interactive Python visualizations generated by Personas directly within the Teams user interface, leveraging Task Modules as the hosting container.
+
+*   **Embedded Visualization Handling Summary:** Interactive visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md:0:0-0:0)) are primarily delivered as self-contained HTML files, stored in SharePoint, and rendered within **Task Modules** via a serving endpoint hosted by the Teams Adapter Bot. Simpler representations might involve static images (PNG) embedded in Adaptive Cards.
+
+## Processing Flow (Example - User @mentions Persona in Channel)
+
+1.  **User Message:** User posts `@NucleusPersona create report based on file X` in a Teams channel.
+{{ ... }}

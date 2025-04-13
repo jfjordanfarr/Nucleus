@@ -1,4 +1,3 @@
-
 title: "Requirements: MVP - Console Application Interaction"
 description: Minimum requirements for the initial Console Application interaction model for Nucleus OmniRAG, focusing on rapid iteration.
 version: 1.0
@@ -38,7 +37,7 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 ### 3.2. Admin Experience (Configuration)
 
 *   **REQ-MVP-ADM-001:** An Administrator (developer during MVP) MUST be able to configure necessary connection details/credentials for external services not managed by Aspire emulators, primarily:
-    *   Configured AI Model Provider API Key and Endpoint (e.g., Azure OpenAI).
+    *   Configured AI Model Provider API Key and Endpoint (e.g., Google Gemini).
 *   **REQ-MVP-ADM-002:** Configuration MUST be manageable through standard .NET mechanisms (e.g., `appsettings.json`, user secrets, environment variables).
 
 ### 3.3. Console Application (`Nucleus.Console`)

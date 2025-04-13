@@ -15,13 +15,13 @@ A central tenet of the Nucleus OmniRAG architecture is that interpreting meaning
 4.  **Focus on Knowledge, Not Just Text**: The goal is to store structured knowledge (`PersonaKnowledgeEntry`) derived by personas, not just fragmented text.
 5.  **Extensibility**: The architecture supports adding new personas and content extractors to handle evolving needs and artifact types.
 
-## 2. Artifact Content Extraction
+## 2. Initial Artifact Content Extraction & Structuring
 
-Before personas can analyze an artifact, its content needs to be extracted into a usable format, typically raw text.
+Before personas can analyze an artifact, its raw content needs to be extracted and potentially structured into an intermediate format usable by subsequent synthesis steps.
 
 ### 2.1 Abstraction: `IContentExtractor`
 
-An `IContentExtractor` interface provides a standard way to handle different file types:
+An `IContentExtractor` interface provides a standard way to handle the *initial parsing* of different file types:
 
 ```csharp
 /// <summary>
@@ -54,73 +54,63 @@ public record ContentExtractionResult(
 );
 ```
 
-### 2.2 Implementation
-
-Implementations will exist for common types (PDF, DOCX, TXT, HTML, etc.) and potentially specialized formats. OCR might be integrated for image-based documents. The processing pipeline will select the appropriate extractor based on the `mimeType` specified in the `ArtifactMetadata`.
-
 ### 2.3 Handling Complex and Multimodal Content (Planned)
 
-While initial implementations may focus on standard text-based documents, the architecture must accommodate more complex scenarios, particularly for use cases like Weltman IT (e.g., images embedded in documents, complex Excel sheets, scanned PDFs). Strategies include:
+While initial implementations may focus on standard text-based documents, the architecture must accommodate more complex scenarios. These extractors produce intermediate representations (e.g., text + image descriptions, structured table data) that are fed into the synthesis step.
 
-*   **Image Processing (OCR):**
-    *   **Technology:** Utilize services like **Azure AI Vision** (specifically its Read API / OCR capabilities) to extract text from images (e.g., PNG, JPG, TIFF) or image-based PDFs.
-    *   **Integration:** An `IContentExtractor` implementation could detect image types or image-heavy PDFs, route them to Azure AI Vision, and return the extracted text.
-    *   **Considerations:** Cost, API limits, language support, handling layouts.
-*   **Document Structure Analysis (Tables, Forms):**
-    *   **Technology:** Employ services like **Azure AI Document Intelligence** to understand document structure, extract tables, key-value pairs, and form data, preserving layout information where possible.
-    *   **Integration:** Specific `IContentExtractor` implementations for formats like PDF or DOCX could leverage Document Intelligence for richer extraction than simple text scraping, potentially adding structural information to the `ContentExtractionResult.AdditionalMetadata`.
-    *   **Considerations:** Model training/customization needs, cost, specific schema requirements.
-*   **Multimodal AI Analysis:**
-    *   **Technology:** For artifacts containing both text and significant images (e.g., diagrams, screenshots), leverage multimodal LLMs (like GPT-4 Vision or Gemini Pro Vision models accessed via `IChatClient`) capable of understanding both modalities.
-    *   **Integration:** This might involve passing image references or descriptions alongside text to the `IPersona.AnalyzeContentAsync` method within the `ContentItem.AdditionalContext`, or having a specialized extractor generate image descriptions first.
-    *   **Considerations:** Model availability, cost, prompt engineering complexity.
+## 3. Content Synthesis to Standardized Format
 
-**Note:** Detailed implementation plans and selection of specific technologies for these advanced extraction methods are required and will depend on specific format requirements and cost-benefit analysis.
+A crucial step after initial extraction is synthesizing the potentially disparate pieces of content (e.g., text from DOCX, XML structure, image descriptions) into a single, standardized format that Personas can reliably process. Currently, this standard format is **Markdown**.
 
-## 3. Processing Pipeline Flow
+*   **Role of Synthesizers:** Processors like `FileCollectionsProcessor` might aggregate components extracted by one or more `IContentExtractor` instances.
+*   **Plaintext Processor:** The `PlaintextProcessor` (acting as a synthesizer in this context, as per Memory `0cb7dbac`) takes the aggregated inputs and uses an LLM to generate a coherent Markdown representation.
+*   **Ephemeral Nature:** This synthesized Markdown exists ephemerally during the processing session (Memory `08b60bec`). It is not persisted by Nucleus itself but is passed directly to the Persona analysis step.
 
-The end-to-end flow for processing a new artifact involves several steps, likely orchestrated by a message queue or a workflow engine:
+## 4. Processing Pipeline Flow (Modular Monolith ACA Pattern)
 
-1.  **Ingestion Trigger:** An event signals a new artifact is available (e.g., file upload, URL submission). The trigger includes the `sourceUri`, `userId`, `sourceType`, initial `displayName`, etc.
-2.  **Metadata Creation:**
-    *   The pipeline calls `IArtifactMetadataService.CreateOrUpdateMetadataAsync`.
-    *   This service generates the unique `sourceIdentifier`, populates initial fields (timestamps, user info, source details), sets `overallProcessingState` to `Pending` or `InProgress`, and saves the initial `ArtifactMetadata` object to the configured storage location (see `03_ARCHITECTURE_STORAGE.md`).
-3.  **Content Acquisition:**
-    *   The pipeline fetches the actual artifact content stream using the `sourceUri` from the `ArtifactMetadata` (leveraging an appropriate `IFileStorage` abstraction if needed).
-4.  **Content Extraction:**
-    *   The pipeline selects the correct `IContentExtractor` based on the `mimeType` from `ArtifactMetadata`.
-    *   It calls `ExtractContentAsync` to get the raw text (and any other relevant data).
-    *   If extraction fails, `overallProcessingState` in `ArtifactMetadata` is updated to `Failed`, and the process may terminate for this artifact.
-5.  **Persona Analysis Loop:**
-    *   The pipeline determines the set of *target personas* for this artifact (based on configuration, user selection, or context).
-    *   For each `personaName` in the target list:
-        *   Update `personaProcessingStatus[personaName]` to `Processing` in `ArtifactMetadata` (and save changes).
-        *   Create a `ContentItem` containing the `ArtifactMetadata`, extracted raw text, and any other necessary context.
-        *   Invoke the appropriate `IPersona.AnalyzeContentAsync` method, passing the `ContentItem`.
-        *   The `IPersona` implementation:
-            *   Performs its domain-specific analysis directly on the raw text (no generic pre-chunking).
-            *   Determines the `relevantTextSnippetOrSummary` (a concise piece of text representing the core insight or relevant section for that persona).
-            *   Generates the structured `analysis` object (the concrete `TAnalysisData` type for that persona, e.g., `EduFlowAnalysis`).
-            *   Returns both the `analysis` and `relevantTextSnippetOrSummary` to the pipeline.
-        *   **The Processing Pipeline** (not the Persona):
-            *   Receives the results (analysis object, relevant snippet).
-            *   Calls the registered `IEmbeddingGenerator` to generate the `snippetEmbedding` for the `relevantTextSnippetOrSummary`.
-            *   Optionally calculates `analysisSummaryEmbedding` if applicable.
-        *   On Success:
-            *   The pipeline calls `IPersonaKnowledgeRepository<TAnalysisData>.AddOrUpdateEntryAsync` to save the complete `PersonaKnowledgeEntry` to the persona-specific Cosmos DB container (see `04_ARCHITECTURE_DATABASE.md`).
-            *   Updates `personaProcessingStatus[personaName]` to `Processed` in `ArtifactMetadata`.
-            *   If the analysis generated a reply for the user (e.g., in the Email scenario), the pipeline publishes a `ReplyReadyEvent` to the message queue containing the reply content and routing information. The appropriate Platform Adapter will subscribe to this event to send the reply.
-        *   On Failure/Skip:
-            *   Update `personaProcessingStatus[personaName]` to `Failed` or `Skipped` in `ArtifactMetadata`.
-6.  **Finalize Metadata:**
-    *   After looping through all target personas, the pipeline determines the final `overallProcessingState` (e.g., `Completed`, `CompletedWithFailures`).
-    *   Update the `ArtifactMetadata` one last time with the final state and potentially a completion timestamp.
+This flow assumes a single Azure Container App (ACA) instance hosting the API, Ingestion, Session Management (in-memory), and Processing logic (as background tasks), aligning with the 'Modular Monolith' preference (Memory `f210adc9`).
 
-## 4. Embedding Generation
+1.  **API Request & Session Context:**
+    *   An API call (e.g., from a Client Adapter) arrives at the ACA instance.
+    *   The API handler establishes the necessary session context *in the instance's memory*.
+2.  **Ingestion Trigger & Triage:**
+    *   The API handler (or a service it calls) performs triage on the incoming artifact.
+    *   Assigns a unique `IngestionID`.
+    *   Stores the raw artifact data temporarily (e.g., short-term Blob, Cache accessible by the ACA instance).
+    *   Creates a minimal `IngestionRecord` (containing `IngestionID`, `SourceType`, `Timestamp`, pointer to temporary data) in Cosmos DB.
+3.  **Background Task Scheduling (In-Process):**
+    *   The API handler schedules a background processing task *within the same ACA instance*.
+    *   This can be done using mechanisms like `System.Threading.Channels`, `BackgroundWorker`, `IHostedService`, or libraries like Hangfire/Quartz.NET configured for in-memory queuing.
+    *   The `IngestionID` (and potentially essential, non-sensitive context identifiers from the session) is passed to the background task.
+    *   The API handler can now return a response to the client (e.g., 'Accepted for processing').
+4.  **Background Task Execution:**
+    *   The ACA's background task runner picks up the scheduled task.
+    *   Retrieves the `IngestionRecord` from Cosmos DB using the `IngestionID`.
+    *   Fetches the raw artifact data from temporary storage.
+    *   Accesses necessary configuration or *carefully managed* session context (if passed directly or accessible via a thread-safe in-memory store scoped to the instance/request).
+    *   **Crucially, `ArtifactMetadata` creation/initialization begins *here*.**
+5.  **Content Extraction:**
+    *   Selects appropriate `IContentExtractor`(s).
+    *   Extracts content from the fetched raw data.
+6.  **Content Synthesis:**
+    *   Aggregates extractor outputs.
+    *   Invokes synthesizer (e.g., `PlaintextProcessor` with LLM) to generate standardized **Markdown content**.
+7.  **Persona Analysis Loop:**
+    *   Determines target personas based on configuration/context.
+    *   For each persona:
+        *   Invokes `persona.AnalyzeContentAsync(synthesizedContent, artifactMetadata, sessionContext)`.
+        *   Handles results, generates embeddings, stores `PersonaKnowledgeEntry`.
+        *   Updates `ArtifactMetadata`.
+8.  **Finalization & Cleanup:**
+    *   Updates the main `ArtifactMetadata` record (overall status).
+    *   Cleans up/deletes the temporary raw artifact data.
+    *   (No external queue message to acknowledge here for this internal flow).
 
-Embeddings are crucial for semantic search during retrieval. They are generated *after* a persona has identified the most relevant piece of text.
+## 5. Embedding Generation
 
-### 4.1 Abstraction Layer
+Embeddings are crucial for semantic search. They are generated *by the pipeline* after a persona has analyzed the **synthesized Markdown** and identified the most relevant text snippet.
+
+### 5.1 Abstraction Layer
 
 Nucleus OmniRAG leverages the standard `Microsoft.Extensions.AI` abstractions:
 
@@ -134,7 +124,7 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
 }
 ```
 
-### 4.2 Integration
+### 5.2 Integration
 
 *   An implementation of `IEmbeddingGenerator<string, Embedding<float>>` (e.g., using Google Gemini, Azure OpenAI) is registered in the DI container (see `Nucleus.Infrastructure`).
 *   This generator is used **by the Processing Pipeline** (not the persona) to create embeddings for:
@@ -142,9 +132,9 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
     *   Optionally, a derived summary from `PersonaKnowledgeEntry.analysis` -> stored as `analysisSummaryEmbedding`.
 *   These embeddings are stored within the `PersonaKnowledgeEntry` document in Cosmos DB.
 
-## 5. Retrieval Flow
+## 6. Retrieval Flow
 
-Retrieval leverages the structured knowledge and embeddings stored by personas:
+Retrieval leverages the structured knowledge and embeddings derived from the **synthesized Markdown**:
 
 1.  User submits a query relevant to a specific persona's domain (e.g., asking EduFlow about student progress).
 2.  The application identifies the target persona (`personaName`).
@@ -156,7 +146,7 @@ The search likely includes metadata filters (e.g., `userId`, `tags` from related
 7.  The repository returns ranked, relevant `PersonaKnowledgeEntry` documents.
 8.  These entries (containing the persona's analysis and the relevant snippet) are used as context for generating a final response via an AI chat client, potentially after fetching the full `ArtifactMetadata` using the `sourceIdentifier` for more context.
 
-## 6. Configuration
+## 7. Configuration
 
 *   **Content Extractors:** Configuration might specify preferred extractors or settings for specific MIME types.
 *   **AI Providers:** Standard configuration for embedding generators and chat clients (API keys, endpoints, model IDs) via `appsettings.json`, environment variables, or a configuration provider like Azure App Configuration/Aspire.
@@ -164,23 +154,17 @@ The search likely includes metadata filters (e.g., `userId`, `tags` from related
 *   **Storage:** Configuration for accessing the storage mechanism where artifacts and `ArtifactMetadata` reside.
 *   **Target Personas:** Configuration defining which personas should process which types of artifacts or based on user context.
 
-## 7. Storage Architecture Alignment
-
-This processing architecture aligns with the storage and database models:
-
-*   **Storage Layer (`03_ARCHITECTURE_STORAGE.md`):** Stores original artifacts (or references via `sourceUri`) and the primary `ArtifactMetadata` object (containing overall status, `personaProcessingStatus`, links, etc.).
-*   **Database Layer (`04_ARCHITECTURE_DATABASE.md`):** Stores `PersonaKnowledgeEntry` documents in persona-specific Cosmos DB containers. Each entry contains the persona's analysis (`analysis`), the relevant text snippet (`relevantTextSnippetOrSummary`), and associated embeddings (`snippetEmbedding`, `analysisSummaryEmbedding`). The `sourceIdentifier` links back to the `ArtifactMetadata` in the Storage Layer.
-
 ## 8. Next Steps
 
-1.  **Implement `IContentExtractor`:** Create initial implementations for key types (PDF, DOCX, TXT, HTML).
-2.  **Implement `IArtifactMetadataService`:** Build the service for managing `ArtifactMetadata` in storage.
-3.  **Implement `IPersonaKnowledgeRepository`:** Create the repository for interacting with Cosmos DB containers.
-4.  **Develop Orchestration Logic:** Design and implement the pipeline flow (e.g., using Azure Functions, Durable Functions, or a message queue like Azure Service Bus).
-5.  **Refactor `IPersona` Interface/Implementations:** Refactor the interface to use `AnalyzeContentAsync` and update implementations to work directly with raw content (not dependent on pre-chunking).
-6.  **Implement Reply Event System:** Create the message types and subscription patterns for async reply handling.
-7.  **Implement `IRetrievalService`:** Build the service querying `PersonaKnowledgeEntry` data.
-8.  **Testing:** Implement comprehensive integration tests covering the entire pipeline.
+1.  **Implement `IContentExtractor`:** Create initial implementations (PDF, DOCX, TXT, HTML).
+2.  **Implement Synthesizer Processors:** Develop `PlaintextProcessor` (leveraging LLM for Markdown synthesis) and potentially `FileCollectionsProcessor`.
+3.  **Implement `IArtifactMetadataService`:** Build the service for managing `ArtifactMetadata`.
+4.  **Implement `IPersonaKnowledgeRepository`:** Create the repository for Cosmos DB.
+5.  **Develop Orchestration Logic:** Design the pipeline flow (Functions, Service Bus, etc.) incorporating the synthesis step.
+6.  **Refactor `IPersona` Interface/Implementations:** Ensure `AnalyzeContentAsync` accepts the synthesized content (Markdown) via an updated `ContentItem` record.
+7.  **Implement Reply Event System:** Create message types and subscriptions.
+8.  **Implement `IRetrievalService`:** Build the query service.
+9.  **Testing:** Implement comprehensive integration tests.
 
 ---
 
