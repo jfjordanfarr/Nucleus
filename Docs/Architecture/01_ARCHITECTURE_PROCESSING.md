@@ -61,7 +61,7 @@ public record ContentExtractionResult(
 );
 ```
 
-### 2.3 Handling Complex and Multimodal Content (Planned)
+### 2.3 Handling Complex and Multimodal Content (Planned - see [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md))
 
 While initial implementations may focus on standard text-based documents, the architecture must accommodate more complex scenarios. These extractors produce intermediate representations (e.g., text + image descriptions, structured table data) that are fed into the synthesis step.
 
@@ -76,6 +76,8 @@ A crucial step after initial extraction is synthesizing the potentially disparat
 ## 4. Processing Pipeline Flow (Modular Monolith ACA Pattern)
 
 This flow assumes a single Azure Container App (ACA) instance hosting the API, Ingestion, Session Management (in-memory), and Processing logic (as background tasks), aligning with the 'Modular Monolith' preference (Memory `f210adc9`) detailed in the [Deployment Architecture](./07_ARCHITECTURE_DEPLOYMENT.md). It interacts with [Storage](./03_ARCHITECTURE_STORAGE.md) for ephemeral data and the [Database](./04_ARCHITECTURE_DATABASE.md) for persistent metadata and knowledge, triggered initially via [Client](./05_ARCHITECTURE_CLIENTS.md) interactions.
+
+**Note:** While this in-process background task model suits initial phases, scaling to handle more complex, stateful, or long-running workflows will necessitate adopting a dedicated orchestration engine (e.g., Azure Durable Functions) as outlined in the [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#32-workflow-orchestration).
 
 ```mermaid
 graph LR

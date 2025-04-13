@@ -117,6 +117,7 @@ While implementations will vary based on the target platform, adapters should ge
 *   **Feedback Mechanisms:** Provide clear feedback to the user about command acceptance, processing status, and final results.
 *   **Artifact Handling:** Manage the upload/download of artifacts between the platform storage (e.g., SharePoint, Slack files) and the Nucleus backend, respecting the defined [storage architecture](./03_ARCHITECTURE_STORAGE.md) for the platform (see specific adapter documents like [Console](../ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md) and [Teams](../ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md)).
 *   **Error Handling:** Gracefully handle platform-specific errors and Nucleus API errors, providing informative messages to the user.
+*   **Administrative Capabilities:** Future adapters will also need to surface administrative functionalities (monitoring, user management, persona configuration, reporting) as defined in [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-001 to ADM-004). This might involve dedicated admin commands or interfaces within the client platform (e.g., specific Adaptive Cards in Teams for authorized administrators).
 
 ## 6. Next Steps
 

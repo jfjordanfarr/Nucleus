@@ -1,115 +1,53 @@
 ---
-title: Nucleus OmniRAG Deployment & Provisioning Architecture
-description: Outlines the target deployment architecture for the Nucleus OmniRAG system, focusing on Azure infrastructure for efficiency and scalability.
-version: 1.1
+title: Nucleus OmniRAG Deployment Architecture Overview
+description: Provides an overview of deployment strategies and links to detailed architectures for Azure, Cloudflare, and Self-Hosting.
+version: 2.0
 date: 2025-04-13
 ---
 
-# Nucleus OmniRAG: Deployment & Provisioning Architecture
+# Nucleus OmniRAG: Deployment Architecture Overview
 
-**Version:** 1.1
+**Version:** 2.0
 **Date:** 2025-04-13
 
-This document outlines the target deployment architecture for the Nucleus OmniRAG system, complementing the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It focuses on Azure infrastructure and aims for efficiency and scalability.
+This document provides a high-level overview of the deployment architecture for the Nucleus OmniRAG system, complementing the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It establishes the core principles and links to detailed strategies for specific deployment targets.
 
-## 1. Core Philosophy: Managed Services & Containerization
+## 1. Core Philosophy
 
-The architecture prioritizes:
+The deployment architecture prioritizes:
 
-*   **Leveraging Azure PaaS/Managed Services:** Minimize infrastructure management overhead by using services like Azure Container Apps, Cosmos DB, Azure Key Vault, and Azure Functions.
-*   **Containerization:** Package application components (API, Adapters, potentially processing workers) into containers for consistent deployment and scaling.
-*   **Scalability:** Design components to scale independently based on load.
-*   **Configuration Management:** Securely manage configuration and secrets.
+*   **Flexibility:** Enabling deployment across different environments (cloud providers, self-hosted) based on needs.
+*   **Leveraging Managed Services (where applicable):** Minimizing infrastructure management overhead when using cloud providers.
+*   **Containerization:** Packaging application components into containers for consistent deployment and scaling.
+*   **Scalability:** Designing components to scale independently based on load.
+*   **Configuration Management:** Securely managing configuration and secrets across environments.
 
-## 2. Target Deployment Units (Azure)
+## 2. Abstract Deployment Requirements
 
-The system is composed of the following primary deployable units within Azure:
+Regardless of the specific target environment, Nucleus OmniRAG fundamentally requires a set of core infrastructure capabilities. These abstract requirements are defined in detail in:
 
-1.  **Azure Container Apps (ACA) Environment:** Provides the core runtime for containerized application components.
-    *   **Main Application Container App:** Hosts the primary Nucleus backend service. This container runs:
-        *   The main **ASP.NET Core Web API** endpoint.
-        *   **[Platform Adapter](./05_ARCHITECTURE_CLIENTS.md)** logic (e.g., Teams Bot endpoint, potentially future Web App backend).
-        *   The core **[Processing Pipeline Orchestration](./01_ARCHITECTURE_PROCESSING.md)** logic (can be triggered via API calls or internal events).
-        *   **[Persona implementations](./02_ARCHITECTURE_PERSONAS.md)** (loaded dynamically).
-        *   **Content Synthesis Logic** (e.g., the Plaintext processor using an LLM, part of [Processing](./01_ARCHITECTURE_PROCESSING.md)).
-    *   **(Optional) Background Processing Container App:** For self-hosted or high-volume scenarios, a separate ACA instance could handle long-running background ingestion tasks triggered by message queues, keeping the main API responsive.
-2.  **[Azure Cosmos DB](./04_ARCHITECTURE_DATABASE.md):** The primary database for storing:
-    *   `ArtifactMetadata` (potentially in a dedicated container).
-    *   `PersonaKnowledgeEntry` documents (in persona-specific containers).
-    *   Configuration or operational state if needed.
-    *   Utilizes the **Serverless** capacity mode for cost-effectiveness in varying load scenarios, or Provisioned Throughput for predictable high load.
-3.  **(Optional but Recommended) Azure Functions App:** Dedicated to heavy, potentially long-running *initial content extraction* tasks (part of [Processing](./01_ARCHITECTURE_PROCESSING.md)) that benefit from a consumption plan or specialized scaling.
-    *   **Function Triggers:** HTTP trigger (called by the main ACA pipeline), Queue trigger (for background processing scenarios).
-    *   **Function Logic:** Hosts `IContentExtractor` implementations for complex types like PDF (using libraries like iTextSharp/PdfPig), DOCX, and potentially integrates with Azure AI Vision (OCR) or Azure AI Document Intelligence. These extractors operate on data from [Storage](./03_ARCHITECTURE_STORAGE.md).
-    *   **Output:** Returns extracted text or structured data back to the calling pipeline (e.g., via HTTP response or placing results in a queue/storage for the ACA to pick up).
-4.  **[Azure Key Vault](./06_ARCHITECTURE_SECURITY.md):** Securely stores all secrets, API keys, and connection strings.
-5.  **Azure AI Services:** External dependencies used by the application:
-    *   **Azure OpenAI Service** or equivalent (e.g., Google Gemini via API): For LLM chat completions and embedding generation used by [Personas](./02_ARCHITECTURE_PERSONAS.md) and [Processing](./01_ARCHITECTURE_PROCESSING.md).
-    *   **(Optional) Azure AI Vision / Document Intelligence:** Used by the Azure Functions App for advanced content extraction.
-6.  **(Optional) Azure Service Bus / Azure Storage Queues:** For orchestrating background [processing tasks](./01_ARCHITECTURE_PROCESSING.md), decoupling the main API from ingestion workers (more relevant for self-hosted or high-throughput scenarios).
-7.  **(Optional) Azure Application Insights:** For monitoring, logging, and diagnostics.
-8.  **(Optional) Azure API Management:** To act as a gateway, providing security, rate limiting, and a unified frontend for APIs if needed (more relevant for complex or publicly exposed scenarios, see [Security](./06_ARCHITECTURE_SECURITY.md)).
+*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the necessary compute runtime, messaging queue, document/vector database, and object storage components in a provider-agnostic way.
 
-## 3. Minimal Viable Deployment Configuration
+Understanding these abstractions is key to mapping the system onto different infrastructure platforms.
 
-For many scenarios, particularly initial cloud-hosted deployments or smaller self-hosted instances, a highly efficient minimal setup is possible:
+## 3. Specific Deployment Strategies
 
-*   **1 x Azure Container Apps Environment**
-    *   **1 x Main Application Container App:** Running the combined API, [Adapters](./05_ARCHITECTURE_CLIENTS.md), [Pipeline Orchestration](./01_ARCHITECTURE_PROCESSING.md), Synthesis ([Processing](./01_ARCHITECTURE_PROCESSING.md)), and [Personas](./02_ARCHITECTURE_PERSONAS.md).
-*   **1 x [Azure Cosmos DB Account](./04_ARCHITECTURE_DATABASE.md):** Using Serverless mode, with containers for metadata and each active persona.
-*   **1 x Azure Functions App (Consumption Plan):** Hosting extractors for PDF, DOCX, and potentially OCR/Document Intelligence integration ([Processing](./01_ARCHITECTURE_PROCESSING.md)).
-*   **1 x [Azure Key Vault](./06_ARCHITECTURE_SECURITY.md):** For secrets.
-*   **Azure AI Service Endpoints:** (OpenAI/Gemini) for [Personas](./02_ARCHITECTURE_PERSONAS.md) and [Processing](./01_ARCHITECTURE_PROCESSING.md).
+Based on the abstract requirements, detailed deployment strategies have been outlined for common target environments. These documents specify the chosen services, configuration considerations, networking, security, and IaC approaches for each:
 
-**Diagram (Conceptual Mermaid):**
+*   **[Azure Deployment Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_AZURE.md):** Details the recommended architecture using Azure services like Container Apps, Cosmos DB, Service Bus, and Blob Storage.
+*   **[Cloudflare Deployment Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_CLOUDFLARE.md):** Explores a potential architecture leveraging Cloudflare Workers, Queues, Vectorize, R2, and D1, focusing on cost-efficiency and edge performance.
+*   **[Self-Hosted Home Network Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_SELFHOST_HOMENETWORK.md):** Outlines deploying Nucleus locally using Docker containers for components like RabbitMQ/NATS and PostgreSQL/pgvector.
 
-```mermaid
-graph TD
-    subgraph Azure Resource Group
-        subgraph ACA Environment
-            ACA[Main App Container App <br/> (API, Adapters, Pipeline, Synthesis, Personas)]
-        end
-        Cosmos[(Azure Cosmos DB <br/> Metadata, Knowledge - [DB Arch](./04_ARCHITECTURE_DATABASE.md))]
-        Functions[Azure Functions App <br/> (PDF/DOCX Extraction, OCR - [Processing](./01_ARCHITECTURE_PROCESSING.md))]
-        KV[([Azure Key Vault - [Security](./06_ARCHITECTURE_SECURITY.md)])]
-    end
+Refer to these specific documents for implementation details relevant to your chosen deployment target.
 
-    subgraph External Azure Services
-        AISvc[(Azure AI Services <br/> OpenAI/Gemini, Vision - [Personas](./02_ARCHITECTURE_PERSONAS.md))]
-    end
+## 4. Next Steps (Cross-Cutting Concerns)
 
-    User -->|HTTPS| ACA
-    ACA -->|API Call/Event| Functions
-    Functions -->|Extracted Data| ACA
-    ACA -->|CRUD| Cosmos
-    ACA -->|Secrets| KV
-    ACA -->|LLM/Embeddings| AISvc
-    Functions -->|OCR/Layout| AISvc
+Regardless of the chosen deployment strategy, several key steps and considerations remain crucial for a successful implementation:
 
-```
+1.  **Infrastructure as Code (IaC):** Develop templates (e.g., Bicep, Terraform, `docker-compose.yml`) to provision the chosen infrastructure repeatably, fulfilling a key aspect of [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-005).
+2.  **CI/CD Pipeline:** Create automated pipelines (e.g., Azure DevOps Pipelines, GitHub Actions) to build application artifacts (container images, Worker bundles), push them to a registry (if applicable), and deploy updates to the target environment.
+3.  **Monitoring Setup:** Configure appropriate monitoring and logging solutions (e.g., Application Insights, Cloudflare Analytics, Prometheus/Grafana) for observability.
+4.  **Cost Analysis:** Estimate and monitor costs based on expected usage patterns for the chosen services and tiers.
+5.  **Backup and Recovery:** Define and test backup/recovery strategies for databases and object storage, as required by [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-006).
 
-## 4. Scalability
-
-*   **ACA:** Can scale out instances based on HTTP traffic, CPU/Memory usage, or queue length (if using KEDA scalers).
-*   **Functions:** Consumption plan scales automatically. Premium plan offers more control.
-*   **Cosmos DB:** Serverless scales automatically. Provisioned throughput can be scaled manually or via autoscale.
-*   **Azure AI Services:** Managed services with their own scaling characteristics.
-
-## 5. Configuration & Secrets Management
-
-*   Leverage [Azure Key Vault](./06_ARCHITECTURE_SECURITY.md) for all secrets.
-*   Use Managed Identity for the ACA and Functions App to access Key Vault and other Azure resources securely without connection strings in configuration (see [Security](./06_ARCHITECTURE_SECURITY.md)).
-*   Use `appsettings.json` for non-sensitive configuration, potentially overridden by environment variables set within the ACA/Functions configuration.
-*   Consider Azure App Configuration for more complex or centrally managed configuration scenarios.
-
-## 6. Deployment Models
-
-*   **Cloud-Hosted (SaaS):** Typically uses the minimal configuration, potentially scaled up. Focus on ephemeral user sessions (see [Security](./06_ARCHITECTURE_SECURITY.md)), managed identity.
-*   **Self-Hosted:** May involve larger ACA instances, potentially dedicated background worker ACAs, Provisioned Throughput on [Cosmos DB](./04_ARCHITECTURE_DATABASE.md), integration with VNETs, and use of Azure Service Bus for robust background [processing](./01_ARCHITECTURE_PROCESSING.md) orchestration. Requires careful consideration of [Security](./06_ARCHITECTURE_SECURITY.md) boundaries.
-
-## 7. Next Steps
-
-1.  **Infrastructure as Code (IaC):** Develop Bicep or Terraform templates to provision this infrastructure repeatably.
-2.  **CI/CD Pipeline:** Create pipelines (e.g., Azure DevOps Pipelines, GitHub Actions) to build container images, push them to a registry (e.g., ACR), and deploy updates to ACA and Functions.
-3.  **Monitoring Setup:** Configure Application Insights for logging and performance monitoring.
-4.  **Cost Analysis:** Estimate costs based on expected usage patterns for different tiers/scales.
+---
