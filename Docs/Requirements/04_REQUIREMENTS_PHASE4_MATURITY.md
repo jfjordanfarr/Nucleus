@@ -44,20 +44,9 @@ To mature the Nucleus OmniRAG platform by enhancing the user experience within i
 
 ### 3.3. Enterprise Readiness & Admin Features
 
-*   **REQ-P4-ADM-001:** The Admin UI/API (potentially part of the Phase 3 Web App or a separate portal) MUST be significantly expanded.
-*   **REQ-P4-ADM-002:** Administrators MUST be able to view detailed system logs and monitor the health and performance of backend services (Adapters, Processing Functions, API, Database, Queue).
-*   **REQ-P4-ADM-003:** Administrators MUST be able to manage users and permissions/roles within the Nucleus system (if applicable beyond relying solely on platform permissions).
-*   **REQ-P4-ADM-004:** Administrators MUST have finer-grained control over Persona configuration (e.g., enabling/disabling personas, setting resource limits, configuring prompts/behavior parameters).
+*   **REQ-P4-ADM-001:** An Admin UI/API MUST be significantly expanded to provide administrative oversight and control. Implementation MAY involve a dedicated, potentially minimal, web interface or leverage platform-native UIs (e.g., Adaptive Cards in Teams) where feasible.
+*   **REQ-P4-ADM-002:** Administrators MUST be able to view detailed system logs and monitor the health and performance of backend services (Adapters, Processing Logic, API, Database) via the Admin UI/API.
+*   **REQ-P4-ADM-003:** Administrators MUST be able to manage users and permissions/roles within the Nucleus system (if applicable beyond relying solely on platform permissions) via the Admin UI/API.
+*   **REQ-P4-ADM-004:** Administrators MUST have finer-grained control over Persona configuration (e.g., enabling/disabling personas, setting resource limits, configuring prompts/behavior parameters) via the Admin UI/API.
 *   **REQ-P4-ADM-005:** Comprehensive deployment automation scripts (Bicep/Terraform) MUST be created and maintained (`infra/` project) to enable repeatable deployments of the entire Nucleus stack (Azure resources, application code) for both Cloud-Hosted and Self-Hosted scenarios.
 *   **REQ-P4-ADM-006:** Backup and recovery strategies for the database and file storage MUST be defined and tested.
-
-### 3.4. Foundational Work for Phase 5 ("Public Good")
-
-*   **REQ-P4-PUB-001:** Mechanisms SHOULD be explored or implemented for users (perhaps via the Web App) to nominate or flag specific `PersonaKnowledgeEntry` items as potentially suitable for wider sharing.
-*   **REQ-P4-PUB-002:** A process or workflow SHOULD be designed for vetting nominated knowledge entries (e.g., automated PII checks, manual review queues accessible via Admin UI) before they are marked as "publicly shareable".
-*   **REQ-P4-PUB-003:** The data model (`PersonaKnowledgeEntry` or a related entity) SHOULD accommodate metadata indicating the sharing status (e.g., Private, Nominated, Vetted/Public).
-
-## 4. Non-Goals (Phase 4)
-
-*   Full implementation of the Phase 5 "Public Good" knowledge sharing system (Phase 4 focuses on preparatory work).
-*   Adding fundamentally new core capabilities beyond enhancing existing ones (e.g., no new communication platforms, no radically different AI model integrations unless required for orchestration/tool use).

@@ -64,19 +64,3 @@ This document outlines the planned development phases for Nucleus OmniRAG, struc
 *   **Issue:** `ISSUE-MAT-DOCS-01`: Improve internal and potentially external developer/user documentation
 
 ---
-
-## Phase 5: Public Knowledge Repository ("Public Good")
-
-**Epic:** `EPIC-PUBLIC-GOOD` - Enable contribution and access to a shared, vetted knowledge base.
-
-*   **Issue:** `ISSUE-PUB-CONTRIB-01`: Implement UI flow for users to nominate `PersonaKnowledgeEntry` items for the Public Repository
-*   **Issue:** `ISSUE-PUB-VET-01`: Develop automated vetting pipeline (PII, sensitivity, content safety checks)
-*   **Issue:** `ISSUE-PUB-ADMIN-01`: Create Admin UI for manual review/approval/rejection of nominated entries
-*   **Issue:** `ISSUE-PUB-REPO-01`: Set up infrastructure for the Public Knowledge Repository (separate Cosmos DB or similar)
-*   **Issue:** `ISSUE-PUB-WORKFLOW-01`: Implement the workflow for copying/moving approved entries to the Public Repository
-*   **Issue:** `ISSUE-PUB-ACCESS-01`: Integrate Public Repository querying into the Web App/Platform Bots (with clear distinction)
-*   **Issue:** `ISSUE-PUB-ACCESS-02`: Implement public attribution and licensing display for public results
-*   **Issue:** `ISSUE-PUB-GOV-01`: Finalize and publish contribution guidelines, content policies, and licensing terms
-*   **Issue:** `ISSUE-PUB-API-01`: (Optional) Design and implement a public API endpoint for accessing the Public Repository
-
----

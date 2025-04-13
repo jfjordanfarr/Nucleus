@@ -13,7 +13,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 
 *   [X] **TASK-MVP-SETUP-01:** Create Solution Structure (`NucleusOmniRAG.sln`, `src/`, `tests/`, `aspire/`, `docs/`, etc.).
 *   [X] **TASK-MVP-SETUP-02:** Set up `Nucleus.AppHost` project using Aspire.
-*   [X] **TASK-MVP-SETUP-03:** Configure Aspire AppHost to launch required emulated services (Cosmos DB, Azurite - Blobs/Queues, Service Bus).
+*   [X] **TASK-MVP-SETUP-03:** Configure Aspire AppHost to launch required emulated services (Cosmos DB, Azurite - Blobs). *(Queues/Service Bus emulation deferred unless specific external integration requires them in MVP)*.
 *   [X] **TASK-MVP-SETUP-04:** Create core projects: `Nucleus.Abstractions`, `Nucleus.Core`, `Nucleus.Infrastructure`, `Nucleus.Personas`.
 *   [X] **TASK-MVP-SETUP-05:** Create `Nucleus.Api` (ASP.NET Core WebAPI) project and add to AppHost.
 *   [X] **TASK-MVP-SETUP-06:** Create `Nucleus.Console` (.NET Console App) project and add to AppHost.
@@ -25,7 +25,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-EXT-01:** Define `IContentExtractor` interface.
 *   [ ] **TASK-MVP-EXT-02:** Implement `PlainTextExtractor` for `text/plain` MIME type.
 *   [ ] **TASK-MVP-EXT-03:** Implement `HtmlExtractor` for `text/html` MIME type (use a library like HtmlAgilityPack to sanitize/extract text).
-*   [ ] **TASK-MVP-EXT-04:** Integrate `IContentExtractor` selection logic (potentially within the API or a dedicated service) based on artifact MIME type. *(Used by Console `ingest` command later)*
+*   [ ] **TASK-MVP-EXT-04:** Integrate `IContentExtractor` selection logic within the **`Nucleus.Api`** based on artifact MIME type. *(Used by Console `ingest` command later)*
 
 ## `ISSUE-MVP-PERSONA-01`: Create Initial **Bootstrapper Persona**
 
@@ -44,7 +44,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-API-01:** **Re-implement/Refine** `Nucleus.Api` project (replacing any template placeholders) with necessary services (DI, logging, configuration, controllers).
 *   [ ] **TASK-MVP-API-02:** Define API controllers and endpoints relevant for Console App interaction (e.g., `/api/ingest`, `/api/query`, `/api/status`).
 *   [ ] **TASK-MVP-API-03:** Implement the `/api/query` endpoint to inject and call `BootstrapperPersona.HandleQueryAsync`.
-*   [ ] **TASK-MVP-API-04:** Implement the `/api/ingest` endpoint (details TBD - might receive file path/content and trigger processing).
+*   [ ] **TASK-MVP-API-04:** Implement the `/api/ingest` endpoint (details TBD - might receive file path/content and trigger **in-process background processing**).
 *   [ ] **TASK-MVP-API-05:** Implement basic health check endpoint (`/healthz`).
 *   [ ] **TASK-MVP-API-06:** Ensure API configuration and DI are correctly set up.
 

@@ -46,14 +46,6 @@ This document details the specific tasks required to complete Phase 3.
 *   [ ] **TASK-P3-QRY-03:** Update relevant API endpoint(s) in `Nucleus.Api` to accept and pass filter parameters to `IRetrievalService`.
 *   [ ] **TASK-P3-QRY-04:** (Optional) Investigate/prototype hybrid search (keyword + vector) capabilities in Cosmos DB.
 
-## `ISSUE-ENH-UI-01`: Improve Web App UI
-
-*   [ ] **TASK-P3-UI-01:** Design and implement richer display component for query results (e.g., showing snippets, source, date, persona).
-*   [ ] **TASK-P3-UI-02:** Implement filtering controls on the query/browsing page (dropdowns, date pickers).
-*   [ ] **TASK-P3-UI-03:** Update API client service in Web App to pass filter values.
-*   [ ] **TASK-P3-UI-04:** Implement basic persona management view (list available personas, view descriptions).
-*   [ ] **TASK-P3-UI-05:** Implement basic configuration interface for ingestion sources (e.g., list configured email accounts/channels).
-
 ## `ISSUE-ENH-CONFIG-01`: Implement Robust Configuration Management
 
 *   [ ] **TASK-P3-CONF-01:** Define configuration schema for personas (e.g., specific API keys, default prompts, feature flags).

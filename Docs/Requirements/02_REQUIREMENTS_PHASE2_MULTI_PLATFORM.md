@@ -60,9 +60,9 @@ To extend the Nucleus OmniRAG platform by integrating Personas as interactive bo
     *   Securely retrieve the shared file content via `IPlatformAdapter` methods (implemented using platform-specific APIs).
     *   Save the file to `IFileStorage`.
     *   Create `ArtifactMetadata` (linking to generic platform context: AdapterType, UserID, ConversationID, MessageID, etc.).
-    *   Publish a message to the queue to trigger the asynchronous processing pipeline.
+    *   **Trigger an in-process background task** within `Nucleus.Api` to initiate the asynchronous processing pipeline, passing necessary context (e.g., `IngestionId`).
     *   Post the acknowledgement message back via `IPlatformAdapter` methods.
-*   **REQ-P2-SYS-006:** The backend processing service MUST operate on the generic context stored in `ArtifactMetadata`.
+*   **REQ-P2-SYS-006:** The backend processing service (running as a background task within the API host) MUST operate on the generic context stored in `ArtifactMetadata`.
 *   **REQ-P2-SYS-007:** A notification service/mechanism MUST use the stored `AdapterType` and context in `ArtifactMetadata` to route completion/failure messages back to the correct `IPlatformAdapter` implementation for sending.
 *   **REQ-P2-SYS-008:** The status query mechanism MUST allow querying `ArtifactMetadata` based on generic context and provide status details suitable for any adapter to format and return.
 *   **REQ-P2-SYS-009:** The mechanism for handling general queries MAY involve a common API endpoint (`Nucleus.Api`) that interacts with retrieval/AI services and uses `IPlatformAdapter` to send the response back to the originating platform.

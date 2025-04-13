@@ -14,7 +14,7 @@ This document details the specific tasks required to complete Phase 2.
 *   [ ] **TASK-P2-ING-E03:** Implement core `EmailAdapter` (`Nucleus.Adapters.Email`) logic: Connect, fetch new emails, handle basic authentication (app password/OAuth token).
 *   [ ] **TASK-P2-ING-E04:** Implement email parsing: Extract sender, recipients, subject, date, plain text body, HTML body.
 *   [ ] **TASK-P2-ING-E05:** Implement attachment handling: Identify attachments, prepare for storage.
-*   [ ] **TASK-P2-ING-E06:** Implement queueing mechanism: Place message details (metadata + attachment pointers) onto an Azure Queue/Service Bus for processing.
+*   [ ] **TASK-P2-ING-E06:** Implement hand-off to processing: Call internal service/API endpoint in `Nucleus.Api` to **trigger in-process background task** for the ingested email (metadata + attachment pointers).
 *   [ ] **TASK-P2-ING-E07:** Implement basic error handling and logging for the ingestion service.
 *   [ ] **TASK-P2-ING-E08:** Configure secure storage for email credentials (Key Vault).
 *   [ ] **TASK-P2-ING-E09:** Implement mechanism to prevent re-processing of the same email (e.g., track Message-IDs).
@@ -28,8 +28,8 @@ This document details the specific tasks required to complete Phase 2.
 *   [ ] **TASK-P2-ING-T04:** Implement webhook endpoint (e.g., Azure Function) to receive Teams notifications/messages.
 *   [ ] **TASK-P2-ING-T05:** Implement message parsing for Teams format (text, mentions, potential attachments/links).
 *   [ ] **TASK-P2-ING-T06:** Implement authentication/authorization for webhook calls.
-*   [ ] **TASK-P2-ING-T07:** Integrate with queuing mechanism for processing.
-*   [ ] **TASK-P2-ING-T08:** Update processing pipeline to handle Teams-originated artifacts/queries.
+*   [ ] **TASK-P2-ING-T07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
+*   [ ] **TASK-P2-ING-T08:** Update processing pipeline (background task logic) to handle Teams-originated artifacts/queries.
 
 ## `ISSUE-MP-INGEST-02`: Implement Slack Ingestion Adapter
 
@@ -39,8 +39,8 @@ This document details the specific tasks required to complete Phase 2.
 *   [ ] **TASK-P2-ING-S04:** Implement endpoint (e.g., Azure Function) or background service for receiving Slack events.
 *   [ ] **TASK-P2-ING-S05:** Implement message parsing for Slack format (mrkdwn, user mentions, attachments/files).
 *   [ ] **TASK-P2-ING-S06:** Implement request verification/authentication for Slack events.
-*   [ ] **TASK-P2-ING-S07:** Integrate with queuing mechanism for processing.
-*   [ ] **TASK-P2-ING-S08:** Update processing pipeline to handle Slack-originated artifacts/queries.
+*   [ ] **TASK-P2-ING-S07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
+*   [ ] **TASK-P2-ING-S08:** Update processing pipeline (background task logic) to handle Slack-originated artifacts/queries.
 
 ## `ISSUE-MP-INGEST-03`: Implement Discord Ingestion Adapter
 
@@ -50,8 +50,8 @@ This document details the specific tasks required to complete Phase 2.
 *   [ ] **TASK-P2-ING-D04:** Implement background service or Function to connect to Discord Gateway.
 *   [ ] **TASK-P2-ING-D05:** Implement message parsing for Discord format (Markdown, mentions, attachments).
 *   [ ] **TASK-P2-ING-D06:** Handle Gateway events (message creation, etc.).
-*   [ ] **TASK-P2-ING-D07:** Integrate with queuing mechanism for processing.
-*   [ ] **TASK-P2-ING-D08:** Update processing pipeline to handle Discord-originated artifacts/queries.
+*   [ ] **TASK-P2-ING-D07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
+*   [ ] **TASK-P2-ING-D08:** Update processing pipeline (background task logic) to handle Discord-originated artifacts/queries.
 
 ## `ISSUE-MP-PROCESS-01`: Enhance Content Extraction
 

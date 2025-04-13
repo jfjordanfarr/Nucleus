@@ -59,27 +59,20 @@ This document details the specific tasks required to complete Phase 4.
 *   [ ] **TASK-P4-AQUERY-03:** Update `IRetrievalService` and adapter(s) to incorporate new search/ranking logic.
 *   [ ] **TASK-P4-AQUERY-04:** Evaluate performance impact of advanced query features.
 
-## `ISSUE-MAT-ADMIN-01`: Enhance Admin UI/API
+## `ISSUE-MAT-ADMIN-01`: Expand Admin UI/API
 
-*   [ ] **TASK-P4-ADMIN-01:** Enhance API (`Nucleus.Api`) with endpoints for:
-    *   Detailed processing status monitoring (per artifact, per persona).
-    *   Viewing dead-letter queue messages.
-    *   Managing persona configurations.
-    *   Managing ingestion source configurations.
-    *   (Optional) Basic user management if applicable.
-*   [ ] **TASK-P4-ADMIN-02:** Enhance Web App (`Nucleus.WebApp`) Admin section:
-    *   Implement views for monitoring processing status.
-    *   Implement UI for managing configurations (personas, ingestion).
-    *   Implement UI for viewing/reprocessing dead-letter messages.
-    *   Implement role-based access control for admin functions.
+*Note: Implementation can be a dedicated web interface or leverage platform-native UIs where feasible. API development should enable either.* 
 
-## `ISSUE-MAT-DOCS-01`: Improve Documentation
-
-*   [ ] **TASK-P4-DOCS-01:** Review and update existing Architecture documents.
-*   [ ] **TASK-P4-DOCS-02:** Review and enhance XML documentation comments in code.
-*   [ ] **TASK-P4-DOCS-03:** Set up automated documentation generation (e.g., DocFX) from XML comments. *(Corresponds to KANBAN TASK-ID-016)*
-*   [ ] **TASK-P4-DOCS-04:** Write developer onboarding guide.
-*   [ ] **TASK-P4-DOCS-05:** Write basic user guide for Web App/Platform interactions.
+*   [ ] **TASK-P4-ADM-01:** Design and implement API endpoints for enhanced logging/monitoring access (pulling metrics, querying logs).
+*   [ ] **TASK-P4-ADM-02:** Design and implement API endpoints for user/permission management (if Nucleus-specific roles are needed).
+*   [ ] **TASK-P4-ADM-03:** Design and implement API endpoints for detailed Persona configuration management.
+*   [ ] **TASK-P4-ADM-04:** Develop the chosen Admin UI(s):
+    *   [ ] Build UI components for viewing logs/metrics (consuming APIs from ADM-01).
+    *   [ ] Build UI components for user/permission management (consuming APIs from ADM-02).
+    *   [ ] Build UI components for Persona configuration (consuming APIs from ADM-03).
+    *   [ ] Integrate authentication/authorization for the Admin UI.
+*   [ ] **TASK-P4-ADM-05:** Enhance existing or create new deployment automation scripts (Bicep/Terraform) for repeatable deployments (Cloud-Hosted & Self-Hosted).
+*   [ ] **TASK-P4-ADM-06:** Define and document backup/recovery procedures for Cosmos DB.
 
 ## `ISSUE-MAT-ORCH-01`: Implement Workflow Orchestration
 
@@ -105,12 +98,5 @@ This document details the specific tasks required to complete Phase 4.
 *   [ ] **TASK-P4-BACKUP-02:** Configure Azure Blob Storage backup/redundancy options (soft delete, versioning, GRS/RA-GRS).
 *   [ ] **TASK-P4-BACKUP-03:** Document disaster recovery procedures (restore process, RPO/RTO targets).
 *   [ ] **TASK-P4-BACKUP-04:** Test backup restoration process periodically.
-
-## `ISSUE-MAT-PUBGOOD-FOUNDATION-01`: Foundational Work for Public Good
-
-*   [ ] **TASK-P4-PUB-FND-01:** Design data model for nominated/public knowledge entries (may differ slightly from private `PersonaKnowledgeEntry`).
-*   [ ] **TASK-P4-PUB-FND-02:** Design basic UI flow in Web App for users to *nominate* an entry.
-*   [ ] **TASK-P4-PUB-FND-03:** Design high-level vetting workflow (automated checks, manual review stage).
-*   [ ] **TASK-P4-PUB-FND-04:** Update relevant interfaces/services (e.g., `IPersonaKnowledgeRepository`) to potentially handle public/private distinction later.
 
 ---

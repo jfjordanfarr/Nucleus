@@ -19,19 +19,17 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 *   **Backend:** `Nucleus.Api` ASP.NET Core Web API providing endpoints for the Console App.
 *   **Processing:** Basic query handling by a single `BootstrapperPersona`. Placeholder for ingestion flow.
 *   **Data Storage:** Basic storage for persona knowledge entries (Cosmos DB emulator).
-*   **Environment:** Local development using .NET Aspire, orchestrating the Console App, API, and emulated Azure services (Cosmos DB, Azurite, Service Bus - though queue usage is minimal in this phase).
+*   **Environment:** Local development using .NET Aspire, orchestrating the Console App, API, and the essential emulated Azure service (Cosmos DB). Processing uses ephemeral container storage, not external blobs.
 
 ## 3. Requirements
 
 ### 3.1. Local Development Environment (Aspire)
 
-*   **REQ-MVP-ENV-001:** The `.NET Aspire` AppHost (`Nucleus.AppHost`) MUST successfully launch and orchestrate the following:
+*   **REQ-MVP-ENV-001:** The `.NET Aspire` AppHost (`Nucleus.AppHost`) MUST successfully launch and orchestrate the following essential components:
     *   `Nucleus.Console` project.
     *   `Nucleus.Api` project.
     *   Azure Cosmos DB Emulator container.
-    *   Azurite Storage Emulator container (for Blobs/Queues, even if not heavily used initially).
-    *   Service Bus Emulator container (even if not heavily used initially).
-*   **REQ-MVP-ENV-002:** Aspire MUST correctly inject necessary connection strings and service discovery information (e.g., API base URL) into both `Nucleus.Api` and `Nucleus.Console` via configuration/environment variables.
+*   **REQ-MVP-ENV-002:** Aspire MUST correctly inject necessary connection strings and service discovery information (e.g., API base URL, Cosmos connection) into both `Nucleus.Api` and `Nucleus.Console` via configuration/environment variables.
 *   **REQ-MVP-ENV-003:** Developers MUST be able to run the entire MVP stack locally using a single command (e.g., `dotnet run` in the AppHost directory).
 
 ### 3.2. Admin Experience (Configuration)
