@@ -1,13 +1,13 @@
 ---
-title: Architecture - Cloudflare Deployment Strategy
+title: Architecture - Hosting Strategy: Cloudflare
 description: Outlines a potential strategy for deploying the Nucleus OmniRAG system using Cloudflare services.
-version: 1.0
+version: 1.1
 date: 2025-04-13
 ---
 
 # Nucleus OmniRAG: Cloudflare Deployment Strategy
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2025-04-13
 
 ## 1. Introduction

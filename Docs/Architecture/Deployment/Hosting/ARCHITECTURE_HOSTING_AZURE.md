@@ -1,13 +1,13 @@
 ---
-title: Architecture - Azure Deployment Strategy
+title: Architecture - Hosting Strategy: Azure
 description: Details the specific Azure services and configuration for deploying the Nucleus OmniRAG system.
-version: 1.0
+version: 1.1
 date: 2025-04-13
 ---
 
 # Nucleus OmniRAG: Azure Deployment Strategy
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2025-04-13
 
 ## 1. Introduction

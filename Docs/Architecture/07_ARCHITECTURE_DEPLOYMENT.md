@@ -1,13 +1,13 @@
 ---
 title: Nucleus OmniRAG Deployment Architecture Overview
 description: Provides an overview of deployment strategies and links to detailed architectures for Azure, Cloudflare, and Self-Hosting.
-version: 2.0
+version: 2.2
 date: 2025-04-13
 ---
 
 # Nucleus OmniRAG: Deployment Architecture Overview
 
-**Version:** 2.0
+**Version:** 2.2
 **Date:** 2025-04-13
 
 This document provides a high-level overview of the deployment architecture for the Nucleus OmniRAG system, complementing the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It establishes the core principles and links to detailed strategies for specific deployment targets.
@@ -26,7 +26,7 @@ The deployment architecture prioritizes:
 
 Regardless of the specific target environment, Nucleus OmniRAG fundamentally requires a set of core infrastructure capabilities. These abstract requirements are defined in detail in:
 
-*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the necessary compute runtime, messaging queue, document/vector database, and object storage components in a provider-agnostic way.
+*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the necessary compute runtime, asynchronous messaging (Pub/Sub), document/vector database, and object storage components in a provider-agnostic way.
 
 Understanding these abstractions is key to mapping the system onto different infrastructure platforms.
 
@@ -34,13 +34,19 @@ Understanding these abstractions is key to mapping the system onto different inf
 
 Based on the abstract requirements, detailed deployment strategies have been outlined for common target environments. These documents specify the chosen services, configuration considerations, networking, security, and IaC approaches for each:
 
-*   **[Azure Deployment Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_AZURE.md):** Details the recommended architecture using Azure services like Container Apps, Cosmos DB, Service Bus, and Blob Storage.
-*   **[Cloudflare Deployment Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_CLOUDFLARE.md):** Explores a potential architecture leveraging Cloudflare Workers, Queues, Vectorize, R2, and D1, focusing on cost-efficiency and edge performance.
-*   **[Self-Hosted Home Network Strategy](./Deployment/ARCHITECTURE_DEPLOYMENT_SELFHOST_HOMENETWORK.md):** Outlines deploying Nucleus locally using Docker containers for components like RabbitMQ/NATS and PostgreSQL/pgvector.
+*   **[Azure Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md):** Details the recommended architecture using Azure services like Container Apps, Cosmos DB, Service Bus, and Blob Storage.
+*   **[Cloudflare Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md):** Explores a potential architecture leveraging Cloudflare Workers, Queues, Vectorize, R2, and D1, focusing on cost-efficiency and edge performance.
+*   **[Self-Hosted Home Network Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md):** Outlines deploying Nucleus locally using Docker containers for components like RabbitMQ/NATS and PostgreSQL/pgvector.
 
 Refer to these specific documents for implementation details relevant to your chosen deployment target.
 
-## 4. Next Steps (Cross-Cutting Concerns)
+## 4. CI/CD Strategy (Open Source)
+
+Given the open-source nature of Nucleus, the Continuous Integration and Continuous Delivery (CI/CD) strategy focuses on validating code quality and producing consumable artifacts (like Docker images) rather than deploying to a specific instance. The approach is detailed in:
+
+*   **[CI/CD Strategy for Open Source](./Deployment/ARCHITECTURE_DEPLOYMENT_CICD_OSS.md):** Outlines the use of GitHub Actions for building, testing, packaging, and releasing versioned artifacts securely.
+
+## 5. Next Steps (Cross-Cutting Concerns)
 
 Regardless of the chosen deployment strategy, several key steps and considerations remain crucial for a successful implementation:
 

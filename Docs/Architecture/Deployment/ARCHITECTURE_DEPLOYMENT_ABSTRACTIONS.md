@@ -25,10 +25,23 @@ The Nucleus system fundamentally requires the following types of infrastructure 
     *   **Key Needs:** Scalability (manual or automatic), reliable execution, integration with networking and other services.
     *   **Examples:** Azure Container Apps, Azure Kubernetes Service, AWS ECS/EKS, Google Cloud Run/GKE, Cloudflare Workers (via Workers for Platforms or similar container support), Self-hosted Kubernetes/Docker.
 
-2.  **Asynchronous Messaging Queue:**
-    *   **Requirement:** A service to decouple processing steps, particularly for the ingestion pipeline ([Architecture - Processing](../01_ARCHITECTURE_PROCESSING.md)). Enables resilience and scalability of background tasks.
-    *   **Key Needs:** Reliable message delivery (at-least-once), ability to handle moderate throughput, trigger mechanism for consumers (compute runtime).
-    *   **Examples:** Azure Service Bus, Azure Storage Queues, AWS SQS, Google Pub/Sub, RabbitMQ, NATS, Cloudflare Queues.
+2.  **Asynchronous Messaging (Pub/Sub):**
+    *   **Purpose:** To decouple components, enable asynchronous processing, and reliably broadcast triggers (like new user interactions) to potentially multiple processing instances.
+    *   **Abstraction:** A Publish/Subscribe messaging system consisting of:
+        *   **Topics:** Named channels where messages (typically containing identifiers or minimal data) are published.
+        *   **Subscriptions:** Each processing service instance (or logical group) creates its own subscription to relevant topics. The messaging system delivers a copy of each message published to the topic to every active subscription.
+    *   **Key Capabilities:**
+        *   Guaranteed delivery (at-least-once) per subscription.
+        *   Message filtering capabilities (optional).
+        *   Decoupling of publishers and subscribers.
+        *   Support for competing consumers *within* a single subscription if needed for scaling internal processing.
+    *   **Examples:**
+        *   Azure Service Bus Topics & Subscriptions
+        *   Google Cloud Pub/Sub
+        *   RabbitMQ (using Topic exchanges)
+        *   NATS
+        *   AWS SNS/SQS combination
+    *   **Selection Criteria:** Reliability, scalability, cost, integration with the chosen compute runtime, latency requirements.
 
 3.  **Document & Vector Database:**
     *   **Requirement:** A database solution capable of storing both structured/semi-structured metadata (`ArtifactMetadata`) and the derived knowledge (`PersonaKnowledgeEntry`), including vector embeddings for semantic search.

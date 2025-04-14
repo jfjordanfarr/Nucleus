@@ -22,7 +22,7 @@ graph LR
     subgraph Nucleus Core Services
         IngestionAPI[fa:fa-cloud-upload Nucleus Ingestion API]
         QueryAPI[fa:fa-search Nucleus Query API]
-        Queue[fa:fa-envelope Message Queue]
+        MessagingService[(fa:fa-envelope Messaging Service (Pub/Sub))]
         ProcessingSvc[fa:fa-cogs Nucleus Processing Service]
         KnowledgeDB[fa:fa-database Cosmos DB]
         AI_SVC[fa:fa-microchip Configured AI Model (Gemini)]
@@ -37,10 +37,10 @@ graph LR
 
     User -- 1. Submits Artifact / Query --> IngestionAPI / QueryAPI
     IngestionAPI -- 2a. Creates ArtifactMetadata --> KnowledgeDB
-    IngestionAPI -- 2b. Enqueues Job --> Queue
-    Queue -- 3. Triggers --> ProcessingSvc
+    IngestionAPI -- 2b. Publishes Job Trigger --> MessagingService
+    MessagingService -- 3. Triggers --> ProcessingSvc
     ProcessingSvc -- 4. Reads/Updates --> KnowledgeDB %% ArtifactMetadata %%
-    ProcessingSvc -- 5. Invokes --> EducatorModule
+    ProcessingSvc -- 5. Orchestrates Ephemeral Ingestion --> EducatorModule
     EducatorModule -- 6. Analyzes Artifact Content --> AI_SVC
     EducatorModule -- 7. Applies Schema --> LearningFacets
     EducatorModule -- 8. Maps to Standards --> StandardsMapping
@@ -58,7 +58,7 @@ graph LR
     Config -- Manages Settings --> AI_SVC
 ```
 
-**Explanation:** User interactions (submitting artifacts or querying) go through dedicated APIs. Artifact ingestion triggers asynchronous processing via a queue. The Processing Service coordinates with the Educator Persona Module, which utilizes AI services, internal schemas (Learning Facets), and potentially external standards databases to analyze content. Results (`PersonaKnowledgeEntry`) are stored in Cosmos DB. Queries are handled more directly, retrieving stored knowledge and synthesizing answers.
+**Explanation:** User interactions (submitting artifacts or querying) go through dedicated APIs. Artifact ingestion triggers asynchronous processing via a **messaging service (Pub/Sub Topic)**. The Processing Service coordinates with the Educator Persona Module, which utilizes AI services, internal schemas (Learning Facets), and potentially external standards databases to analyze content. Results (`PersonaKnowledgeEntry`) are stored in Cosmos DB. Queries are handled more directly, retrieving stored knowledge and synthesizing answers.
 
 ## 2. Core Data Model Summary
 

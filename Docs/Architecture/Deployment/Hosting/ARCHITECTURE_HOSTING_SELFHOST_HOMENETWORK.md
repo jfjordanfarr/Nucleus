@@ -1,13 +1,13 @@
 ---
-title: Architecture - Self-Hosted Home Network Deployment
+title: Architecture - Hosting Strategy: Self-Host (Home Network)
 description: Details the strategy and considerations for deploying Nucleus OmniRAG on a local home network using Docker.
-version: 1.0
+version: 1.1
 date: 2025-04-13
 ---
 
 # Nucleus OmniRAG: Self-Hosted Home Network Deployment Strategy
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2025-04-13
 
 ## 1. Introduction

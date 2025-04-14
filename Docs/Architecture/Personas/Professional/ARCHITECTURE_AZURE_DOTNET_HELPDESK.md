@@ -20,40 +20,44 @@ graph LR
     end
 
     subgraph Teams Integration Layer
-        Teams[Microsoft Teams]
-        BotFramework[fa:fa-robot .NET Bot Framework]
+        TeamsClient[Teams Client]
+        DotNetBotFramework[fa:fa-robot .NET Bot Framework]
         TeamsAdapter[Nucleus Teams Adapter]
     end
 
     subgraph Nucleus Backend Services (Azure @ WWR)
-        Queue[fa:fa-envelope Azure Service Bus]
-        Processor[fa:fa-cogs .NET Processing Service <br/>(Functions/Worker)<br/>Handles Ephemeral Ingestion]
-        Persona[fa:fa-brain IT Helpdesk Persona Module <br/>(Analyzes Ephemeral Data)]
-        AIService[fa:fa-microchip Configurable AI Model <br/>(e.g., Google Gemini)]
-        KnowledgeDB[fa:fa-database Azure Cosmos DB <br/>(ArtifactMetadata & PersonaKnowledgeEntries)]
-        Config[fa:fa-cog System Configuration]
+        ServiceBus[(Azure Service Bus Topic)]
+        DotNetProcessingSvc[fa:fa-cogs .NET Processing Service <br/>(Azure Container App / Function / Worker)<br/>Handles Ephemeral Ingestion]
+        Orchestrator[fa:fa-cogs Orchestrator]
+        ItHelpdeskPersona[fa:fa-brain IT Helpdesk Persona Module <br/>(Analyzes Ephemeral Data)]
+        AzureOpenAI[fa:fa-microchip Azure OpenAI <br/>(e.g., Google Gemini)]
+        CosmosDB[fa:fa-database Azure Cosmos DB <br/>(ArtifactMetadata & PersonaKnowledgeEntries)]
+        BlobStorage[fa:fa-database Azure Blob Storage <br/>(Optional)]
+        AzureAppConfig[fa:fa-cog Azure App Configuration]
     end
 
-    User -- 1. Sends Query / Shares Info --> Teams
-    Teams -- 2. Routes Event --> BotFramework
-    BotFramework -- 3. Invokes --> TeamsAdapter
-    TeamsAdapter -- 4. Sends Query to API / Enqueues Job --> Queue
-    Queue -- 5. Triggers --> Processor
-    Processor -- 6. Reads/Writes --> KnowledgeDB %% Reads existing ArtifactMetadata, Writes updated status %%
-    Processor -- 7. Fetches Fresh Source (via Adapter if needed), Processes Ephemerally --> Persona
-    Persona -- 8. Analyzes Ephemeral Data, Uses --> AIService
-    Persona -- 9. Returns Derived Knowledge/Snippets --> Processor
-    Processor -- 10. Generates Embeddings (on Snippets) --> AIService
-    Processor -- 11. Writes Results to PersonaKnowledgeEntries --> KnowledgeDB
-    Processor -- 12. Notifies Adapter via Queue/API --> TeamsAdapter
-    TeamsAdapter -- 13. Handles Direct Queries / Receives Async Results --> BotFramework
-    BotFramework -- 14. Delivers Response --> Teams
-    Config -- Manages Settings --> Processor
-    Config -- Manages Settings --> AIService
-    Config -- Manages Settings --> KnowledgeDB
+    User -- 1. Sends Message via Teams --> TeamsClient
+    TeamsClient -- 2. Interacts with Bot --> DotNetBotFramework
+    DotNetBotFramework -- 3. Uses Adapter --> TeamsAdapter
+    TeamsAdapter -- 4. Sends Query to API / Publishes Job Trigger --> ServiceBus
+    ServiceBus -- 5. Triggers Processing Service --> DotNetProcessingSvc
+    DotNetProcessingSvc -- 6. Orchestrates --> Orchestrator
+    Orchestrator -- Uses --> TeamsAdapter
+    Orchestrator -- Uses --> ItHelpdeskPersona
+    ItHelpdeskPersona -- 7. Calls AI --> AzureOpenAI
+    Orchestrator -- 8. Reads/Writes Metadata --> CosmosDB
+    Orchestrator -- 9. Reads/Writes Knowledge --> CosmosDB
+    Orchestrator -- 10. (Optional) Reads/Writes Source --> BlobStorage
+    DotNetProcessingSvc -- 11. Sends Response via Adapter --> TeamsAdapter
+    TeamsAdapter -- 12. Relays to Bot --> DotNetBotFramework
+    DotNetBotFramework -- 13. Sends Reply --> TeamsClient
+    TeamsClient -- 14. Displays to User --> User
+
+    DotNetBotFramework -- Reads Config --> AzureAppConfig
+    DotNetProcessingSvc -- Reads Config --> AzureAppConfig
 ```
 
-**Explanation:** This architecture uses Azure services. User interaction occurs via Teams, handled by a .NET Bot Framework bot and a Nucleus Teams Adapter. Queries and processing jobs are often queued via Azure Service Bus for asynchronous handling by a .NET Processing Service (potentially Azure Functions or a Worker Service). This service orchestrates ephemeral ingestion, interacts with the IT Helpdesk Persona module (which uses Azure OpenAI or similar for analysis), generates embeddings for derived snippets, and reads/writes metadata (`ArtifactMetadata`) and derived knowledge (`PersonaKnowledgeEntry`) to Azure Cosmos DB. Configuration is centrally managed.
+**Explanation:** This architecture uses Azure services. User interaction occurs via Teams, handled by a .NET Bot Framework bot and a Nucleus Teams Adapter. Queries and processing job triggers are published to Azure Service Bus Topics for asynchronous handling by a .NET Processing Service (potentially Azure Functions or a Worker Service running in Azure Container Apps). This service orchestrates ephemeral ingestion, interacts with the IT Helpdesk Persona module (which uses Azure OpenAI or similar for analysis), generates embeddings for derived snippets, and reads/writes metadata (`ArtifactMetadata`) and derived knowledge (`PersonaKnowledgeEntry`) to Azure Cosmos DB. Configuration is centrally managed via Azure App Configuration.
 
 ## 2. Key Architectural Characteristics
 
