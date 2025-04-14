@@ -15,8 +15,6 @@
                    object-src 'none';
                    base-uri 'self';
                    form-action 'self';">
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
         /* BRANDING_CSS_PLACEHOLDER */
         body {
@@ -72,6 +70,143 @@
             cursor: not-allowed;
         }
     </style>
+
+    <script type="text/worker-script" id="worker-script-content">
+        // dataviz-worker.js
+        // Web Worker script for running Pyodide and Python visualization code.
+        
+        // Import the Pyodide script
+        // NOTE: This path assumes Pyodide is served or accessible relative to the worker's origin.
+        // Adjust if Pyodide is hosted elsewhere or if using a specific version.
+        importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
+        
+        let pyodide = null;
+        
+        // --- Pyodide Loading and Initialization ---
+        async function loadPyodideAndPackages() {
+            pyodide = await loadPyodide();
+            await pyodide.loadPackage(["micropip"]);
+            const micropip = pyodide.pyimport("micropip");
+            // Install necessary Python packages
+            await micropip.install(['pandas', 'plotly']);
+            self.postMessage({ type: 'status', payload: 'Pyodide and packages loaded.' });
+            return pyodide;
+        }
+        
+        // Define the cleanup script
+        const pythonCleanupScript = `
+        import sys
+        import gc
+        
+        # List of potentially large libraries/objects to remove
+        vars_to_delete = ['pandas', 'plotly', 'px', 'numpy', 'micropip', 'df', 'fig', 'raw_data_py', 'fig_html', 'svg_string']
+        
+        print(f"Python Cleanup: Attempting to delete {vars_to_delete}")
+        
+        # Remove from sys.modules
+        for var_name in vars_to_delete:
+            if var_name in sys.modules:
+                try:
+                    del sys.modules[var_name]
+                except KeyError:
+                    pass # Module might not be loaded
+        
+        # Remove from globals()
+        # Use list(globals().keys()) to avoid RuntimeError: dictionary changed size during iteration
+        for var_name in list(globals().keys()):
+            if var_name in vars_to_delete:
+                try:
+                    del globals()[var_name]
+                except KeyError:
+                    pass # Global might not exist
+        
+        # Explicitly trigger garbage collection
+        gc.collect()
+        
+        print("Pyodide environment variables potentially cleaned.")
+        `;
+        
+        // --- Message Handling ---
+        self.onmessage = async (event) => {
+            if (!pyodide) {
+                // Initialize Pyodide on the first message or specific init command
+                self.postMessage({ type: 'status', payload: 'Pyodide initializing...' });
+                try {
+                    pyodide = await loadPyodideAndPackages();
+                } catch (error) {
+                    console.error("Pyodide initialization failed:", error);
+                    self.postMessage({ type: 'error', message: `Pyodide initialization failed: ${error}` });
+                    return; // Stop processing if init fails
+                }
+            }
+        
+            // Process commands after initialization
+            if (event.data.cmd === 'runPython') {
+                self.postMessage({ type: 'status', payload: 'Running Python script...' });
+                const { script, data } = event.data;
+                try {
+                    // Pass data to Python global scope
+                    pyodide.globals.set('raw_data_py', pyodide.toPy(data));
+        
+                    await pyodide.runPythonAsync(script);
+        
+                    // Retrieve results from Python global scope
+                    let outputContent = null;
+                    let outputType = 'unknown'; // Default type
+        
+                    if (pyodide.globals.has('fig_html')) {
+                        outputContent = pyodide.globals.get('fig_html');
+                        outputType = 'plotly';
+                    } else if (pyodide.globals.has('svg_string')) {
+                        outputContent = pyodide.globals.get('svg_string');
+                        outputType = 'svg';
+                    } else {
+                         console.warn("No recognized output variable ('fig_html' or 'svg_string') found in Python script.");
+                         // Send back an empty result or specific status
+                         outputContent = "No visual output generated.";
+                         outputType = 'message';
+                    }
+        
+                    self.postMessage({ type: 'result', output: outputContent, outputType: outputType });
+                } catch (error) {
+                    console.error("Python execution error:", error);
+                    // Check if it's a Pyodide-specific error and format nicely
+                    let errorMessage = error.message;
+                    if (error.type) { // Pyodide errors often have a 'type'
+                        errorMessage = `${error.type}: ${error.message}`;
+                    }
+                    self.postMessage({ type: 'error', message: `Python Error: ${errorMessage}` });
+                } finally {
+                     // Clean up globals in Pyodide environment
+                     if (pyodide) { // Ensure pyodide is available
+                        try {
+                          pyodide.runPython(pythonCleanupScript);
+                        } catch (cleanupError) {
+                          console.error("Error during Pyodide cleanup:", cleanupError);
+                          // Optionally report cleanup error, but don't overwrite primary error
+                          // self.postMessage({ type: 'error', message: `Cleanup Error: ${cleanupError.message}` });
+                        }
+                     }
+                }
+            } else {
+                console.warn(`Worker received unknown command: ${event.data.cmd}`);
+                // Optionally send back an error or ignore
+            }
+        };
+        
+        // --- Error Handling ---
+        self.onerror = (error) => {
+            // Catch unhandled errors within the worker itself
+            console.error("Unhandled worker error:", error);
+            self.postMessage({ type: 'error', message: `Unhandled Worker Error: ${error.message}` });
+        };
+        
+        console.log('Pyodide worker: Script loaded and ready for messages.');
+        
+        // Signal main thread that the worker script itself has loaded (optional)
+        // self.postMessage({ type: 'status', payload: 'Worker script loaded.' });
+        
+    </script>
 </head>
 <body>
     <h1>Interactive Visualization</h1>
@@ -159,80 +294,21 @@ except NameError:
           {"x_values": 5, "y_values": 12, "category": "B"}
         ]; // Placeholder for data object
 
-        // --- Pyodide Initialization and Execution (using Web Worker) ---
+        // --- Global State Variables ---
+        let pyodideWorker = null;
+        let currentOutputContent = null;
+        let currentOutputType = null; // 'plotly', 'svg', 'message', or 'error'
+
+        // --- DOM Element References ---
         const loadingIndicator = document.getElementById('loading-indicator');
-        const outputArea = document.getElementById('output-area');
         const errorArea = document.getElementById('error-area');
+        const outputArea = document.getElementById('output-area');
         const exportButtonsDiv = document.getElementById('export-buttons');
         const exportPngButton = document.getElementById('export-png');
         const exportSvgButton = document.getElementById('export-svg');
         const exportHtmlButton = document.getElementById('export-html');
 
-        let pyodideWorker = null;
-        let currentOutputType = null; // 'plotly' or 'svg'
-        let currentOutputContent = null; // HTML or SVG string
-
-        // --- Define Worker Script ---
-        // Moved outside the initialization function to avoid parsing issues
-        const pyodideWorkerScript = `
-// Worker script
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
-
-let pyodide = null;
-
-async function loadPyodideAndPackages() {
-    pyodide = await loadPyodide();
-    await pyodide.loadPackage(["micropip"]);
-    const micropip = pyodide.pyimport("micropip");
-    await micropip.install(['pandas', 'plotly']); // Add libraries needed by the AI script
-    postMessage({ type: 'status', payload: 'Pyodide and packages loaded.' }); // Use payload for consistency
-}
-
-let pyodideLoadingPromise = loadPyodideAndPackages();
-
-self.onmessage = async function(e) {
-    console.log('Worker: Message received from main script. Command:', e.data.cmd); // Log cmd
-    postMessage({ type: 'status', payload: 'Worker received message. Processing...' });
-
-    await pyodideLoadingPromise; // Ensure loading is finished
-
-    if (e.data.cmd === 'runPython') {
-        const { script, data } = e.data;
-        pyodide.globals.set('raw_data_py', pyodide.toPy(data)); // Make JSON data available
-
-        // Define cleanup script using standard string with explicit newlines
-        const pythonCleanupScript = "# Cleanup placeholder"; // Simplified for debugging
-
-        try {
-            await pyodide.runPythonAsync(script);
-            // Retrieve results from Python global scope
-            let outputContent = null;
-            let outputType = pyodide.globals.get('output_type'); // Expect python script to set this
-
-            if (outputType === 'plotly') {
-                outputContent = pyodide.globals.get('fig_html');
-            } else if (outputType === 'matplotlib' || outputType === 'svg') {
-                outputContent = pyodide.globals.get('svg_string');
-                outputType = 'svg'; // Standardize
-            } else {
-                throw new Error('Python script did not set a recognized output_type ("plotly" or "svg") or produce expected output variable (fig_html/svg_string).');
-            }
-
-            postMessage({ type: 'result', output: outputContent, outputType: outputType });
-
-        } catch (error) {
-            postMessage({ type: 'error', message: error.message });
-        } finally {
-             // Clean up globals in Pyodide environment
-             pyodide.runPython(pythonCleanupScript);
-        }
-    }
-};
-
-console.log('Pyodide worker: Script parsed (onmessage handler enabled).');
-
-`; // End of pyodideWorkerScript definition
-
+        // --- UI Update Functions ---
         function displayError(message) {
             console.error("Pyodide/Python Error:", message);
             loadingIndicator.style.display = 'none';
@@ -257,10 +333,9 @@ console.log('Pyodide worker: Script parsed (onmessage handler enabled).');
             outputArea.innerHTML = ''; // Clear previous output
             try {
                 if (type === 'plotly') {
-                    // Remove the redundant script tag trying to load plotly again
-                    const cleanedOutput = output.replace(/<script.*?src="https:\/\/cdn\.plot\.ly\/plotly-.*?\.min\.js"><\/script>/i, ''); // Correctly escaped for JSON
-                    console.log('Cleaned Plotly HTML:', cleanedOutput);
-                    outputArea.innerHTML = cleanedOutput; 
+                    // Inject the full HTML snippet from Python, which includes its own script tag
+                    console.log('Injecting full Plotly HTML snippet into outputArea.');
+                    outputArea.innerHTML = output;
                 } else if (type === 'svg') {
                     // Directly inject SVG content
                     outputArea.innerHTML = output;
@@ -294,29 +369,67 @@ console.log('Pyodide worker: Script parsed (onmessage handler enabled).');
             URL.revokeObjectURL(url);
         }
 
-        // --- Worker Setup and Communication ---
+        // --- Worker Setup and Communication --- ---
         function initializePyodideWorker() {
-            // Use the pre-defined worker script constant
-            pyodideWorker = new Worker(URL.createObjectURL(new Blob([pyodideWorkerScript], { type: 'application/javascript' })));
-
-            pyodideWorker.onmessage = (event) => {
-                if (event.data.type === 'status') {
-                    console.log("Worker Status:", event.data.payload); // Use payload
-                    loadingIndicator.textContent = `Loading Visualization Engine: ${event.data.payload}`; // Use payload
-                    if (event.data.payload.includes('loaded')) { // Use payload
-                       loadingIndicator.textContent = 'Running analysis...';
-                       pyodideWorker.postMessage({ cmd: 'runPython', script: pythonScript, data: jsonData });
-                    }
-                } else if (event.data.type === 'result') {
-                    displayOutput(event.data.output, event.data.outputType);
-                } else if (event.data.type === 'error') {
-                    displayError(event.data.message);
-                }
-            };
-
-            pyodideWorker.onerror = (error) => {
-                 displayError(`Worker error: ${error.message}`);
-            };
+            // Get worker code from the dedicated script tag
+            const workerScriptContent = document.getElementById('worker-script-content').textContent;
+        
+            if (!workerScriptContent) {
+                 displayError("Could not find the embedded worker script content.");
+                 return;
+            }
+        
+            console.log("Initializing worker from embedded script tag Blob...");
+            try {
+                // Create worker from Blob using the fetched content
+                pyodideWorker = new Worker(URL.createObjectURL(new Blob([workerScriptContent], { type: 'application/javascript' })));
+        
+                // --- Worker Message Handling (Keep Existing Logic) ---
+                pyodideWorker.onmessage = (event) => {
+                    // ... (keep existing onmessage logic) ...
+                     const { type, payload, output, outputType, message } = event.data;
+                     if (type === 'status') {
+                         console.log("Worker Status:", payload);
+                         loadingIndicator.textContent = `Loading Visualization Engine: ${payload}`;
+                     } else if (type === 'result') {
+                        console.log("Worker Result:", event.data);
+                        loadingIndicator.style.display = 'none';
+                        errorArea.style.display = 'none';
+                        outputArea.style.display = 'block';
+                        exportButtonsDiv.style.display = 'block'; // Show export buttons
+                        displayOutput(output, outputType);
+                     } else if (type === 'error') {
+                        console.error("Worker Error:", message);
+                        loadingIndicator.style.display = 'none';
+                        outputArea.style.display = 'none';
+                        exportButtonsDiv.style.display = 'none'; // Hide export buttons on error
+                        errorArea.style.display = 'block';
+                        displayError(message);
+                     }
+                };
+        
+                // --- Worker Error Handling (Keep Existing Logic) ---
+                pyodideWorker.onerror = (error) => {
+                     console.error("Worker onerror:", error);
+                     displayError(`Worker initialization error: ${error.message}`);
+                     loadingIndicator.style.display = 'none';
+                     outputArea.style.display = 'none';
+                     exportButtonsDiv.style.display = 'none';
+                     errorArea.style.display = 'block';
+                };
+        
+                // --- Send Initial Command (Keep Existing Logic) ---
+                console.log("Sending initial run command to worker...");
+                pyodideWorker.postMessage({ cmd: 'runPython', script: pythonScript, data: jsonData });
+        
+            } catch (initError) {
+                 console.error("Failed to create Worker:", initError);
+                 displayError(`Failed to initialize visualization engine: ${initError.message}`);
+                 loadingIndicator.style.display = 'none';
+                 outputArea.style.display = 'none';
+                 exportButtonsDiv.style.display = 'none';
+                 errorArea.style.display = 'block';
+            }
         }
 
         // --- Initialization ---
