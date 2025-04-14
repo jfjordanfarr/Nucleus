@@ -46,7 +46,10 @@
             border: 1px solid #ccc;
             background-color: #fff;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-height: 300px; /* Ensure space for plot */
+            /* Use viewport height - adjust 70vh as needed */
+            height: 70vh;
+            overflow: auto; /* Add scrollbars if content exceeds height */
+            resize: vertical; /* Optional: allow user resizing */
         }
         #export-buttons {
             text-align: center;
@@ -69,6 +72,80 @@
             background-color: #ccc;
             cursor: not-allowed;
         }
+
+        /* Modal Styles */
+        #code-modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+        }
+
+        #modal-content {
+            background-color: #fefefe;
+            margin: 5% auto; /* 5% from the top and centered */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; /* Could be more or less, depending on screen size */
+            height: 80%; /* Allow space around */
+            position: relative;
+            display: flex; /* Use flexbox for layout */
+            flex-direction: column; /* Stack elements vertically */
+        }
+
+        #modal-header {
+             padding-bottom: 10px;
+             border-bottom: 1px solid #ccc;
+             margin-bottom: 15px;
+             display: flex;
+             justify-content: space-between; /* Push title and close button apart */
+             align-items: center;
+        }
+
+         #modal-title {
+             font-size: 1.2em;
+             font-weight: bold;
+         }
+
+        #close-modal {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0 5px; /* Easier to click */
+            line-height: 1;
+        }
+
+        #close-modal:hover,
+        #close-modal:focus {
+            color: black;
+            text-decoration: none;
+        }
+
+        #modal-body {
+            flex-grow: 1; /* Allow body to take up remaining space */
+            overflow: auto; /* Add scrollbars to the code area if needed */
+            background-color: #f0f0f0; /* Light grey background for code */
+            border: 1px solid #ddd;
+        }
+
+         #modal-body pre {
+             margin: 0; /* Remove default pre margin */
+             padding: 10px;
+             white-space: pre-wrap; /* Wrap long lines */
+             word-wrap: break-word; /* Break long words if needed */
+         }
+
+         #modal-body code {
+             font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+             font-size: 0.9em;
+             color: #333;
+         }
     </style>
 
     <script type="text/worker-script" id="worker-script-content">
@@ -283,6 +360,20 @@ except NameError:
         <button id="export-png" disabled>Export PNG</button>
         <button id="export-svg" disabled>Export SVG</button>
         <button id="export-html" disabled>Export HTML</button>
+        <button id="view-python-code">View Python Code</button>
+    </div>
+
+    <!-- Code Viewer Modal -->
+    <div id="code-modal">
+        <div id="modal-content">
+           <div id="modal-header">
+               <span id="modal-title">Python Script Content</span>
+               <span id="close-modal">&times;</span>
+           </div>
+           <div id="modal-body">
+               <pre><code id="python-code-display"></code></pre>
+           </div>
+        </div>
     </div>
 
     <script type="text/javascript">
@@ -308,6 +399,12 @@ except NameError:
         const exportPngButton = document.getElementById('export-png');
         const exportSvgButton = document.getElementById('export-svg');
         const exportHtmlButton = document.getElementById('export-html');
+
+        // Add references for the modal
+        const viewCodeButton = document.getElementById('view-python-code');
+        const codeModal = document.getElementById('code-modal');
+        const closeModalButton = document.getElementById('close-modal');
+        const pythonCodeDisplay = document.getElementById('python-code-display');
 
         // --- UI Update Functions ---
         function displayError(message) {
@@ -534,6 +631,33 @@ except NameError:
                     downloadFile('visualization.html', fullHtmlContent, 'text/html');
                  } else {
                     alert('Cannot export current content as HTML.');
+                 }
+             });
+
+             // --- View Code Button Handler ---
+             viewCodeButton.addEventListener('click', () => {
+                 try {
+                     const pythonScriptContent = document.getElementById('python-script-content').textContent;
+                     if (pythonScriptContent) {
+                         pythonCodeDisplay.textContent = pythonScriptContent.trim(); // Display the code
+                         codeModal.style.display = "block"; // Show the modal
+                     } else {
+                         alert("Could not find the embedded Python script content.");
+                     }
+                 } catch (e) {
+                     alert(`Error retrieving Python code: ${e.message}`);
+                 }
+             });
+
+             // --- Modal Close Button Handler ---
+             closeModalButton.addEventListener('click', () => {
+                 codeModal.style.display = "none"; // Hide the modal
+             });
+
+             // Optional: Close modal if user clicks outside the modal content
+             window.addEventListener('click', (event) => {
+                 if (event.target == codeModal) {
+                     codeModal.style.display = "none";
                  }
              });
         });
