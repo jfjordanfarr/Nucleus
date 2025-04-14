@@ -7,14 +7,16 @@
     <!-- Corrected CSP for Pyodide & Plotly -->
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self';
-                   script-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly 'unsafe-inline' 'unsafe-eval';
-                   style-src 'self' 'unsafe-inline';
+                   script-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly https://cdnjs.cloudflare.com 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline';
                    img-src 'self' data:;
                    worker-src 'self' blob:;
                    connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org https://cdn.plot.ly;
                    object-src 'none';
                    base-uri 'self';
                    form-action 'self';">
+    <!-- Prism.js CSS (Choose a theme, e.g., Okaidia) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
     <style>
         /* BRANDING_CSS_PLACEHOLDER */
         body {
@@ -50,6 +52,13 @@
             height: 70vh;
             overflow: auto; /* Add scrollbars if content exceeds height */
             resize: vertical; /* Optional: allow user resizing */
+            display: flex; /* Use flexbox to help child sizing */
+            flex-direction: column; /* Stack children vertically */
+        }
+        /* Make Plotly div take available space */
+        #output-area .plotly-graph-div {
+            flex-grow: 1; /* Allow plot div to grow */
+            min-height: 0; /* Override any potential default min-height interfering with flex-grow */
         }
         #export-buttons {
             text-align: center;
@@ -110,7 +119,17 @@
          .modal-dialog-title {
              font-size: 1.2em;
              font-weight: bold;
+             margin-right: auto; /* Push title left */
          }
+
+        .modal-copy-button {
+            background-color: #eee;
+            border: 1px solid #ccc;
+            padding: 3px 8px;
+            font-size: 0.8em;
+            cursor: pointer;
+            margin-left: 15px; /* Space from title/close */
+        }
 
         .modal-dialog-close {
             color: #aaa;
@@ -144,7 +163,7 @@
          .modal-dialog-body code {
              font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
              font-size: 0.9em;
-             color: #333;
+             /* Color will be handled by Prism theme */
          }
     </style>
 
@@ -369,10 +388,11 @@ except NameError:
         <div id="modal-content" class="modal-dialog">
            <div id="modal-header" class="modal-dialog-header">
                <span id="modal-title" class="modal-dialog-title">Python Script Content</span>
+               <button id="copy-python-button" class="modal-copy-button">Copy</button>
                <span id="close-modal" class="modal-dialog-close">&times;</span>
            </div>
            <div id="modal-body" class="modal-dialog-body">
-               <pre><code id="python-code-display"></code></pre>
+               <pre><code id="python-code-display" class="language-python"></code></pre>
            </div>
         </div>
     </div>
@@ -382,10 +402,11 @@ except NameError:
         <div id="data-modal-content" class="modal-dialog">
            <div id="data-modal-header" class="modal-dialog-header">
                <span id="data-modal-title" class="modal-dialog-title">Input JSON Data</span>
+               <button id="copy-data-button" class="modal-copy-button">Copy</button>
                <span id="close-data-modal" class="modal-dialog-close">&times;</span>
            </div>
            <div id="data-modal-body" class="modal-dialog-body">
-               <pre><code id="json-data-display"></code></pre>
+               <pre><code id="json-data-display" class="language-json"></code></pre>
            </div>
         </div>
     </div>
@@ -425,6 +446,10 @@ except NameError:
         const dataModal = document.getElementById('data-modal');
         const closeDataModalButton = document.getElementById('close-data-modal');
         const jsonDataDisplay = document.getElementById('json-data-display');
+
+        // References for copy buttons
+        const copyPythonButton = document.getElementById('copy-python-button');
+        const copyDataButton = document.getElementById('copy-data-button');
 
         // --- UI Update Functions ---
         function displayError(message) {
@@ -668,6 +693,7 @@ except NameError:
                      const pythonScriptContent = document.getElementById('python-script-content').textContent;
                      if (pythonScriptContent) {
                          pythonCodeDisplay.textContent = pythonScriptContent.trim(); // Display the code
+                         Prism.highlightElement(pythonCodeDisplay); // Apply syntax highlighting
                          codeModal.style.display = "block"; // Show the modal
                      } else {
                          alert("Could not find the embedded Python script content.");
@@ -681,8 +707,13 @@ except NameError:
              viewDataButton.addEventListener('click', () => {
                  try {
                      const jsonDataContent = JSON.stringify(jsonData, null, 2); // Pretty print JSON
-                     jsonDataDisplay.textContent = jsonDataContent; // Display the data
-                     dataModal.style.display = "block"; // Show the modal
+                     if (jsonDataContent) {
+                         jsonDataDisplay.textContent = jsonDataContent; // Display the data
+                         Prism.highlightElement(jsonDataDisplay); // Apply syntax highlighting
+                         dataModal.style.display = "block"; // Show the modal
+                     } else {
+                         alert("Could not find the embedded JSON data.");
+                     }
                  } catch (e) {
                      alert(`Error retrieving or parsing JSON data: ${e.message}`);
                  }
@@ -698,6 +729,27 @@ except NameError:
                  dataModal.style.display = "none"; // Hide the modal
              });
 
+             // --- Copy Button Handlers --- 
+             copyPythonButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(pythonCodeDisplay.textContent).then(() => {
+                    copyPythonButton.textContent = 'Copied!';
+                    setTimeout(() => { copyPythonButton.textContent = 'Copy'; }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy Python code: ', err);
+                    alert('Failed to copy code.');
+                });
+             });
+
+             copyDataButton.addEventListener('click', () => {
+                navigator.clipboard.writeText(jsonDataDisplay.textContent).then(() => {
+                    copyDataButton.textContent = 'Copied!';
+                    setTimeout(() => { copyDataButton.textContent = 'Copy'; }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy JSON data: ', err);
+                    alert('Failed to copy data.');
+                });
+             });
+
              // Optional: Close modal if user clicks outside the modal content
              window.addEventListener('click', (event) => {
                  if (event.target == codeModal) { // Close code modal
@@ -709,7 +761,20 @@ except NameError:
              });
         });
 
-    </script>
+        // Prism.js Core and Components (Load after DOM is mostly ready)
+        const prismCore = document.createElement('script');
+        prismCore.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js';
+        document.body.appendChild(prismCore);
+
+        const prismPython = document.createElement('script');
+        prismPython.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js';
+        document.body.appendChild(prismPython);
+
+        const prismJson = document.createElement('script');
+        prismJson.src = 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js';
+        document.body.appendChild(prismJson);
+
+     </script>
 
 </body>
 </html>
