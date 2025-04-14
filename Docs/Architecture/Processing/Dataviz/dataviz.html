@@ -11,7 +11,7 @@
                    style-src 'self' 'unsafe-inline';
                    img-src 'self' data:;
                    worker-src 'self' blob:;
-                   connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org;
+                   connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org https://cdn.plot.ly;
                    object-src 'none';
                    base-uri 'self';
                    form-action 'self';">
@@ -207,26 +207,8 @@
         // self.postMessage({ type: 'status', payload: 'Worker script loaded.' });
         
     </script>
-</head>
-<body>
-    <h1>Interactive Visualization</h1>
 
-    <div id="loading-indicator">
-        Loading Visualization Engine (Pyodide)... This may take a moment.
-    </div>
-    <div id="error-area" style="display: none;"></div>
-    <div id="output-area" style="display: none;">
-        <!-- Plotly or Matplotlib output will be injected here -->
-    </div>
-    <div id="export-buttons" style="display: none;">
-        <button id="export-png" disabled>Export PNG</button>
-        <button id="export-svg" disabled>Export SVG</button>
-        <button id="export-html" disabled>Export HTML</button>
-    </div>
-
-    <script type="text/javascript">
-        // --- Configuration ---
-        const pythonScript = `
+    <script type="text/python-script" id="python-script-content">
 # === START OF PYTHON SCRIPT ===
 # AI Generated Code: Simple Scatter Plot
 import plotly.express as px
@@ -284,8 +266,27 @@ except NameError:
 
 
 # === END OF PYTHON SCRIPT ===
-`; // End of pythonScript template literal
+    </script>
 
+</head>
+<body>
+    <h1>Interactive Visualization</h1>
+
+    <div id="loading-indicator">
+        Loading Visualization Engine (Pyodide)... This may take a moment.
+    </div>
+    <div id="error-area" style="display: none;"></div>
+    <div id="output-area" style="display: none;">
+        <!-- Plotly or Matplotlib output will be injected here -->
+    </div>
+    <div id="export-buttons" style="display: none;">
+        <button id="export-png" disabled>Export PNG</button>
+        <button id="export-svg" disabled>Export SVG</button>
+        <button id="export-html" disabled>Export HTML</button>
+    </div>
+
+    <script type="text/javascript">
+        // --- Configuration ---
         const jsonData = [
           {"x_values": 1, "y_values": 5, "category": "A"},
           {"x_values": 2, "y_values": 10, "category": "A"},
@@ -333,11 +334,73 @@ except NameError:
             outputArea.innerHTML = ''; // Clear previous output
             try {
                 if (type === 'plotly') {
-                    // Inject the full HTML snippet from Python, which includes its own script tag
-                    console.log('Injecting full Plotly HTML snippet into outputArea.');
+                    console.log('Injecting Plotly HTML snippet into outputArea.');
                     outputArea.innerHTML = output;
+
+                    console.log('Processing scripts within injected HTML to ensure load order...');
+                    const scripts = outputArea.querySelectorAll('script');
+                    let plotlyLibraryScriptElement = null;
+                    const plotlyCallingScriptElements = [];
+                    const otherScriptElements = [];
+
+                    // Create new script elements and categorize them
+                    scripts.forEach(oldScript => {
+                        const newScript = document.createElement('script');
+                        Array.from(oldScript.attributes).forEach(attr => {
+                            newScript.setAttribute(attr.name, attr.value);
+                        });
+                        if (oldScript.textContent) {
+                            newScript.textContent = oldScript.textContent;
+                        }
+
+                        if (newScript.src && newScript.src.includes('cdn.plot.ly')) {
+                            plotlyLibraryScriptElement = newScript; // Assume only one library script
+                        } else if (newScript.textContent && newScript.textContent.includes('Plotly.newPlot')) {
+                            plotlyCallingScriptElements.push(newScript);
+                        } else {
+                            otherScriptElements.push(newScript);
+                        }
+                        // Remove the original non-executed script node (for cleanup, avoids double execution if browser behaves unexpectedly)
+                        oldScript.parentNode.removeChild(oldScript);
+                    });
+
+                    // Execute non-Plotly scripts first
+                    otherScriptElements.forEach(script => {
+                         console.log('Executing non-Plotly script:', script.src || 'inline script');
+                         outputArea.appendChild(script);
+                    });
+
+                    // Load Plotly library, then execute calling scripts on load
+                    if (plotlyLibraryScriptElement) {
+                        plotlyLibraryScriptElement.onload = () => {
+                            console.log('Plotly library loaded via onload. Executing dependent scripts...');
+                            plotlyCallingScriptElements.forEach(script => {
+                                 console.log('Executing Plotly-dependent script:', script.src || 'inline script');
+                                 outputArea.appendChild(script);
+                            });
+                        };
+                        plotlyLibraryScriptElement.onerror = () => {
+                             console.error('Failed to load Plotly library script!');
+                             displayError('Failed to load Plotly library. Cannot render visualization.');
+                        };
+                         console.log('Appending Plotly library script (will load async):', plotlyLibraryScriptElement.src);
+                         outputArea.appendChild(plotlyLibraryScriptElement);
+                    } else {
+                        // If no library found, but calling scripts exist, it's an error state
+                        if (plotlyCallingScriptElements.length > 0) {
+                             console.error('Plotly calling script found, but no Plotly library script detected!');
+                             displayError('Plotly library script missing in generated output. Cannot render visualization.');
+                        } else {
+                             console.log('No Plotly library script found, executing remaining scripts directly (if any).');
+                             plotlyCallingScriptElements.forEach(script => { // Should be empty in this case, but just in case
+                                 console.log('Executing script (no library dependency assumed):', script.src || 'inline script');
+                                 outputArea.appendChild(script);
+                             });
+                        }
+                    }
+
                 } else if (type === 'svg') {
-                    // Directly inject SVG content
+                    // Directly inject SVG content (no scripts expected here)
                     outputArea.innerHTML = output;
                 } else {
                     outputArea.textContent = "Unsupported output type.";
@@ -419,8 +482,14 @@ except NameError:
                 };
         
                 // --- Send Initial Command (Keep Existing Logic) ---
-                console.log("Sending initial run command to worker...");
-                pyodideWorker.postMessage({ cmd: 'runPython', script: pythonScript, data: jsonData });
+                // Get Python script from the dedicated script tag
+                const pythonScriptContent = document.getElementById('python-script-content').textContent;
+                if (!pythonScriptContent) {
+                    displayError("Could not find the embedded Python script content.");
+                    return;
+                }
+                console.log("Sending initial run command to worker with Python script from tag...");
+                pyodideWorker.postMessage({ cmd: 'runPython', script: pythonScriptContent, data: jsonData });
         
             } catch (initError) {
                  console.error("Failed to create Worker:", initError);
@@ -470,5 +539,6 @@ except NameError:
         });
 
     </script>
+
 </body>
 </html>
