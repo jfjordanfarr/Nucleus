@@ -287,7 +287,7 @@ finally:
             exportButtonsDiv.style.display = 'block';
 
             // Show relevant export buttons
-            exportSvgButton.style.display = (type === 'plotly' |
+            exportSvgButton.style.display = (type === 'plotly' ||
 | type === 'svg')? 'inline-block' : 'none';
             exportPngButton.style.display = (type === 'plotly')? 'inline-block' : 'none'; // PNG export easier with Plotly.js
             exportHtmlButton.style.display = (type === 'plotly')? 'inline-block' : 'none'; // HTML export makes sense for interactive Plotly
@@ -598,7 +598,7 @@ async Task StoreArtifactInSharePoint(GraphServiceClient graphClient, string grou
 
 **3.3. Task Module Delivery & Integrated Hosting:**
 
-- **Caching:** Use `IMemoryCache` for simplicity in a single-instance deployment or Redis for multi-instance.
+- **Caching:** Use `IMemoryCache` for simplicity and alignment with ephemeral processing goals. If performance in a multi-instance deployment *absolutely requires* shared state (which should generally be avoided), an external cache like Redis could be considered, but in-memory is strongly preferred.
 
 C#
 
@@ -679,7 +679,7 @@ app.MapGet("/api/renderViz", (string id, IMemoryCache cache, ILogger<Program> lo
                         "style-src 'self' 'unsafe-inline'; " +
                         "img-src 'self' data:; " +
                         "font-src * data:; " + // Allow fonts from anywhere + data URIs
-                        "connect-src 'self'; " + // Only allow connections back to self (if needed by JS, unlikely here)
+                        "connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org; " + // Allow connections to Pyodide/micropip
                         "worker-src 'self' blob:; " + // Allow worker scripts from self and blob URLs
                         "frame-ancestors https://teams.microsoft.com https://*.teams.microsoft.com https://*.cloud.microsoft;"; // Allow embedding in Teams
 
@@ -702,14 +702,14 @@ app.Run();
 ## 4. Security Considerations
 
 - **Python Template:** The strict structure, pre-defined imports, and clear AI code boundaries are crucial.
-- **CSP Header:** The `Content-Security-Policy` header set by the `/api/renderViz` endpoint is vital for mitigating XSS, restricting network connections, and ensuring the content can only be framed by Teams.
+- **CSP Header:** The `Content-Security-Policy` header set by the `/api/renderViz` endpoint is vital for mitigating XSS, restricting network connections, and ensuring the content can only be framed by Teams. **Crucially, for Pyodide/micropip to download packages, the `connect-src` directive MUST include `https://cdn.jsdelivr.net`, `https://pypi.org`, and `https://files.pythonhosted.org`. Additionally, `script-src` needs `'unsafe-inline'`, `'unsafe-eval'`, and the CDNs (`https://cdn.jsdelivr.net`, `https://cdn.plot.ly`), while `worker-src` requires `blob:` for the Pyodide worker.**
 - **Web Worker:** Isolates Pyodide execution, preventing UI freezes and enabling potential timeouts (though explicit timeout logic isn't shown in the snippet, it can be added around the worker interaction).
 - **Graph Permissions:** Use `Sites.Selected` for least privilege access to SharePoint.
 - **Input Validation:** The bot backend should ideally perform basic validation on the AI-generated Python snippet (e.g., checking for obviously malicious patterns, though this is hard) and the size/structure of the JSON data before generating the final HTML.
 
 ## 5. Deployment
 
-The C# Bot Framework application, now containing the bot logic (`/api/messages`), artifact generation, SharePoint upload logic, caching, and the HTML serving endpoint (`/api/renderViz`), can be deployed as a single unit to Azure App Service or Azure Container Apps. Ensure the service has network access to Microsoft Graph and potentially Redis (if used).
+The C# Bot Framework application, now containing the bot logic (`/api/messages`), artifact generation, SharePoint upload logic, caching (`IMemoryCache` preferred), and the HTML serving endpoint (`/api/renderViz`), can be deployed as a single unit to Azure App Service or Azure Container Apps. Ensure the service has network access to Microsoft Graph. External caching (like Redis) should generally be avoided but may require network configuration if deemed strictly necessary.
 
 ## 6. Conclusion
 

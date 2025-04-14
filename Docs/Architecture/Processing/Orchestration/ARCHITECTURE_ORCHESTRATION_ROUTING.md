@@ -29,10 +29,10 @@ The primary goals are:
 *   **`InteractionDispatcher`:** A central orchestration service triggered by messages on its Pub/Sub subscription.
 *   **`SessionRegistry`:** 
     *   **Initial Implementation:** An **in-memory collection** (e.g., a thread-safe dictionary managed by a singleton service) within the application instance (e.g., ACA). It tracks active Persona sessions (User + Persona + Conversation) primarily by storing `SessionId` and potentially minimal routing metadata (e.g., ConversationID) and/or identifiers pointing to the location of the session's ephemeral state.
-    *   **Future Scaling Options:** Depending on deployment target and scale requirements, this could be externalized to a distributed cache (e.g., Redis) or leverage platform-specific features (e.g., Cloudflare Durable Objects, Azure Durable Entities) if deployment flexibility is constrained.
+    *   **Future Scaling Options:** Depending on deployment target and scale requirements, if in-memory tracking becomes insufficient, this could potentially leverage platform-specific stateful features (e.g., Cloudflare Durable Objects, Azure Durable Entities) if deployment flexibility allows, while carefully considering the ephemeral processing goals.
     *   **Sensitivity:** The registry holds *identifiers* and routing hints, not the full sensitive session context contained within the scratchpad.
 *   **`EphemeralMarkdownScratchpad`:** A temporary file per active session holding its conversation history, current state, draft responses, and metadata.
-*   **`InternalEventBus`:** An in-process or local cluster eventing mechanism (e.g., MediatR, Dapr Pub/Sub) for broadcasting hydrated messages.
+*   **`InternalEventBus`:** An in-process or distributed mechanism (like MediatR or a lightweight Pub/Sub) for broadcasting events *within* the processing service, primarily used here to fan out the hydrated message to active session handlers.
 
 ## 3. Proposed Routing Flow
 

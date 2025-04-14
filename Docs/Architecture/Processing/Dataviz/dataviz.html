@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nucleus Visualization</title>
+    <!-- Corrected CSP for Pyodide & Plotly -->
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://cdn.jsdelivr.net https://cdn.plot.ly 'unsafe-inline' 'unsafe-eval';
+                   style-src 'self' 'unsafe-inline';
+                   img-src 'self' data:;
+                   worker-src 'self' blob:;
+                   connect-src 'self' https://cdn.jsdelivr.net https://pypi.org https://files.pythonhosted.org;
+                   object-src 'none';
+                   base-uri 'self';
+                   form-action 'self';">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        /* BRANDING_CSS_PLACEHOLDER */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            color: #005a9e; /* A corporate blue */
+            text-align: center;
+            border-bottom: 2px solid #005a9e;
+            padding-bottom: 10px;
+        }
+        #loading-indicator, #error-area {
+            text-align: center;
+            margin-top: 50px;
+            font-style: italic;
+            color: #666;
+        }
+        #error-area {
+            color: #d9534f; /* Bootstrap danger red */
+            font-weight: bold;
+            white-space: pre-wrap; /* Preserve error formatting */
+        }
+        #output-area {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            min-height: 300px; /* Ensure space for plot */
+        }
+        #export-buttons {
+            text-align: center;
+            margin-top: 15px;
+        }
+        button {
+            background-color: #5cb85c; /* Bootstrap success green */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        button:hover {
+            background-color: #4cae4c;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Visualization</h1>
+
+    <div id="loading-indicator">
+        Loading Visualization Engine (Pyodide)... This may take a moment.
+    </div>
+    <div id="error-area" style="display: none;"></div>
+    <div id="output-area" style="display: none;">
+        <!-- Plotly or Matplotlib output will be injected here -->
+    </div>
+    <div id="export-buttons" style="display: none;">
+        <button id="export-png" disabled>Export PNG</button>
+        <button id="export-svg" disabled>Export SVG</button>
+        <button id="export-html" disabled>Export HTML</button>
+    </div>
+
+    <script type="text/javascript">
+        // --- Configuration ---
+        const pythonScript = `
+# === START OF PYTHON SCRIPT ===
+# AI Generated Code: Simple Scatter Plot
+import plotly.express as px
+import pandas as pd
+import js  # Necessary for Pyodide <-> JS interaction
+
+js.console.log("Starting AI-generated Python code execution...")
+
+# Assuming 'raw_data_py' is provided by the template host
+try:
+    if 'raw_data_py' in globals():
+        js.console.log("Raw data received from host.")
+        df = pd.DataFrame(raw_data_py)
+
+        # Basic validation
+        if 'x_values' not in df.columns or 'y_values' not in df.columns:
+            raise ValueError("Input data missing required columns: 'x_values', 'y_values'")
+
+        js.console.log(f"DataFrame created with {len(df)} rows. Columns: {list(df.columns)}")
+
+        fig = px.scatter(df,
+                         x='x_values',
+                         y='y_values',
+                         title='Sample Scatter Plot from AI',
+                         labels={'x_values': 'Independent Variable', 'y_values': 'Dependent Variable'},
+                         hover_data=df.columns) # Show all data on hover
+
+        fig.update_layout(margin=dict(l=20, r=20, t=40, b=20)) # Adjust margins
+
+        # Generate HTML snippet for Plotly figure
+        # Use 'cdn' to ensure Plotly.js is loaded if needed
+        # full_html=False makes it a div, not a full page
+        fig_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+        js.console.log("Plotly figure HTML generated.")
+
+        # Make the result available to the host script (worker expects 'fig_html' or 'svg_string')
+        output_type = 'plotly' # Indicate the type of output
+
+    else:
+        raise NameError("'raw_data_py' not found in global scope.")
+
+except Exception as e:
+    js.console.error(f"Error during Python execution: {type(e).__name__}: {e}")
+    # Propagate error back to host - the worker script handles this
+    raise e
+
+js.console.log("Finished AI-generated Python code execution.")
+
+# Cleanup (optional but good practice)
+try:
+    del df
+    del fig
+except NameError:
+    pass # In case they weren't defined due to error
+
+
+# === END OF PYTHON SCRIPT ===
+`; // End of pythonScript template literal
+
+        const jsonData = [
+          {"x_values": 1, "y_values": 5, "category": "A"},
+          {"x_values": 2, "y_values": 10, "category": "A"},
+          {"x_values": 3, "y_values": 7, "category": "B"},
+          {"x_values": 4, "y_values": 14, "category": "A"},
+          {"x_values": 5, "y_values": 12, "category": "B"}
+        ]; // Placeholder for data object
+
+        // --- Pyodide Initialization and Execution (using Web Worker) ---
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const outputArea = document.getElementById('output-area');
+        const errorArea = document.getElementById('error-area');
+        const exportButtonsDiv = document.getElementById('export-buttons');
+        const exportPngButton = document.getElementById('export-png');
+        const exportSvgButton = document.getElementById('export-svg');
+        const exportHtmlButton = document.getElementById('export-html');
+
+        let pyodideWorker = null;
+        let currentOutputType = null; // 'plotly' or 'svg'
+        let currentOutputContent = null; // HTML or SVG string
+
+        // --- Define Worker Script ---
+        // Moved outside the initialization function to avoid parsing issues
+        const pyodideWorkerScript = `
+// Worker script
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js");
+
+let pyodide = null;
+
+async function loadPyodideAndPackages() {
+    pyodide = await loadPyodide();
+    await pyodide.loadPackage(["micropip"]);
+    const micropip = pyodide.pyimport("micropip");
+    await micropip.install(['pandas', 'plotly']); // Add libraries needed by the AI script
+    postMessage({ type: 'status', payload: 'Pyodide and packages loaded.' }); // Use payload for consistency
+}
+
+let pyodideLoadingPromise = loadPyodideAndPackages();
+
+self.onmessage = async function(e) {
+    console.log('Worker: Message received from main script. Command:', e.data.cmd); // Log cmd
+    postMessage({ type: 'status', payload: 'Worker received message. Processing...' });
+
+    await pyodideLoadingPromise; // Ensure loading is finished
+
+    if (e.data.cmd === 'runPython') {
+        const { script, data } = e.data;
+        pyodide.globals.set('raw_data_py', pyodide.toPy(data)); // Make JSON data available
+
+        // Define cleanup script using standard string with explicit newlines
+        const pythonCleanupScript = "# Cleanup placeholder"; // Simplified for debugging
+
+        try {
+            await pyodide.runPythonAsync(script);
+            // Retrieve results from Python global scope
+            let outputContent = null;
+            let outputType = pyodide.globals.get('output_type'); // Expect python script to set this
+
+            if (outputType === 'plotly') {
+                outputContent = pyodide.globals.get('fig_html');
+            } else if (outputType === 'matplotlib' || outputType === 'svg') {
+                outputContent = pyodide.globals.get('svg_string');
+                outputType = 'svg'; // Standardize
+            } else {
+                throw new Error('Python script did not set a recognized output_type ("plotly" or "svg") or produce expected output variable (fig_html/svg_string).');
+            }
+
+            postMessage({ type: 'result', output: outputContent, outputType: outputType });
+
+        } catch (error) {
+            postMessage({ type: 'error', message: error.message });
+        } finally {
+             // Clean up globals in Pyodide environment
+             pyodide.runPython(pythonCleanupScript);
+        }
+    }
+};
+
+console.log('Pyodide worker: Script parsed (onmessage handler enabled).');
+
+`; // End of pyodideWorkerScript definition
+
+        function displayError(message) {
+            console.error("Pyodide/Python Error:", message);
+            loadingIndicator.style.display = 'none';
+            outputArea.style.display = 'none';
+            exportButtonsDiv.style.display = 'none';
+            // Sanitize or limit error message length if necessary
+            errorArea.textContent = `Error processing visualization:\n${message.substring(0, 1000)}${message.length > 1000 ? '...' : ''}`;
+            errorArea.style.display = 'block';
+            if (pyodideWorker) {
+                pyodideWorker.terminate(); // Clean up worker on error
+                pyodideWorker = null;
+            }
+        }
+
+        function displayOutput(output, type) {
+            currentOutputType = type;
+            currentOutputContent = output;
+            console.log('DisplayOutput received type:', type);
+            console.log('DisplayOutput received output content:', output); // Log the received content
+            loadingIndicator.style.display = 'none';
+            errorArea.style.display = 'none';
+            outputArea.innerHTML = ''; // Clear previous output
+            try {
+                if (type === 'plotly') {
+                    // Remove the redundant script tag trying to load plotly again
+                    const cleanedOutput = output.replace(/<script.*?src="https:\/\/cdn\.plot\.ly\/plotly-.*?\.min\.js"><\/script>/i, ''); // Correctly escaped for JSON
+                    console.log('Cleaned Plotly HTML:', cleanedOutput);
+                    outputArea.innerHTML = cleanedOutput; 
+                } else if (type === 'svg') {
+                    // Directly inject SVG content
+                    outputArea.innerHTML = output;
+                } else {
+                    outputArea.textContent = "Unsupported output type.";
+                }
+                outputArea.style.display = 'block';
+                exportButtonsDiv.style.display = 'block';
+                updateExportButtonStates(type);
+            } catch (e) {
+                displayError(`Error rendering output: ${e.message}`);
+            }
+        }
+
+        function updateExportButtonStates(type) {
+            // Enable/disable based on output type and library capabilities
+            exportPngButton.disabled = true; // PNG requires extra steps/libraries not included by default
+            exportSvgButton.disabled = !(type === 'svg'); // Only enable if output IS SVG
+            exportHtmlButton.disabled = !(type === 'plotly' || type === 'svg'); // Enable if we have HTML or SVG
+        }
+
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // --- Worker Setup and Communication ---
+        function initializePyodideWorker() {
+            // Use the pre-defined worker script constant
+            pyodideWorker = new Worker(URL.createObjectURL(new Blob([pyodideWorkerScript], { type: 'application/javascript' })));
+
+            pyodideWorker.onmessage = (event) => {
+                if (event.data.type === 'status') {
+                    console.log("Worker Status:", event.data.payload); // Use payload
+                    loadingIndicator.textContent = `Loading Visualization Engine: ${event.data.payload}`; // Use payload
+                    if (event.data.payload.includes('loaded')) { // Use payload
+                       loadingIndicator.textContent = 'Running analysis...';
+                       pyodideWorker.postMessage({ cmd: 'runPython', script: pythonScript, data: jsonData });
+                    }
+                } else if (event.data.type === 'result') {
+                    displayOutput(event.data.output, event.data.outputType);
+                } else if (event.data.type === 'error') {
+                    displayError(event.data.message);
+                }
+            };
+
+            pyodideWorker.onerror = (error) => {
+                 displayError(`Worker error: ${error.message}`);
+            };
+        }
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initializePyodideWorker();
+
+            // --- Export Button Handlers ---
+             exportPngButton.addEventListener('click', () => {
+                 alert("PNG export is not implemented in this basic template.");
+                 // Implementation would likely involve using Plotly.toImage or a canvas library
+             });
+
+             exportSvgButton.addEventListener('click', () => {
+                 if (currentOutputType === 'svg' && currentOutputContent) {
+                     downloadFile('visualization.svg', currentOutputContent, 'image/svg+xml');
+                 } else {
+                     alert('SVG export only available for SVG output.');
+                 }
+             });
+
+             exportHtmlButton.addEventListener('click', () => {
+                 let fullHtmlContent = "";
+                 const header = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Exported Visualization</title>`;
+                 const style = `<style>/* Add any necessary styles for standalone viewing */ body { margin: 20px; }</style>`;
+
+                 if (currentOutputType === 'plotly' && currentOutputContent) {
+                    // Plotly HTML snippet usually includes a script tag to render itself
+                    // Or, just inject the HTML string which includes its own script tags
+                    fullHtmlContent = `${header}${style}<script src="https://cdn.plot.ly/plotly-latest.min.js"><\/script></head><body>${currentOutputContent}</body></html>`;
+                    downloadFile('visualization.html', fullHtmlContent, 'text/html');
+                 } else if (currentOutputType === 'svg' && currentOutputContent) {
+                    fullHtmlContent = `${header}${style}</head><body>${currentOutputContent}</body></html>`;
+                    downloadFile('visualization.html', fullHtmlContent, 'text/html');
+                 } else {
+                    alert('Cannot export current content as HTML.');
+                 }
+             });
+        });
+
+    </script>
+</body>
+</html>
