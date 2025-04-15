@@ -31,39 +31,58 @@ The Persona's response payload should indicate a desire to generate a visualizat
 
 ## 3. Artifact Generation Process (`viz.html`)
 
-Upon receiving a response payload containing a visualization request from a Persona, the responsible **Platform Adapter** (e.g., `Nucleus.Adapters.Teams`) performs the following steps to generate the self-contained `viz.html` artifact:
+Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component (e.g., invoked by the Orchestrator)** performs the following steps to generate the self-contained `viz.html` artifact:
 
-1.  **Load Template:** Reads the content of the standard `template.html` file. This template contains the necessary HTML structure, CSS, Pyodide/Plotly CDN links, and JavaScript logic.
-2.  **Inject Branding:** Replaces a designated CSS placeholder (e.g., `/* BRANDING_CSS */`) in the template with platform-specific or configured branding styles.
-3.  **Inject Python Script:**
+1.  **Load Templates:** Reads the content of the standard template files (`dataviz_template.html`, `dataviz_styles.css`, `dataviz_script.js`, `dataviz_plotly_script.py`, `dataviz_worker.js`) located within the Processing service's resources.
+2.  **Inject Python Script:**
     *   Retrieves the Python code snippet provided by the Persona.
-    *   **Escapes** the snippet appropriately for embedding within a JavaScript multiline template literal (e.g., escaping backticks, backslashes, `${` sequences).
-    *   Injects the escaped snippet into the corresponding placeholder within the JavaScript section of the template (e.g., replacing `### START AI GENERATED CODE ###`).
-4.  **Inject JSON Data:**
+    *   **Escapes** the snippet appropriately for embedding within a JavaScript multiline template literal (e.g., escaping backticks, backslashes, `${` sequences) within the `dataviz_script.js` content placeholder.
+3.  **Inject JSON Data:**
     *   Retrieves the JSON data object provided by the Persona.
     *   Serializes the data into a JSON string if necessary.
-    *   Injects the JSON string directly into the JavaScript placeholder (e.g., replacing `/* JSON_DATA_PLACEHOLDER */ {}` with `/* JSON_DATA_PLACEHOLDER */ { ... actual data ... }`).
-5.  **Output:** The result is a complete HTML content string (`finalHtml`) representing the `viz.html` artifact, ready for storage and delivery.
+    *   Injects the JSON string directly into the appropriate JavaScript placeholder within the `dataviz_script.js` content placeholder.
+4.  **Assemble HTML:** Performs string replacements on the `dataviz_template.html` content:
+    *   Injects the content of `dataviz_styles.css` into `{{CSS_STYLES}}`.
+    *   Injects the modified `dataviz_script.js` content (containing the injected Python and JSON) into `{{MAIN_SCRIPT}}`.
+    *   Injects the original Python script content into `{{PYTHON_SCRIPT}}` (for the code viewer modal).
+    *   Injects the content of `dataviz_worker.js` into `{{WORKER_SCRIPT}}`.
+    *   Injects the JSON data string into `{{JSON_DATA}}` (for the data viewer modal).
+5.  **Output:** The result is a complete HTML content string (`finalHtml`) representing the `viz.html` artifact, ready to be passed to the Client Adapter for delivery.
 
-## 4. The `viz.html` Template Structure
+## 4. The Dataviz Template Structure
 
-The `template.html` is the core foundation for the interactive visualization. Its key components include:
+The structure relies on several template files assembled at runtime:
+
+*   **`dataviz_template.html`:** The main HTML structure containing placeholders for CSS, main JS, Python script, worker script, and JSON data.
+*   **`dataviz_styles.css`:** Contains all the CSS rules.
+*   **`dataviz_script.js`:** The main JavaScript logic. Contains placeholders for embedding the specific Python script and JSON data provided by the Persona.
+*   **`dataviz_plotly_script.py`:** (Or similar) The template Python script structure, including standard imports and logic to execute code provided by the Persona.
+*   **`dataviz_worker.js`:** The web worker script that initializes Pyodide and runs the Python script.
+
+Key components within the assembled HTML:
 
 *   **HTML Boilerplate:** Standard HTML5 structure.
 *   **CDN Links:** `<script>` tags to load Pyodide and Plotly.js libraries.
-*   **CSS:** Basic styling for loading indicators, output areas, error messages, and export buttons, plus a placeholder for branding injection.
-*   **HTML Structure:** `div` elements for displaying loading status, the visualization output (`#output-area`), error messages (`#error-area`), and export buttons (`#export-buttons`).
-*   **JavaScript Logic:**
-    *   **Placeholders:** Variables (`pythonScript`, `jsonData`) where the backend injects the Persona-provided code and data.
-    *   **Pyodide Initialization:** Code to load the Pyodide runtime, potentially loading core Python packages (`pandas`, `plotly`, etc.). This initialization runs within a **Web Worker** to avoid blocking the UI thread.
-    *   **Worker Communication:** Uses `postMessage` to send the Python script and data to the worker and receive results (completion payload, error messages, progress updates) back.
-    *   **DOM Manipulation:** Handles displaying loading indicators, injecting the rendered HTML/SVG output into `#output-area`, showing errors in `#error-area`, and managing the visibility of export buttons.
-    *   **Export Functions:** Event handlers for export buttons (PNG, SVG, HTML) that leverage Plotly.js capabilities or Blob/download techniques.
-*   **Embedded Python Template:** The `pythonScript` JavaScript variable contains the multi-line string literal holding the Python code structure:
-    *   **Fixed Preamble:** Imports common libraries (`js`, `json`, `io`, `pandas`, `plotly`, `matplotlib`, `seaborn`, etc.). Defines helper functions (`render_plotly_to_div_string`, `render_matplotlib_to_svg_string`).
-    *   **Data Loading:** Code to access the `js.jsonData` object passed from JavaScript and convert it into a usable Python format (e.g., Pandas DataFrame).
-    *   **AI Code Section:** The placeholder (`### START AI GENERATED CODE ###` ... `### END AI GENERATED CODE ###`) where the Persona's specific visualization logic is inserted.
-    *   **Fixed Postamble:** Code to check which figure variable (`final_fig_plotly` or `final_fig_matplotlib`) was assigned by the AI code, call the appropriate rendering helper function, handle errors, and send the result (or error) back to the main JavaScript thread via `js.pyodideWorker.postMessage`. Includes critical resource cleanup like `plt.close(fig)`.
+*   **CSS:** Styling for loading indicators, output areas, error messages, export buttons, and modals.
+*   **HTML Structure:** `div` elements for displaying loading status, the visualization output (`#output-area`), error messages (`#error-area`), export/view buttons, and modals.
+*   **JavaScript Logic (`dataviz_script.js` Content):
+    *   **Embedded Content:** Reads the Python script, JSON data, and worker script content from embedded `<script>` tags within the final HTML.
+    *   **Pyodide Initialization:** Code to load the Pyodide runtime via a Web Worker created from a Blob URL derived from the embedded worker script content.
+    *   **Worker Communication:** Uses `postMessage` to send the Python script and data to the worker and receive results.
+    *   **DOM Manipulation:** Handles UI updates (loading, output, errors, modals).
+    *   **Export/View Functions:** Event handlers for buttons (Export PNG/SVG/HTML, View Code/Data/Logs).
+*   **Embedded Worker Script (`dataviz_worker.js` Content):
+    *   Initializes Pyodide, installs required packages (like `micropip`).
+    *   Receives Python code and JSON data via `onmessage`.
+    *   Executes the Python code, providing access to the data.
+    *   Uses `postMessage` to send results (or errors) back to the main thread.
+*   **Embedded Python Script (`dataviz_plotly_script.py` Content):
+    *   Provides the structure for the Python code executed by the worker.
+    *   Includes standard imports (`pyodide_http`, `micropip`, `pandas`, `plotly.express`, etc.).
+    *   Loads the JSON data passed from the worker's `onmessage` handler.
+    *   Executes the specific visualization logic provided by the Persona.
+    *   Assigns the result to a standard variable (e.g., `plotly_figure`).
+    *   Renders the figure to HTML/JSON for sending back to the main thread.
 
 ## 5. Security Considerations
 
@@ -77,4 +96,4 @@ Security is handled through multiple layers inherent in the design:
 
 ## 6. Relationship to Client Adapters
 
-While the *request* for a visualization originates from a Persona's analysis, the **implementation** of artifact generation (populating the `template.html`) and the delivery mechanism (e.g., Task Modules, file storage) resides within the **specific Client Adapter** (e.g., `Nucleus.Adapters.Teams`) responsible for the user interaction context. This ensures that platform-specific UI capabilities and APIs (like Graph API for SharePoint storage) are handled appropriately.
+While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer, the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., `Nucleus.Adapters.Teams`, `Nucleus.Adapters.Console`) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).

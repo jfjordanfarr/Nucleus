@@ -1,3 +1,5 @@
+using Nucleus.Processing;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -8,6 +10,9 @@ builder.Services.AddProblemDetails();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Add services from the Nucleus.Processing library
+builder.Services.AddProcessingServices();
 
 var app = builder.Build();
 

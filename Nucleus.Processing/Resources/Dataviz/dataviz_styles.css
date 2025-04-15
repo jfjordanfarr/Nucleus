@@ -1,0 +1,181 @@
+/* BRANDING_CSS_PLACEHOLDER */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+h1 {
+    color: #005a9e; /* A corporate blue */
+    text-align: center;
+    border-bottom: 2px solid #005a9e;
+    padding-bottom: 10px;
+}
+#loading-indicator, #error-area {
+    text-align: center;
+    margin-top: 50px;
+    font-style: italic;
+    color: #666;
+}
+#error-area {
+    color: #d9534f; /* Bootstrap danger red */
+    font-weight: bold;
+    white-space: pre-wrap; /* Preserve error formatting */
+}
+
+#error-area {
+    display: none;
+    color: red;
+    border: 1px solid red;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+#output-area {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    /* Use viewport height - adjust 70vh as needed */
+    height: 70vh;
+    overflow: auto; /* Add scrollbars if content exceeds height */
+    resize: vertical; /* Optional: allow user resizing */
+    display: flex; /* Use flexbox to help child sizing */
+    flex-direction: column; /* Stack children vertically */
+}
+
+/* Make Plotly div take available space */
+#output-area .plotly-graph-div {
+    flex-grow: 1; /* Allow plot div to grow */
+    min-height: 0; /* Override any potential default min-height interfering with flex-grow */
+}
+#export-buttons {
+    text-align: center;
+    margin-top: 15px;
+}
+
+#export-buttons {
+    display: none;
+    margin-top: 15px;
+}
+
+button {
+    background-color: #5cb85c; /* Bootstrap success green */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+button:hover {
+    background-color: #4cae4c;
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#view-worker-log {
+    display: none; /* Initially hidden */
+}
+
+#plot-area {
+    /* display: none; */ /* Initially hidden by JS */
+    border: 1px solid #ccc;
+    margin-top: 10px; /* Reduced margin */
+    width: 100%;
+    /* height: 600px; REMOVED fixed height */
+    box-sizing: border-box;
+    flex-grow: 1; /* Allow plot area to grow vertically in flex container */
+    min-height: 0; /* Prevent flexbox sizing issues */
+    position: relative; /* Ensure Plotly positions correctly within */
+}
+
+/* Modal Styles (Shared class for common styles) */
+.modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+}
+
+.modal-dialog {
+    background-color: #fefefe;
+    margin: 5% auto; /* 5% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    height: 80%; /* Allow space around */
+    position: relative;
+    display: flex; /* Use flexbox for layout */
+    flex-direction: column; /* Stack elements vertically */
+}
+
+.modal-dialog-header {
+     padding-bottom: 10px;
+     border-bottom: 1px solid #ccc;
+     margin-bottom: 15px;
+     display: flex;
+     justify-content: space-between; /* Push title and close button apart */
+     align-items: center;
+}
+
+ .modal-dialog-title {
+     font-size: 1.2em;
+     font-weight: bold;
+     margin-right: auto; /* Push title left */
+ }
+
+.modal-copy-button {
+    background-color: #eee;
+    border: 1px solid #ccc;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    cursor: pointer;
+    margin-left: 15px; /* Space from title/close */
+}
+
+.modal-dialog-close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 5px; /* Easier to click */
+    line-height: 1;
+}
+
+.modal-dialog-close:hover,
+.modal-dialog-close:focus {
+    color: black;
+    text-decoration: none;
+}
+
+.modal-dialog-body {
+    flex-grow: 1; /* Allow body to take up remaining space */
+    overflow: auto; /* Add scrollbars to the code area if needed */
+    background-color: #f0f0f0; /* Light grey background for code */
+    border: 1px solid #ddd;
+}
+
+ .modal-dialog-body pre {
+    margin: 0; /* Remove default pre margin */
+    padding: 10px; /* Add some padding inside */
+}
+
+/* Worker Log Modal Styles (copying structure from code/data modals) */
+#worker-log-modal .modal-dialog-body code {
+     font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; /* Ensure monospace */
+     font-size: 0.9em;
+     /* Color will be handled by Prism theme */
+}
+
+.modal-copy-button:active {
+    background-color: #d4d4d4; /* Slight visual feedback on click */
+}
