@@ -31,7 +31,7 @@ The Persona's response payload should indicate a desire to generate a visualizat
 
 ## 3. Artifact Generation Process (`viz.html`)
 
-Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component (e.g., invoked by the Orchestrator)** performs the following steps to generate the self-contained `viz.html` artifact:
+Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component** (implemented by the `Nucleus.Processing.Services.DatavizHtmlBuilder` class - see [`../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs`](../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)) performs the following steps to generate the self-contained `viz.html` artifact:
 
 1.  **Load Templates:** Reads the content of the standard template files (`dataviz_template.html`, `dataviz_styles.css`, `dataviz_script.js`, `dataviz_plotly_script.py`, `dataviz_worker.js`) located within the Processing service's resources.
 2.  **Inject Python Script:**
@@ -51,13 +51,7 @@ Upon receiving a response payload containing a visualization request from a Pers
 
 ## 4. The Dataviz Template Structure
 
-The structure relies on several template files assembled at runtime:
-
-*   **`dataviz_template.html`:** The main HTML structure containing placeholders for CSS, main JS, Python script, worker script, and JSON data.
-*   **`dataviz_styles.css`:** Contains all the CSS rules.
-*   **`dataviz_script.js`:** The main JavaScript logic. Contains placeholders for embedding the specific Python script and JSON data provided by the Persona.
-*   **`dataviz_plotly_script.py`:** (Or similar) The template Python script structure, including standard imports and logic to execute code provided by the Persona.
-*   **`dataviz_worker.js`:** The web worker script that initializes Pyodide and runs the Python script.
+The structure relies on several template files assembled at runtime by `DatavizHtmlBuilder`. See the [`ARCHITECTURE_DATAVIZ_TEMPLATE.md`](./Dataviz/ARCHITECTURE_DATAVIZ_TEMPLATE.md) document for a detailed breakdown of each file's role and content.
 
 Key components within the assembled HTML:
 

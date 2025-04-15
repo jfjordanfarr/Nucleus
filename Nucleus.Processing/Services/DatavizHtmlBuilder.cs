@@ -14,6 +14,8 @@ namespace Nucleus.Processing.Services;
 /// Service responsible for building the self-contained HTML for Pyodide-based data visualizations.
 /// Reads template files and injects Persona-provided Python code and JSON data.
 /// </summary>
+/// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md"/>
+/// <seealso cref="../../Docs/Architecture/Processing/Dataviz/ARCHITECTURE_DATAVIZ_TEMPLATE.md"/>
 public class DatavizHtmlBuilder
 {
     private readonly ILogger<DatavizHtmlBuilder> _logger;
@@ -54,6 +56,8 @@ public class DatavizHtmlBuilder
     /// <param name="personaPythonScript">The specific Python code snippet provided by the Persona.</param>
     /// <param name="jsonData">The JSON data string required by the Python script.</param>
     /// <returns>A string containing the complete HTML artifact, or null if an error occurred.</returns>
+    /// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md"/>
+    /// <seealso cref="../../Docs/Architecture/Processing/Dataviz/ARCHITECTURE_DATAVIZ_TEMPLATE.md"/>
     public async Task<string?> BuildVisualizationHtmlAsync(string personaPythonScript, string jsonData)
     {
         _logger.LogInformation("Attempting to build Dataviz HTML artifact.");
