@@ -1,22 +1,22 @@
 title: "Requirements: MVP - Console Application Interaction"
 description: Minimum requirements for the initial Console Application interaction model for Nucleus OmniRAG, focusing on rapid iteration.
-version: 1.0
-date: 2025-04-11
+version: 1.1
+date: 2025-04-15
 
 # Requirements: MVP - Console Application Interaction
 
-**Version:** 1.0
-**Date:** 2025-04-11
+**Version:** 1.1
+**Date:** 2025-04-15
 
 ## 1. Goal
 
-To establish the core interaction loop for Nucleus OmniRAG using a **Console Application (`Nucleus.Console`)** as the primary client. This MVP focuses on validating the fundamental backend architecture (`Nucleus.Api`), persona integration (`BootstrapperPersona`), and basic data flow (query, simple ingestion placeholder) in a way that **maximizes development velocity and synergy with agentic development workflows**. The local development environment using **.NET Aspire** with emulated services is critical.
+To establish the core interaction loop for Nucleus OmniRAG using a **Console Application (`Nucleus.Console`)** as the primary client. This MVP focuses on validating the fundamental backend architecture (`Nucleus.ApiService`), persona integration (`BootstrapperPersona`), and basic data flow (query, simple ingestion placeholder) in a way that **maximizes development velocity and synergy with agentic development workflows**. The local development environment using **.NET Aspire** with emulated services is critical.
 
 ## 2. Scope
 
 *   **Client:** `Nucleus.Console` .NET Console Application.
 *   **Interaction:** Command-line interface (CLI) for querying and basic ingestion triggering.
-*   **Backend:** `Nucleus.Api` ASP.NET Core Web API providing endpoints for the Console App.
+*   **Backend:** `Nucleus.ApiService` ASP.NET Core Web API providing endpoints for the Console App.
 *   **Processing:** Basic query handling by a single `BootstrapperPersona`. Placeholder for ingestion flow.
 *   **Data Storage:** Basic storage for persona knowledge entries (Cosmos DB emulator).
 *   **Environment:** Local development using .NET Aspire, orchestrating the Console App, API, and the essential emulated Azure service (Cosmos DB). Processing uses ephemeral container storage, not external blobs.
@@ -27,9 +27,9 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 
 *   **REQ-MVP-ENV-001:** The `.NET Aspire` AppHost (`Nucleus.AppHost`) MUST successfully launch and orchestrate the following essential components:
     *   `Nucleus.Console` project.
-    *   `Nucleus.Api` project.
+    *   `Nucleus.ApiService` project.
     *   Azure Cosmos DB Emulator container.
-*   **REQ-MVP-ENV-002:** Aspire MUST correctly inject necessary connection strings and service discovery information (e.g., API base URL, Cosmos connection) into both `Nucleus.Api` and `Nucleus.Console` via configuration/environment variables.
+*   **REQ-MVP-ENV-002:** Aspire MUST correctly inject necessary connection strings and service discovery information (e.g., API base URL, Cosmos connection) into both `Nucleus.ApiService` and `Nucleus.Console` via configuration/environment variables.
 *   **REQ-MVP-ENV-003:** Developers MUST be able to run the entire MVP stack locally using a single command (e.g., `dotnet run` in the AppHost directory).
 
 ### 3.2. Admin Experience (Configuration)
@@ -43,19 +43,19 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 *   **REQ-MVP-CON-001:** The Console App MUST provide a clear command-line interface (using `System.CommandLine` or similar).
 *   **REQ-MVP-CON-002:** The Console App MUST support a `query` command:
     *   Accepts user query text as an argument (e.g., `nucleus query "What is the capital of France?"`).
-    *   Calls the `/api/query` endpoint on `Nucleus.Api`.
+    *   Calls the `/api/query` endpoint on `Nucleus.ApiService`.
     *   Displays the response received from the API clearly formatted on the console.
 *   **REQ-MVP-CON-003:** The Console App MUST support an `ingest` command (placeholder functionality for MVP):
     *   Accepts a file path or identifier as an argument (e.g., `nucleus ingest ./myfile.txt`).
-    *   Calls a placeholder `/api/ingest` endpoint on `Nucleus.Api` (The API might just log receipt for MVP).
+    *   Calls a placeholder `/api/ingest` endpoint on `Nucleus.ApiService` (The API might just log receipt for MVP).
     *   Displays a confirmation message on the console (e.g., "Ingestion request sent for ./myfile.txt").
 *   **REQ-MVP-CON-004:** The Console App MUST support a `status` command (placeholder functionality for MVP):
-    *   Calls a placeholder `/api/status` endpoint on `Nucleus.Api`.
+    *   Calls a placeholder `/api/status` endpoint on `Nucleus.ApiService`.
     *   Displays basic status information received from the API (e.g., "API reachable. Bootstrapper Persona loaded.").
 *   **REQ-MVP-CON-005:** The Console App MUST handle and display errors gracefully if API calls fail (e.g., connection errors, API error responses).
 *   **REQ-MVP-CON-006:** The Console App MUST correctly use the API base address provided by Aspire configuration.
 
-### 3.4. Backend API (`Nucleus.Api`)
+### 3.4. Backend API (`Nucleus.ApiService`)
 
 *   **REQ-MVP-API-001:** The API MUST expose a `/api/query` endpoint (e.g., `POST`).
     *   Accepts a query object (e.g., containing query text).

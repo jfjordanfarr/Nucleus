@@ -1,0 +1,103 @@
+---
+title: "Windsurf Rules"
+description: "Guidelines for agentic AI development within the Nucleus codebase."
+version: 1.0
+date: 2025-04-15
+---
+
+
+## 1 - Quality Over Expedience
+
+The user explicitly stated that achieving the absolute highest quality output is paramount during development sessions. Cascade should prioritize internal consistency in documentation and design, and liberally use available tools (search, context, file viewing, editing, etc.) to ensure this high standard is met. Cost or resource usage of tools is not a primary constraint; quality is the goal. Treat architecture markdown files as rigorously as source code.
+
+**Do not make assumptions.** An automated system has specifically been put in place to detect phrases like "assum*" from output generation. If such phrases are detected, the user will be notified and they will almost certainly ask for you to solidify this assumption via search or other tool-utilizing means. Get into the habit of refusing to assume. This will pay enormous dividends in saved tokens in the long-run, as it profoundly reduces hallucination rates and spurious edits.
+
+**Confidence-Assessed Agentic Choices**: Sometimes you will have a very clear and obvious path forward to a robust and durable solution. Maybe an edit to be made is "obvious" and "correct". In these cases, do not stop the agentic runner to ask permission. Make the changes and note that you made them. Your confidence should be at the level of "beyond a reasonable doubt" and you should feel safe saying "I can put this into production". If those conditions are met, you may proceed with enhanced agency.
+
+---
+
+## 2 - Documentation as Source Code
+
+The project uses a hierarchical documentation strategy:
+1. Parent folders (e.g., `./Docs/Architecture/ClientAdapters/`) contain overview documents for major concepts (e.g., `ARCHITECTURE_ADAPTERS_TEAMS.md`) and documents defining common elements applicable to siblings (e.g., `ARCHITECTURE_ADAPTER_INTERFACES.md`).
+2. If an overview concept needs detailed breakdown across multiple files, a sub-folder matching the overview file's base name (e.g., `Teams/`) is created within the parent folder.
+3. Detailed breakdown markdown files are placed inside the corresponding sub-folder (e.g., `./Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md`).
+4. Overview documents may be refined to summarize and link to the detailed documents in their sub-folders.
+
+After making any edits to a Markdown documentation file within the Nucleus project, always perform a quick verification check to ensure:
+1.  The metadata header (title, description, version, date) is present, accurate, and up-to-date.
+2.  All internal links within the document (both relative and potentially absolute) point to the correct locations and are still relevant given the changes made.
+3.  The document links correctly back to its parent overview document(s) and down to any specific child/detailed documents as per the hierarchical documentation strategy.
+This helps prevent broken links and outdated metadata, maintaining the integrity and navigability of the documentation.
+
+To enhance maintainability and facilitate agentic AI development within the Nucleus codebase, a strategy of tight cross-linking between code and documentation should be employed. Code comments (especially XML comments in C#) should reference relevant architecture or design documents (e.g., using markdown links or file paths). Conversely, documentation files (Markdown) should include links (e.g., relative paths or `cci:` URIs) pointing to the specific code files, classes, or methods they describe. This ensures that context is easily discoverable whether starting from the code or the documentation.
+
+### Observations and Notes
+
+The user's pushback against the proposed Office processor and the subsequent refinement of the LLM-synthesis approach highlighted a key aspect of the desired development methodology. Architectural Markdown documents are treated with the rigor of source code, demanding internal consistency and adherence to core principles (like simplicity and LLM-first). My role involves proposing solutions, but critically, also rapidly adapting to corrective feedback. User pushback serves not just to correct a specific point, but to reinforce the overall vision and ensure I actively use tools and context to maintain the high standard of quality and consistency required in the documentation, effectively co-authoring the system design.
+
+---
+
+## 3 - LLM Tool Usage During Agentic Development
+
+The `edit_file` tool modifies existing files. Key guidelines:
+1.  **Atomicity:** Aim to combine ALL related changes (even across different sections like CSS, HTML, JS) into a SINGLE `edit_file` call for atomicity and consistency.
+2.  **Precision:** Specify ONLY the precise lines of code to change.
+3.  **Placeholder:** NEVER write out unchanged code. ALWAYS represent unchanged lines/blocks with the special placeholder: `{{ ... }}`.
+4.  **Multiple Edits:** For non-adjacent edits within the same file, use `{{ ... }}` to represent the unchanged code between the edited sections within the single `CodeEdit` string.
+5.  **Formatting Challenges:** Complex single-call edits involving multiple sections are more prone to JSON formatting errors (e.g., incorrect escaping, quoting). Meticulous validation of the `CodeEdit` string's structure is critical.
+6.  **Fallback (Use Sparingly):** If persistent JSON errors block a complex single-call edit, consider breaking it into smaller, logically grouped sequential `edit_file` calls as a fallback. However, prioritize the single atomic edit whenever feasible.
+7.  **Arguments:** Provide `CodeMarkdownLanguage`, a clear `Instruction`, the `TargetFile` (as the first argument), and optional `TargetLintErrorIds`.
+
+When using the `edit_file` tool:
+1.  **Robust Content Injection:** For injecting dynamic content (especially potentially complex strings like code or JSON) into files (e.g., HTML templates), prefer server-side encoding (like `HtmlEncode`) and client-side decoding. Avoid relying solely on client-side string manipulation/escaping for robustness, as inputs might vary unexpectedly.
+2.  **Large File Edits:** Be mindful of file size. Edits involving very large code blocks (e.g., > ~700 lines in an HTML/JS context) might risk timing out during generation or application. Consider strategies like breaking down large edits or ensuring the generation process is efficient for large content blocks if necessary.
+3.  **Iterative Refinement:** Editing often requires iteration. If an initial approach (like simple JS escaping) proves insufficient, pivot to more robust methods (like `HtmlEncode`) based on testing and feedback.
+
+---
+
+## 4 - Development Insights Worth Saving
+
+### Insight 1
+
+A key learning moment occurred when the user rejected the proposal for a dedicated 'Office Document Processor'. Instead, the user mandated a simpler approach: the File Collections processor aggregates raw components (XML, LLM-generated media descriptions), and the Plaintext processor uses its LLM, given the entire bundle in context, to synthesize the final, single Markdown document. This revealed a core design principle: avoid creating specialized, complex processors if the task can be delegated to an LLM acting as a 'common sense engine' with sufficient context. The Plaintext processor's role was thus elevated from a simple converter to a powerful synthesizer.
+
+### Insight 2
+
+Processing, especially LLM-driven synthesis, will inherently produce non-deterministic Markdown outputs. This is acceptable and expected. The system should NOT attempt to enforce idempotency by hashing the final Markdown output. Instead, idempotency relies on source artifact identifiers (source ID, content hash of source, timestamps) and context (Persona version). Furthermore, the system should embrace fuzziness by allowing Markdown string literals within metadata fields (like ArtifactMetadata, PersonaKnowledgeEntry) where precise structure is less important than rich, nuanced description, leveraging the LLM's native understanding of Markdown.
+
+### Insight 3
+
+The user prefers an initial deployment architecture consisting of a single Azure Container App (ACA) instance acting as a 'modular monolith'. This single ACA should host the API/ClientAdapters, ingestion/triage logic, session management (in-memory), and the core processing logic (potentially run as background tasks within the same instance). This minimizes deployment complexity and avoids the need for external session state management (like Redis) initially. The supporting infrastructure should ideally be limited to one Cosmos DB instance and potentially one Azure Service Bus (primarily for external integration or future scaling needs, not essential for the core internal processing flow). Components should be designed modularly within the monolith to allow for future separation and independent scaling if required.
+
+
+---
+
+## 5 - Context, Cross-Checking, and Persona-Centric Design
+
+### Rule: Comprehensive Context is Mandatory
+During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
+
+### Rule: Explicit Cross-Checking
+Before proposing changes to code or documentation, explicitly verify consistency with related architecture, requirements, and planning documents currently in context. Call out any discrepancies found.
+
+### Rule: Persona-Centric Design
+All features must consider the multi-persona nature of Nucleus. How will this change affect `EduFlow`? `ProfessionalColleague`? Ensure `IPersona`, `ArtifactMetadata`, and `PersonaKnowledgeEntry` support domain-specific needs.
+
+### Rule: Adhere to Core Principles
+Remember Nucleus principles: Platform integration first, ephemeral processing (no intermediate storage), intelligence-driven analysis (no blind chunking), user data sovereignty.
+
+### Grounding: Key Data Structures
+Key models include `ArtifactMetadata` (factual data about source, stored in central Cosmos container) and `PersonaKnowledgeEntry<T>` (persona's interpretation/analysis/snippet/embedding, stored in persona-specific Cosmos container, linked via `sourceIdentifier`).
+
+### Grounding: Processing Flow
+Ingestion involves ephemeral processing: Source Fetch (Adapter) -> Content Extraction/Synthesis (Processor) -> Standardized Markdown -> Persona Analysis (`AnalyzeContentAsync`) -> Knowledge Storage (`PersonaKnowledgeEntry`).
+
+### Grounding: Interaction Flow
+User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad -> LLM Prompt (Persona) -> Response Generation -> Response Delivery (Adapter) -> Scratchpad Cleanup.
+
+### Grounding: Key Interfaces
+Core interfaces: `IPersona`, `IPersonaInteractionContext`, `ISourceFileReader`, `IOutputWriter`, `IPlatformAdapter`, `IContentExtractor`, `IPersonaKnowledgeRepository`, `IChatClient`, `IEmbeddingGenerator`.
+
+### Rule: Documentation Rigor
+Treat Architecture Markdown (`Docs/Architecture/**/*.md`) with the same rigor as source code. Ensure metadata headers are current, links are valid, and structure follows the defined hierarchy.

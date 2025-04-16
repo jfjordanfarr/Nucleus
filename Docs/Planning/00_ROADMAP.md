@@ -4,17 +4,17 @@ This document outlines the planned development phases for Nucleus OmniRAG, struc
 
 ---
 
-## Phase 1: MVP - Core Chat Interaction & Basic Query
+## Phase 1: MVP - Core Console Interaction & Basic Backend
 
-**Epic:** `EPIC-MVP-CHAT` - Establish the absolute minimum viable product focusing on direct user interaction with the initial `BootstrapperPersona` via a web-based chat interface. Leverage the **.NET AI Chat App template** as a starting point to accelerate UI and API development. Set up foundational architecture, basic knowledge storage (Cosmos DB), and deployment infrastructure (Azure, IaC).
+**Epic:** `EPIC-MVP-CONSOLE` - Establish the minimum viable product focusing on interaction via a **Console Application (`Nucleus.Console`)** talking to a backend **API (`Nucleus.ApiService`)**. Prioritize accelerating the development loop for backend logic, persona integration, and agentic workflows. Set up foundational architecture, basic knowledge storage (Cosmos DB), and deployment infrastructure (Azure, IaC) for the API.
 
-*   **Issue:** `ISSUE-MVP-TEMPLATE-01`: Set Up & Adapt .NET AI Chat App Template
-*   **Issue:** `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Lower Priority)
+*   **Issue:** `ISSUE-MVP-SETUP-01`: Establish Core Project Structure & Local Environment
+*   **Issue:** `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for Ingestion)
 *   **Issue:** `ISSUE-MVP-PERSONA-01`: Create Initial Bootstrapper Persona
+*   **Issue:** `ISSUE-MVP-API-01`: Develop Backend API (WebAPI for Console)
+*   **Issue:** `ISSUE-MVP-CONSOLE-01`: Create Minimal Console Application Interface
+*   **Issue:** `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code for API)
 *   **Issue:** `ISSUE-MVP-RETRIEVAL-01`: Implement Basic Knowledge Store & Retrieval
-*   **Issue:** `ISSUE-MVP-API-01`: Develop Minimal Backend API (Adapting Template)
-*   **Issue:** `ISSUE-MVP-UI-01`: Create Minimal Chat UI (Adapting Template)
-*   **Issue:** `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (Adapting Template)
 
 ---
 

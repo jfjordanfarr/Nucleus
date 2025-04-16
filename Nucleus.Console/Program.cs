@@ -58,26 +58,39 @@ static async Task RunTestLogicAsync(IServiceProvider services)
             var datavizBuilder = provider.GetRequiredService<DatavizHtmlBuilder>();
             logger.LogInformation("Successfully resolved DatavizHtmlBuilder.");
 
-            // --- Example Usage (replace with actual call later) ---
-            logger.LogInformation("Simulating Dataviz generation request...");
-            // Example Python using plotly (ensure template matches)
-            string fakePython = @"
-import plotly.express as px
-import pandas as pd
-import json
+            // --- Get the actual Python script --- 
+            logger.LogInformation("Reading actual Python script from output directory...");
+            string pythonScriptContent;
+            try 
+            {
+                // Determine the path relative to the EXECUTING assembly (same logic as DatavizHtmlBuilder)
+                var assemblyLocation = Path.GetDirectoryName(typeof(DatavizHtmlBuilder).Assembly.Location);
+                if (string.IsNullOrEmpty(assemblyLocation))
+                {
+                    throw new InvalidOperationException("Could not determine assembly location for resources.");
+                }
+                var pythonScriptPath = Path.Combine(assemblyLocation, "Resources", "Dataviz", "dataviz_plotly_script.py");
+                logger.LogInformation("Attempting to read Python script from: {Path}", pythonScriptPath);
 
-# Assuming input_data_json is preloaded dictionary
-df = pd.DataFrame(input_data_json)
+                if (!File.Exists(pythonScriptPath))
+                {
+                    logger.LogError("Python script file not found at expected output location: {Path}", pythonScriptPath);
+                    throw new FileNotFoundException("Python script file not found in build output.", pythonScriptPath);
+                }
+                pythonScriptContent = await File.ReadAllTextAsync(pythonScriptPath);
+                logger.LogInformation("Successfully read Python script file.");
+            }
+            catch (Exception ex) 
+            {
+                logger.LogError(ex, "Failed to read Python script file.");
+                return; // Cannot proceed without the script
+            }
 
-fig = px.scatter(df, x='x_col', y='y_col', title='Sample Scatter Plot')
-
-# Assign to the expected output variable
-plotly_figure = fig
-";
-            // Example JSON matching the Python
+            // Example JSON matching the Python script's expectations
             string fakeJson = "{\"x_col\": [1, 2, 3, 4, 5], \"y_col\": [10, 11, 12, 13, 14]}";
 
-            string? generatedHtml = await datavizBuilder.BuildVisualizationHtmlAsync(fakePython, fakeJson);
+            // Call the builder with the ACTUAL script content
+            string? generatedHtml = await datavizBuilder.BuildVisualizationHtmlAsync(pythonScriptContent, fakeJson);
 
             if (!string.IsNullOrEmpty(generatedHtml))
             {

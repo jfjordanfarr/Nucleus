@@ -1,9 +1,15 @@
 /* BRANDING_CSS_PLACEHOLDER */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 20px;
     background-color: #f4f4f4;
     color: #333;
+    height: 100%;
 }
 h1 {
     color: #005a9e; /* A corporate blue */
@@ -36,27 +42,42 @@ h1 {
     padding: 15px;
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    /* Use viewport height - adjust 70vh as needed */
-    height: 70vh;
-    overflow: auto; /* Add scrollbars if content exceeds height */
-    resize: vertical; /* Optional: allow user resizing */
-    display: flex; /* Use flexbox to help child sizing */
-    flex-direction: column; /* Stack children vertically */
+    min-height: 400px; /* Keep a reasonable minimum */
+    height: 70vh; /* Restore viewport height for plot area */
+    width: 100%;
+    overflow: auto; /* This container scrolls */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
 }
 
-/* Make Plotly div take available space */
-#output-area .plotly-graph-div {
-    flex-grow: 1; /* Allow plot div to grow */
-    min-height: 0; /* Override any potential default min-height interfering with flex-grow */
-}
-#export-buttons {
-    text-align: center;
-    margin-top: 15px;
-}
-
-#export-buttons {
+#plot-area {
     display: none;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0; /* Critical for flex shrinking */
+    overflow: visible; /* No scrollbars here */
+    position: relative;
+    background: #fafafa;
+}
+
+/* REMOVED - Potentially conflicting rule. Let #plot-area handle flex sizing. */
+/*
+#output-area .plotly-graph-div {
+    flex: 1 1 auto;
+    height: 100%;
+    width: 100%;
+    overflow: visible !important; 
+}
+*/
+
+#export-buttons {
+    text-align: center; /* Ensure centering */
     margin-top: 15px;
+    margin-bottom: 15px;
+    display: block !important; /* Force display mode override */
+    /* display: none; */ /* Control visibility via JS, but force block when shown */
 }
 
 button {
@@ -79,18 +100,6 @@ button:disabled {
 
 #view-worker-log {
     display: none; /* Initially hidden */
-}
-
-#plot-area {
-    /* display: none; */ /* Initially hidden by JS */
-    border: 1px solid #ccc;
-    margin-top: 10px; /* Reduced margin */
-    width: 100%;
-    /* height: 600px; REMOVED fixed height */
-    box-sizing: border-box;
-    flex-grow: 1; /* Allow plot area to grow vertically in flex container */
-    min-height: 0; /* Prevent flexbox sizing issues */
-    position: relative; /* Ensure Plotly positions correctly within */
 }
 
 /* Modal Styles (Shared class for common styles) */

@@ -24,12 +24,15 @@ async function initializePyodide() {
     console.log("Worker: Micropip loaded. Loading pandas and plotly...");
     await micropip.install(['pandas', 'plotly']);
     console.log("Worker: pandas and plotly loaded.");
-    self.postMessage({ type: 'status', message: 'Pyodide and packages ready.' });
-    pyodideLoadingPromise = null; // Reset promise after successful load
-    return pyodide;
+
+    // Signal main thread that Pyodide and packages are ready
+    self.postMessage({ type: 'pyodide_loaded' }); // Changed from 'status'
+
+    return pyodide; // Return the initialized pyodide instance
+
   }).catch(error => {
-     console.error("Worker: Pyodide initialization failed:", error);
-     self.postMessage({ type: 'error', message: `Pyodide initialization failed: ${error.message}` });
+     console.error("Worker: Pyodide initialization or package loading failed:", error);
+     self.postMessage({ type: 'error', message: `Pyodide/Package Error: ${error.message}` });
      pyodideLoadingPromise = null; // Reset promise on error
      throw error; // Re-throw error to indicate failure
   });
@@ -38,32 +41,63 @@ async function initializePyodide() {
 
 // Handle messages from the main thread
 self.onmessage = async (event) => {
-  const { pythonScript, inputData } = event.data;
+  const messageData = event.data;
+  const messageType = messageData.type;
 
-  try {
-    // Ensure Pyodide is initialized
-    await initializePyodide();
+  console.log(`Worker DEBUG: Received messageData:`, messageData);
+  console.log(`Worker DEBUG: Received messageType: ${messageType}`);
 
-    if (!pyodide) {
-        throw new Error("Pyodide is not available after initialization attempt.");
+  if (messageType === 'execute_script') {
+    const pythonScript = messageData.pythonScript;
+    const receivedJsonData = messageData.jsonData; // NEW - Accessing 'jsonData' based on logs
+
+    console.log(`Worker DEBUG: Accessed pythonScript type: ${typeof pythonScript}`);
+    console.log(`Worker DEBUG: Accessed receivedJsonData using '.jsonData' - Type: ${typeof receivedJsonData}`);
+    console.log(`Worker DEBUG: Accessed receivedJsonData using '.jsonData' - Value:`, receivedJsonData);
+
+    // Check if they are undefined before proceeding
+    if (typeof pythonScript === 'undefined' || typeof receivedJsonData === 'undefined') {
+      console.error("Worker ERROR: pythonScript or receivedJsonData is undefined after accessing .jsonData!");
+      self.postMessage({ type: 'execution_error', message: 'Worker failed to receive script or data correctly (using .jsonData).' });
+      return; // Stop execution
     }
 
-    console.log("Worker: Received task. Running Python script...");
-    self.postMessage({ type: 'status', message: 'Running Python script...' });
+    try {
+      // Ensure Pyodide is initialized
+      await initializePyodide();
 
-    // Inject data into the Python environment
-    pyodide.globals.set('input_data_json', JSON.stringify(inputData));
+      if (!pyodide) {
+          throw new Error("Pyodide is not available after initialization attempt.");
+      }
 
-    // Run the Python script
-    const result = await pyodide.runPythonAsync(pythonScript);
+      console.log("Worker: Received task. Running Python script...");
+      self.postMessage({ type: 'status', message: 'Running Python script...' });
 
-    console.log("Worker: Python script finished. Sending result.");
-    // Send the result back to the main thread
-    self.postMessage({ type: 'result', data: result });
+      // Debug logging
+      console.log(`Worker DEBUG: Type of receivedJsonData (JS): ${typeof receivedJsonData}`);
+      console.log(`Worker DEBUG: Value of receivedJsonData (JS):`, receivedJsonData);
 
-  } catch (error) {
-    console.error("Worker: Error executing Python script:", error);
-    self.postMessage({ type: 'error', message: error.message });
+      // Inject data into the Python environment AS A JSON STRING
+      const jsonDataString = JSON.stringify(receivedJsonData);
+      console.log(`Worker DEBUG: Type of jsonDataString being set to Python global: ${typeof jsonDataString}`);
+      console.log(`Worker DEBUG: Value of jsonDataString being set (first 100 chars): ${jsonDataString.substring(0,100)}...`);
+      pyodide.globals.set('input_data_json', jsonDataString); // NEW JSON string method
+
+      // Run the Python script
+      console.log("Worker DEBUG: About to call runPythonAsync...");
+      const result = await pyodide.runPythonAsync(pythonScript);
+      console.log(`Worker DEBUG: Type of result from runPythonAsync: ${typeof result}`);
+      console.log(`Worker DEBUG: Value of result from runPythonAsync:`, result);
+
+      console.log("Worker: Python script finished. Sending result.");
+      // Send the result back to the main thread
+      self.postMessage({ type: 'result', data: result });
+
+    } catch (error) {
+      console.error("Worker: Error executing Python script:", error);
+      // Send specific error type expected by main thread
+      self.postMessage({ type: 'execution_error', message: error.message });
+    }
   }
 };
 

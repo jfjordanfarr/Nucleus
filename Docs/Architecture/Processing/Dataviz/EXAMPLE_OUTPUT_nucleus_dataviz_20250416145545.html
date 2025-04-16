@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nucleus Dataviz</title>
+    <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script> <!-- Updated Plotly library version -->
+    <!-- Prism JS for Syntax Highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <!-- Basic Styles - Give plot area dimensions initially -->
+    <style>
+        #plot-area {
+            /* display: none; */ /* Removed - Let JS handle visibility */
+            width: 100%;   /* Ensure it takes up width */
+            min-height: 450px; /* Give it a default minimum height */
+            background-color: #fff; /* Optional: visual aid during debugging */
+            border: 1px solid #ccc; /* Optional: visual aid */
+        }
+        /* Existing CSS rules can go here or be loaded via {{STYLES_PLACEHOLDER}} */
+    </style>
+    <style>
+/* BRANDING_CSS_PLACEHOLDER */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    height: 100%;
+}
+h1 {
+    color: #005a9e; /* A corporate blue */
+    text-align: center;
+    border-bottom: 2px solid #005a9e;
+    padding-bottom: 10px;
+}
+#loading-indicator, #error-area {
+    text-align: center;
+    margin-top: 50px;
+    font-style: italic;
+    color: #666;
+}
+#error-area {
+    color: #d9534f; /* Bootstrap danger red */
+    font-weight: bold;
+    white-space: pre-wrap; /* Preserve error formatting */
+}
+
+#error-area {
+    display: none;
+    color: red;
+    border: 1px solid red;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+#output-area {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    min-height: 400px; /* Keep a reasonable minimum */
+    height: 70vh; /* Restore viewport height for plot area */
+    width: 100%;
+    overflow: auto; /* This container scrolls */
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+
+#plot-area {
+    display: none;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
+    min-height: 0; /* Critical for flex shrinking */
+    overflow: visible; /* No scrollbars here */
+    position: relative;
+    background: #fafafa;
+}
+
+/* REMOVED - Potentially conflicting rule. Let #plot-area handle flex sizing. */
+/*
+#output-area .plotly-graph-div {
+    flex: 1 1 auto;
+    height: 100%;
+    width: 100%;
+    overflow: visible !important; 
+}
+*/
+
+#export-buttons {
+    text-align: center; /* Ensure centering */
+    margin-top: 15px;
+    margin-bottom: 15px;
+    display: block !important; /* Force display mode override */
+    /* display: none; */ /* Control visibility via JS, but force block when shown */
+}
+
+button {
+    background-color: #5cb85c; /* Bootstrap success green */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    margin: 5px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+button:hover {
+    background-color: #4cae4c;
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+#view-worker-log {
+    display: none; /* Initially hidden */
+}
+
+/* Modal Styles (Shared class for common styles) */
+.modal-overlay {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.7); /* Black w/ opacity */
+}
+
+.modal-dialog {
+    background-color: #fefefe;
+    margin: 5% auto; /* 5% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+    height: 80%; /* Allow space around */
+    position: relative;
+    display: flex; /* Use flexbox for layout */
+    flex-direction: column; /* Stack elements vertically */
+}
+
+.modal-dialog-header {
+     padding-bottom: 10px;
+     border-bottom: 1px solid #ccc;
+     margin-bottom: 15px;
+     display: flex;
+     justify-content: space-between; /* Push title and close button apart */
+     align-items: center;
+}
+
+ .modal-dialog-title {
+     font-size: 1.2em;
+     font-weight: bold;
+     margin-right: auto; /* Push title left */
+ }
+
+.modal-copy-button {
+    background-color: #eee;
+    border: 1px solid #ccc;
+    padding: 3px 8px;
+    font-size: 0.8em;
+    cursor: pointer;
+    margin-left: 15px; /* Space from title/close */
+}
+
+.modal-dialog-close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 5px; /* Easier to click */
+    line-height: 1;
+}
+
+.modal-dialog-close:hover,
+.modal-dialog-close:focus {
+    color: black;
+    text-decoration: none;
+}
+
+.modal-dialog-body {
+    flex-grow: 1; /* Allow body to take up remaining space */
+    overflow: auto; /* Add scrollbars to the code area if needed */
+    background-color: #f0f0f0; /* Light grey background for code */
+    border: 1px solid #ddd;
+}
+
+ .modal-dialog-body pre {
+    margin: 0; /* Remove default pre margin */
+    padding: 10px; /* Add some padding inside */
+}
+
+/* Worker Log Modal Styles (copying structure from code/data modals) */
+#worker-log-modal .modal-dialog-body code {
+     font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace; /* Ensure monospace */
+     font-size: 0.9em;
+     /* Color will be handled by Prism theme */
+}
+
+.modal-copy-button:active {
+    background-color: #d4d4d4; /* Slight visual feedback on click */
+}
+
+</style> <!-- Placeholder for other CSS -->
+</head>
+<body>
+    <h1>Interactive Visualization</h1>
+
+    <div id="loading-indicator">
+        Loading Visualization Engine (Pyodide)... This may take a moment.
+    </div>
+    <div id="error-area"></div>
+    <div id="output-area">
+        <!-- Plotly or Matplotlib output will be injected here -->
+        <div id="plot-area"></div> <!-- Removed inline style="display: none;" -->
+    </div>
+    <div id="export-buttons">
+        <button id="export-png" disabled>Export PNG</button>
+        <button id="export-svg" disabled>Export SVG</button>
+        <button id="export-html" disabled>Export HTML</button>
+        <button id="view-python-code">View Python Code</button>
+        <button id="view-data">View Data</button>
+        <button id="view-worker-log">View Worker Log</button>
+    </div>
+
+    <!-- Code Viewer Modal -->
+    <div id="code-modal" class="modal-overlay">
+        <div class="modal-dialog">
+           <div class="modal-dialog-header">
+               <span class="modal-dialog-title">Python Script Content</span>
+               <button id="copy-python-button" class="modal-copy-button">Copy</button>
+               <span id="close-modal" class="modal-dialog-close" onclick="document.getElementById('code-modal').style.display='none'">&times;</span>
+           </div>
+           <div class="modal-dialog-body">
+               <pre><code id="python-code-display" class="language-python"># === START OF PYTHON SCRIPT ===
+import plotly.express as px
+import pandas as pd
+import json
+import sys
+
+# Initialize output_result in case of early failure
+output_result = json.dumps({&quot;error&quot;: True, &quot;message&quot;: &quot;Python script failed before main execution.&quot;})
+
+try:
+    # input_data_json is expected to be injected as a global variable (string) by the JS worker
+    if &#39;input_data_json&#39; not in globals():
+        raise NameError(&quot;&#39;input_data_json&#39; global variable not found.&quot;)
+
+    print(&quot;DEBUG (Python): &#39;input_data_json&#39; found globally.&quot;)
+    # print(f&quot;DEBUG (Python): Value of input_data_json BEFORE loads: {input_data_json}&quot;) # Can be very long
+
+    # 1. Parse the JSON string into a Python dictionary
+    data = json.loads(input_data_json)
+    print(f&quot;DEBUG (Python): Type of data AFTER loads: {type(data)}&quot;)
+
+    # --- Detailed Inspection of &#39;data&#39; ---
+    print(f&quot;DEBUG (Python): Is &#39;data&#39; a dict? {isinstance(data, dict)}&quot;)
+    if isinstance(data, dict):
+        print(f&quot;DEBUG (Python): Keys in &#39;data&#39;: {list(data.keys())}&quot;)
+        for key, value in data.items():
+            print(f&quot;DEBUG (Python):   Key &#39;{key}&#39;: Type={type(value)}, Is List={isinstance(value, list)}, Len={len(value) if isinstance(value, list) else &#39;N/A&#39;}&quot;)
+            if isinstance(value, list) and len(value) &gt; 0:
+                print(f&quot;DEBUG (Python):     First item type: {type(value[0])}&quot;)
+    # --- End Detailed Inspection ---
+
+    # 2. Create DataFrame using the parsed dictionary
+    df = pd.DataFrame(data)
+    print(&quot;DEBUG (Python): DataFrame created successfully.&quot;)
+
+    # Check DataFrame structure
+    print(f&quot;DEBUG (Python): DataFrame shape: {df.shape}&quot;)
+    print(f&quot;DEBUG (Python): DataFrame columns: {df.columns.tolist()}&quot;)
+    print(f&quot;DEBUG (Python): DataFrame head:\n{df.head().to_string()}&quot;)
+
+    # Define expected columns (adjust as necessary based on typical input)
+    # These might need to be dynamically determined or passed in if they vary widely
+    x_col_name = &#39;x_col&#39; # Default/Example
+    y_col_name = &#39;y_col&#39; # Default/Example
+    # Optional: Add logic here to find suitable columns if not &#39;x_col&#39;, &#39;y_col&#39;
+    if x_col_name not in df.columns or y_col_name not in df.columns:
+        # Try to find the first two suitable numeric columns if defaults aren&#39;t present
+        numeric_cols = df.select_dtypes(include=&#39;number&#39;).columns
+        if len(numeric_cols) &gt;= 2:
+            x_col_name = numeric_cols[0]
+            y_col_name = numeric_cols[1]
+            print(f&quot;DEBUG (Python): Default columns not found, using first two numeric: &#39;{x_col_name}&#39;, &#39;{y_col_name}&#39;&quot;)
+        else:
+            raise ValueError(f&quot;Could not find required columns &#39;{x_col_name}&#39; and &#39;{y_col_name}&#39; or suitable numeric alternatives in the DataFrame.&quot;)
+
+    # Create the scatter plot using the dynamically determined columns
+    fig = px.scatter(df, x=x_col_name, y=y_col_name, title=&#39;Scatter Plot from Python&#39;)
+    print(f&quot;DEBUG (Python): Scatter plot created using columns &#39;{x_col_name}&#39; and &#39;{y_col_name}&#39;.&quot;)
+
+    # Update the layout
+    fig.update_layout(
+        title=&#39;Scatter Plot from Python (Plotly)&#39;,
+        xaxis_title=x_col_name, # Use column name for axis title
+        yaxis_title=y_col_name, # Use column name for axis title
+        margin=dict(l=40, r=40, t=40, b=40),
+        autosize=True  # Enable autosizing
+    )
+    print(&quot;DEBUG (Python): Plotly layout updated.&quot;)
+
+    # Extract data and layout as Python objects (should be JSON serializable by Pyodide/JS bridge)
+    # Use fig.to_dict() to ensure serializability if direct properties cause issues
+    plot_data = fig.to_dict()[&#39;data&#39;] 
+    plot_layout = fig.to_dict()[&#39;layout&#39;]
+    output_dict = {&#39;data&#39;: plot_data, &#39;layout&#39;: plot_layout}
+    print(f&quot;DEBUG (Python): Plotly data/layout dict generated.&quot;)
+
+    # Return the dictionary (this will be the &#39;output&#39; field in the JS worker message)
+    output_result = json.dumps(output_dict) # Assign success result
+
+except Exception as e:
+    # Log error clearly to stdout and stderr
+    error_message = f&quot;ERROR in Python script: {type(e).__name__}: {e}&quot;
+    print(error_message, file=sys.stderr) # Try stderr
+    print(error_message) # Also print to stdout just in case
+
+    # Assign an error indicator as the result instead of raising
+    # Return a JSON string indicating failure
+    output_result = json.dumps({&quot;error&quot;: True, &quot;message&quot;: error_message})
+
+# === DEBUGGING: Check final output before returning ===
+# This will now print either the graph JSON or the error JSON
+print(f&quot;DEBUG (Python): Type of final output_result: {type(output_result)}&quot;)
+print(f&quot;DEBUG (Python): Value of final output_result (first 100 chars): {str(output_result)[:100]}&quot;)
+# ======================================================
+
+# The value of the last expression is returned
+output_result
+# === END OF PYTHON SCRIPT ===
+</code></pre>
+           </div>
+        </div>
+    </div>
+
+    <!-- Data Viewer Modal -->
+    <div id="data-modal" class="modal-overlay">
+        <div class="modal-dialog">
+           <div class="modal-dialog-header">
+               <span class="modal-dialog-title">Input JSON Data</span>
+               <button id="copy-data-button" class="modal-copy-button">Copy</button>
+               <span id="close-data-modal" class="modal-dialog-close" onclick="document.getElementById('data-modal').style.display='none'">&times;</span>
+           </div>
+           <div class="modal-dialog-body">
+               <!-- Data will be loaded by JS -->
+               <pre><code id="json-data-display" class="language-json"></code></pre>
+           </div>
+        </div>
+    </div>
+
+     <!-- Worker Log Viewer Modal -->
+    <div id="worker-log-modal" class="modal-overlay">
+        <div class="modal-dialog">
+           <div class="modal-dialog-header">
+               <span class="modal-dialog-title">Worker Console Log</span>
+                <button id="copy-worker-log-button" class="modal-copy-button">Copy</button>
+               <span id="close-worker-log-modal" class="modal-dialog-close" onclick="document.getElementById('worker-log-modal').style.display='none'">&times;</span>
+           </div>
+           <div class="modal-dialog-body">
+               <pre><code id="worker-log-display" class="language-log"></code></pre>
+           </div>
+        </div>
+    </div>
+
+    <!-- Embedded Data Placeholder -->
+    <script id="input-data" type="application/json">
+        {&quot;x_col&quot;: [1, 2, 3, 4, 5], &quot;y_col&quot;: [10, 11, 12, 13, 14]}
+    </script>
+
+    <!-- Embedded Worker Script Placeholder -->
+    <script id="worker-script-template" type="text/plain">
+        // dataviz-worker.js
+// Import Pyodide - adjust the version if needed
+importScripts(&quot;https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js&quot;);
+
+let pyodide = null;
+let pyodideLoadingPromise = null;
+
+async function initializePyodide() {
+  if (pyodide) {
+    return pyodide;
+  }
+  if (pyodideLoadingPromise) {
+    return pyodideLoadingPromise;
+  }
+
+  console.log(&quot;Worker: Initializing Pyodide...&quot;);
+  pyodideLoadingPromise = loadPyodide({
+    // indexURL: &quot;https://cdn.jsdelivr.net/pyodide/v0.25.1/full/&quot; // Optional: specify indexURL if needed
+  }).then(async (instance) =&gt; {
+    pyodide = instance;
+    console.log(&quot;Worker: Pyodide initialized. Loading micropip...&quot;);
+    await pyodide.loadPackage(&quot;micropip&quot;);
+    const micropip = pyodide.pyimport(&quot;micropip&quot;);
+    console.log(&quot;Worker: Micropip loaded. Loading pandas and plotly...&quot;);
+    await micropip.install([&#39;pandas&#39;, &#39;plotly&#39;]);
+    console.log(&quot;Worker: pandas and plotly loaded.&quot;);
+
+    // Signal main thread that Pyodide and packages are ready
+    self.postMessage({ type: &#39;pyodide_loaded&#39; }); // Changed from &#39;status&#39;
+
+    return pyodide; // Return the initialized pyodide instance
+
+  }).catch(error =&gt; {
+     console.error(&quot;Worker: Pyodide initialization or package loading failed:&quot;, error);
+     self.postMessage({ type: &#39;error&#39;, message: `Pyodide/Package Error: ${error.message}` });
+     pyodideLoadingPromise = null; // Reset promise on error
+     throw error; // Re-throw error to indicate failure
+  });
+  return pyodideLoadingPromise;
+}
+
+// Handle messages from the main thread
+self.onmessage = async (event) =&gt; {
+  const messageData = event.data;
+  const messageType = messageData.type;
+
+  console.log(`Worker DEBUG: Received messageData:`, messageData);
+  console.log(`Worker DEBUG: Received messageType: ${messageType}`);
+
+  if (messageType === &#39;execute_script&#39;) {
+    const pythonScript = messageData.pythonScript;
+    const receivedJsonData = messageData.jsonData; // NEW - Accessing &#39;jsonData&#39; based on logs
+
+    console.log(`Worker DEBUG: Accessed pythonScript type: ${typeof pythonScript}`);
+    console.log(`Worker DEBUG: Accessed receivedJsonData using &#39;.jsonData&#39; - Type: ${typeof receivedJsonData}`);
+    console.log(`Worker DEBUG: Accessed receivedJsonData using &#39;.jsonData&#39; - Value:`, receivedJsonData);
+
+    // Check if they are undefined before proceeding
+    if (typeof pythonScript === &#39;undefined&#39; || typeof receivedJsonData === &#39;undefined&#39;) {
+      console.error(&quot;Worker ERROR: pythonScript or receivedJsonData is undefined after accessing .jsonData!&quot;);
+      self.postMessage({ type: &#39;execution_error&#39;, message: &#39;Worker failed to receive script or data correctly (using .jsonData).&#39; });
+      return; // Stop execution
+    }
+
+    try {
+      // Ensure Pyodide is initialized
+      await initializePyodide();
+
+      if (!pyodide) {
+          throw new Error(&quot;Pyodide is not available after initialization attempt.&quot;);
+      }
+
+      console.log(&quot;Worker: Received task. Running Python script...&quot;);
+      self.postMessage({ type: &#39;status&#39;, message: &#39;Running Python script...&#39; });
+
+      // Debug logging
+      console.log(`Worker DEBUG: Type of receivedJsonData (JS): ${typeof receivedJsonData}`);
+      console.log(`Worker DEBUG: Value of receivedJsonData (JS):`, receivedJsonData);
+
+      // Inject data into the Python environment AS A JSON STRING
+      const jsonDataString = JSON.stringify(receivedJsonData);
+      console.log(`Worker DEBUG: Type of jsonDataString being set to Python global: ${typeof jsonDataString}`);
+      console.log(`Worker DEBUG: Value of jsonDataString being set (first 100 chars): ${jsonDataString.substring(0,100)}...`);
+      pyodide.globals.set(&#39;input_data_json&#39;, jsonDataString); // NEW JSON string method
+
+      // Run the Python script
+      console.log(&quot;Worker DEBUG: About to call runPythonAsync...&quot;);
+      const result = await pyodide.runPythonAsync(pythonScript);
+      console.log(`Worker DEBUG: Type of result from runPythonAsync: ${typeof result}`);
+      console.log(`Worker DEBUG: Value of result from runPythonAsync:`, result);
+
+      console.log(&quot;Worker: Python script finished. Sending result.&quot;);
+      // Send the result back to the main thread
+      self.postMessage({ type: &#39;result&#39;, data: result });
+
+    } catch (error) {
+      console.error(&quot;Worker: Error executing Python script:&quot;, error);
+      // Send specific error type expected by main thread
+      self.postMessage({ type: &#39;execution_error&#39;, message: error.message });
+    }
+  }
+};
+
+// Initial message to confirm worker is loaded (optional)
+console.log(&quot;Worker: Script loaded. Waiting for initialization trigger.&quot;);
+// Trigger initialization immediately upon loading the worker script.
+initializePyodide();
+
+    </script>
+
+    <!-- Embedded Python Script Placeholder -->
+    <script id="python-script-template" type="text/plain">
+        # === START OF PYTHON SCRIPT ===
+import plotly.express as px
+import pandas as pd
+import json
+import sys
+
+# Initialize output_result in case of early failure
+output_result = json.dumps({&quot;error&quot;: True, &quot;message&quot;: &quot;Python script failed before main execution.&quot;})
+
+try:
+    # input_data_json is expected to be injected as a global variable (string) by the JS worker
+    if &#39;input_data_json&#39; not in globals():
+        raise NameError(&quot;&#39;input_data_json&#39; global variable not found.&quot;)
+
+    print(&quot;DEBUG (Python): &#39;input_data_json&#39; found globally.&quot;)
+    # print(f&quot;DEBUG (Python): Value of input_data_json BEFORE loads: {input_data_json}&quot;) # Can be very long
+
+    # 1. Parse the JSON string into a Python dictionary
+    data = json.loads(input_data_json)
+    print(f&quot;DEBUG (Python): Type of data AFTER loads: {type(data)}&quot;)
+
+    # --- Detailed Inspection of &#39;data&#39; ---
+    print(f&quot;DEBUG (Python): Is &#39;data&#39; a dict? {isinstance(data, dict)}&quot;)
+    if isinstance(data, dict):
+        print(f&quot;DEBUG (Python): Keys in &#39;data&#39;: {list(data.keys())}&quot;)
+        for key, value in data.items():
+            print(f&quot;DEBUG (Python):   Key &#39;{key}&#39;: Type={type(value)}, Is List={isinstance(value, list)}, Len={len(value) if isinstance(value, list) else &#39;N/A&#39;}&quot;)
+            if isinstance(value, list) and len(value) &gt; 0:
+                print(f&quot;DEBUG (Python):     First item type: {type(value[0])}&quot;)
+    # --- End Detailed Inspection ---
+
+    # 2. Create DataFrame using the parsed dictionary
+    df = pd.DataFrame(data)
+    print(&quot;DEBUG (Python): DataFrame created successfully.&quot;)
+
+    # Check DataFrame structure
+    print(f&quot;DEBUG (Python): DataFrame shape: {df.shape}&quot;)
+    print(f&quot;DEBUG (Python): DataFrame columns: {df.columns.tolist()}&quot;)
+    print(f&quot;DEBUG (Python): DataFrame head:\n{df.head().to_string()}&quot;)
+
+    # Define expected columns (adjust as necessary based on typical input)
+    # These might need to be dynamically determined or passed in if they vary widely
+    x_col_name = &#39;x_col&#39; # Default/Example
+    y_col_name = &#39;y_col&#39; # Default/Example
+    # Optional: Add logic here to find suitable columns if not &#39;x_col&#39;, &#39;y_col&#39;
+    if x_col_name not in df.columns or y_col_name not in df.columns:
+        # Try to find the first two suitable numeric columns if defaults aren&#39;t present
+        numeric_cols = df.select_dtypes(include=&#39;number&#39;).columns
+        if len(numeric_cols) &gt;= 2:
+            x_col_name = numeric_cols[0]
+            y_col_name = numeric_cols[1]
+            print(f&quot;DEBUG (Python): Default columns not found, using first two numeric: &#39;{x_col_name}&#39;, &#39;{y_col_name}&#39;&quot;)
+        else:
+            raise ValueError(f&quot;Could not find required columns &#39;{x_col_name}&#39; and &#39;{y_col_name}&#39; or suitable numeric alternatives in the DataFrame.&quot;)
+
+    # Create the scatter plot using the dynamically determined columns
+    fig = px.scatter(df, x=x_col_name, y=y_col_name, title=&#39;Scatter Plot from Python&#39;)
+    print(f&quot;DEBUG (Python): Scatter plot created using columns &#39;{x_col_name}&#39; and &#39;{y_col_name}&#39;.&quot;)
+
+    # Update the layout
+    fig.update_layout(
+        title=&#39;Scatter Plot from Python (Plotly)&#39;,
+        xaxis_title=x_col_name, # Use column name for axis title
+        yaxis_title=y_col_name, # Use column name for axis title
+        margin=dict(l=40, r=40, t=40, b=40),
+        autosize=True  # Enable autosizing
+    )
+    print(&quot;DEBUG (Python): Plotly layout updated.&quot;)
+
+    # Extract data and layout as Python objects (should be JSON serializable by Pyodide/JS bridge)
+    # Use fig.to_dict() to ensure serializability if direct properties cause issues
+    plot_data = fig.to_dict()[&#39;data&#39;] 
+    plot_layout = fig.to_dict()[&#39;layout&#39;]
+    output_dict = {&#39;data&#39;: plot_data, &#39;layout&#39;: plot_layout}
+    print(f&quot;DEBUG (Python): Plotly data/layout dict generated.&quot;)
+
+    # Return the dictionary (this will be the &#39;output&#39; field in the JS worker message)
+    output_result = json.dumps(output_dict) # Assign success result
+
+except Exception as e:
+    # Log error clearly to stdout and stderr
+    error_message = f&quot;ERROR in Python script: {type(e).__name__}: {e}&quot;
+    print(error_message, file=sys.stderr) # Try stderr
+    print(error_message) # Also print to stdout just in case
+
+    # Assign an error indicator as the result instead of raising
+    # Return a JSON string indicating failure
+    output_result = json.dumps({&quot;error&quot;: True, &quot;message&quot;: error_message})
+
+# === DEBUGGING: Check final output before returning ===
+# This will now print either the graph JSON or the error JSON
+print(f&quot;DEBUG (Python): Type of final output_result: {type(output_result)}&quot;)
+print(f&quot;DEBUG (Python): Value of final output_result (first 100 chars): {str(output_result)[:100]}&quot;)
+# ======================================================
+
+# The value of the last expression is returned
+output_result
+# === END OF PYTHON SCRIPT ===
+
+    </script>
+
+    <!-- Link to Prism JS for highlighting -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-log.min.js"></script>
+
+    <!-- Main Visualization Script Placeholder (as plain text) -->
+    <script id="main-script-template" type="text/plain">
+        // --- Global State Variables ---
+let pyodideWorker = null;
+let currentOutputContent = null;
+let currentOutputType = null; // 'plotly', 'svg', 'message', or 'error'
+let workerLogs = []; // Array to store logs from the worker
+let currentPlotData = null; // Store Plotly data for export
+let currentPlotLayout = null; // Store Plotly layout for export
+let actualJsonData = null; // Store the actual JSON data received
+
+// Global element references - declared here, assigned in initialization
+let loadingIndicator = null;
+let errorArea = null;
+let plotArea = null; // Added reference for direct plot area targeting
+let exportButtonsDiv = null;
+
+// --- DOM Element References ---
+const outputArea = document.getElementById('output-area');
+const exportPngButton = document.getElementById('export-png');
+const exportSvgButton = document.getElementById('export-svg');
+const exportHtmlButton = document.getElementById('export-html');
+
+// Add references for the modal
+const viewCodeButton = document.getElementById('view-python-code');
+const codeModal = document.getElementById('code-modal');
+const closeModalButton = document.getElementById('close-modal');
+const pythonCodeDisplay = document.getElementById('python-code-display');
+
+// Add references for the data modal
+const viewDataButton = document.getElementById('view-data');
+const dataModal = document.getElementById('data-modal');
+const closeDataModalButton = document.getElementById('close-data-modal');
+const jsonDataDisplay = document.getElementById('json-data-display');
+
+// Add references for the worker log modal
+const viewWorkerLogButton = document.getElementById('view-worker-log');
+const workerLogModal = document.getElementById('worker-log-modal');
+const closeWorkerLogModalButton = document.getElementById('close-worker-log-modal');
+const workerLogDisplay = document.getElementById('worker-log-display');
+const copyWorkerLogButton = document.getElementById('copy-worker-log-button');
+
+// References for copy buttons
+const copyPythonButton = document.getElementById('copy-python-button');
+const copyDataButton = document.getElementById('copy-data-button');
+
+// --- Helper Functions ---
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        console.log('Content copied to clipboard');
+        // Optional: Add visual feedback (e.g., change button text briefly)
+    } catch (err) {
+        console.error('Failed to copy content: ', err);
+        alert('Failed to copy content to clipboard.');
+    }
+}
+
+// --- HTML Entity Decoding --- (Added)
+function decodeHtmlEntities(text) {
+  var textArea = document.createElement('textarea');
+  textArea.innerHTML = text;
+  return textArea.value;
+}
+
+// --- Robust JS String Escaping --- (Restored)
+function escapeJsString(str) {
+  if (!str) return '';
+  // Escape backslashes first, then other characters that could break JS strings or JSON.parse
+  return str.replace(/\\/g, '\\\\') // Backslashes
+            .replace(/'/g, "\\'")  // Single quotes
+            .replace(/"/g, '\\"') // Double quotes (important for JSON parsing within the string)
+            .replace(/\n/g, "\\n") // Newlines
+            .replace(/\r/g, "\\r") // Carriage returns
+            .replace(/\t/g, "\\t") // Tabs
+            .replace(/\f/g, "\\f") // Form feeds
+            .replace(/\b/g, "\\b") // Backspaces
+            .replace(/\u2028/g, "\\u2028") // Line separator
+            .replace(/\u2029/g, "\\u2029"); // Paragraph separator
+}
+
+// --- UI Update Functions ---
+function displayError(errorMessage) {
+    console.error("Main Thread Error:", errorMessage); // Log the raw error
+    if (errorArea) {
+        errorArea.style.display = 'block';
+        // Ensure errorMessage is a string before using string methods
+        let displayMessage = "An unexpected error occurred.";
+        if (typeof errorMessage === 'string') {
+            displayMessage = errorMessage.substring(0, 500) + (errorMessage.length > 500 ? '...' : '');
+        } else if (errorMessage && typeof errorMessage.toString === 'function') {
+            displayMessage = errorMessage.toString();
+        }
+        errorArea.textContent = displayMessage;
+    }
+    if (loadingIndicator) loadingIndicator.style.display = 'none';
+    // Ensure plotArea exists before trying to hide it
+    if (plotArea) plotArea.style.display = 'none'; // Hide plot area on error
+    if (exportButtonsDiv) exportButtonsDiv.style.display = 'none'; // Hide export buttons
+}
+
+function displayOutput(type, content) {
+    console.log(`Main: displayOutput called with type: ${type}`);
+    loadingIndicator.style.display = 'none';
+    // Ensure the main output area is visible first
+    outputArea.style.display = 'block'; 
+    errorArea.style.display = 'none';
+    exportButtonsDiv.style.display = 'flex';
+
+    // Find the dedicated plot area within the output area
+    const plotDiv = document.getElementById('plot-area'); 
+    if (!plotDiv) { // Add check for plot area existence
+        displayError("Plot area element ('plot-area') not found.");
+        return;
+    }
+
+    // Clear previous content and ensure visibility
+    plotDiv.innerHTML = ''; 
+    plotDiv.style.display = 'block'; 
+
+    if (type === 'plotly_json') {
+        let plotJson;
+        try {
+            plotJson = (typeof content === 'string') ? JSON.parse(content) : content;
+        } catch (e) {
+            displayError('Failed to parse plotly JSON: ' + e.message);
+            return;
+        }
+        // Store for export
+        currentPlotData = plotJson.data;
+        currentPlotLayout = plotJson.layout || {};
+        currentOutputType = 'plotly_json';
+        // Store raw string content too, if needed elsewhere (though exports use data/layout)
+        currentOutputContent = content; 
+        
+        // Render plot inside the specific plotDiv
+        try {
+            Plotly.newPlot(plotDiv, currentPlotData, currentPlotLayout, {responsive: true}).then(() => {
+                // Defer layout update slightly to allow rendering
+                setTimeout(() => {
+                    updatePlotLayout(); // Call resize logic after plot renders
+                }, 0);
+            });
+        } catch (e) {
+            displayError('Failed to render Plotly chart: ' + e.message);
+            return; // Stop if rendering fails
+        }
+        updateExportButtonStates('plotly_json');
+    } else if (type === 'svg') {
+        currentOutputType = 'svg';
+        currentOutputContent = content;
+        plotDiv.innerHTML = content; // Put SVG content directly in plotDiv
+        updateExportButtonStates('svg');
+    } else if (type === 'message') {
+        currentOutputType = 'message';
+        currentOutputContent = content;
+        plotDiv.textContent = content; // Show text message in plotDiv
+        updateExportButtonStates('message');
+    } else if (type === 'error') {
+        displayError(content);
+        currentOutputType = 'error';
+        currentOutputContent = content;
+        plotDiv.style.display = 'none'; // Hide plot area specifically on error display
+        updateExportButtonStates('error');
+    } else {
+        // Handle unknown type in the plotDiv
+        plotDiv.textContent = `Unknown output type: ${type}. Content: ${content}`;
+        currentOutputType = null;
+        currentOutputContent = null;
+        updateExportButtonStates(null);
+    }
+    // Worker Log button visibility check - Moved outside specific types
+    if (workerLogs.length > 0) {
+        viewWorkerLogButton.style.display = 'inline-block';
+    }
+}
+
+// --- ResizeObserver and Plotly Interaction ---
+function updatePlotLayout() {
+    // Ensure plotArea is valid, visible, Plotly exists, and the plot has been rendered inside
+    if (plotArea && plotArea.offsetParent !== null && typeof Plotly !== 'undefined' && plotArea.querySelector('.plotly-graph-div')) {
+        try {
+            const newWidth = plotArea.clientWidth;
+            const newHeight = plotArea.clientHeight;
+            setTimeout(() => {
+                if (newWidth > 0 && newHeight > 0) {
+                    Plotly.relayout(plotArea, {
+                        width: newWidth,
+                        height: newHeight,
+                        'xaxis.autorange': true,
+                        'yaxis.autorange': true
+                    });
+                    Plotly.Plots.resize(plotArea);
+                }
+            }, 0); // Use setTimeout with 0 delay
+        } catch (e) {
+            console.error('Error during Plotly relayout:', e);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // --- Assign global element references --- 
+    loadingIndicator = document.getElementById('loading-indicator');
+    errorArea = document.getElementById('error-area');
+    plotArea = document.getElementById('plot-area');
+    exportButtonsDiv = document.getElementById('export-buttons');
+
+    // --- Initialization --- (Modified)
+    let jsonData = JSON.parse('{\u0022x_col\u0022: [1, 2, 3, 4, 5], \u0022y_col\u0022: [10, 11, 12, 13, 14]}'); // Placeholder replaced by C#
+
+    // Capture the globally defined jsonData (after C# replacement) for the modal
+    actualJsonData = jsonData; 
+
+    // Read embedded content
+    let pythonScriptContent = null;
+    let workerScriptContent = null;
+
+    try {
+        // Read worker script from its designated template tag
+        const workerScriptElement = document.getElementById('worker-script-template');
+        if (!workerScriptElement) throw new Error("Worker script template element not found.");
+        workerScriptContent = decodeHtmlEntities(workerScriptElement.innerHTML);
+
+        // Read python script from its designated template tag
+        const pythonScriptElement = document.getElementById('python-script-template');
+        if (!pythonScriptElement) throw new Error("Python script template element not found.");
+        pythonScriptContent = decodeHtmlEntities(pythonScriptElement.innerHTML);
+
+        if (!pythonScriptContent || !workerScriptContent) { 
+             throw new Error("Embedded worker script or Python script content is empty.");
+        }
+
+        // Start the worker initialization process
+        initializePyodideWorker(workerScriptContent, pythonScriptContent, jsonData);
+
+    } catch (e) {
+        displayError(`Initialization failed: ${e.message}`);
+        return; // Stop further setup if essential parts are missing
+    }
+
+    // --- Export Button Handlers (Modified for Plotly JSON) ---
+    exportPngButton.addEventListener('click', () => {
+        if (currentOutputType === 'plotly_json' && typeof Plotly !== 'undefined' && currentPlotData && currentPlotLayout) {
+            const plotDiv = document.getElementById('plot-area');
+            Plotly.toImage(plotDiv, { format: 'png', width: plotDiv.clientWidth, height: plotDiv.clientHeight })
+                .then(dataUrl => {
+                    // Convert data URL to Blob for download
+                    fetch(dataUrl)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'plot.png';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        });
+                })
+                .catch(err => {
+                    alert('PNG export failed: ' + err.message);
+                });
+        } else {
+            alert('PNG export requires a rendered Plotly chart.');
+        }
+    });
+
+    exportSvgButton.addEventListener('click', () => {
+        if (currentOutputType === 'plotly_json' && typeof Plotly !== 'undefined' && currentPlotData && currentPlotLayout) {
+            const plotDiv = document.getElementById('plot-area');
+            Plotly.toImage(plotDiv, { format: 'svg', width: plotDiv.clientWidth, height: plotDiv.clientHeight })
+                .then(dataUrl => {
+                    // Convert data URL to SVG text for download
+                    fetch(dataUrl)
+                        .then(res => res.text())
+                        .then(svgText => {
+                            downloadFile('plot.svg', svgText, 'image/svg+xml');
+                        });
+                })
+                .catch(err => {
+                    alert('SVG export failed: ' + err.message);
+                });
+        } else {
+            alert('SVG export requires a rendered Plotly chart.');
+        }
+    });
+
+    exportHtmlButton.addEventListener('click', () => {
+        if (currentOutputType === 'plotly_json' && currentOutputContent) {
+            try {
+                // Parse the stored JSON string to get data/layout objects
+                const plotJson = JSON.parse(currentOutputContent);
+                const plotData = plotJson.data;
+                const plotLayout = plotJson.layout;
+
+                // Convert data/layout objects back to JSON strings
+                let plotDataString = JSON.stringify(plotData);
+                let plotLayoutString = JSON.stringify(plotLayout);
+
+                // Escape any closing script tags in the JSON (prevents HTML parse errors)
+                plotDataString = plotDataString.replace(/<\/script>/gi, '<\\/script>');
+                plotLayoutString = plotLayoutString.replace(/<\/script>/gi, '<\\/script>');
+
+                // Build HTML content
+                const htmlContent = "<!DOCTYPE html>\n"
+                    + "<html>\n"
+                    + "<head>\n"
+                    + "    <meta charset=\"utf-8\" />\n"
+                    + "    <title>Exported Plotly Chart</title>\n"
+                    + "    <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'><\/script>\n"
+                    + "</head>\n"
+                    + "<body>\n"
+                    + "    <div id='plotly-div'></div>\n"
+                    + "    <script>\n"
+                    + "        try {\n"
+                    + "            var data = " + plotDataString + ";\n"
+                    + "            var layout = " + plotLayoutString + ";\n"
+                    + "            Plotly.newPlot('plotly-div', data, layout);\n"
+                    + "        } catch (e) { \n"
+                    + "            console.error('Error rendering exported plot:', e); \n"
+                    + "            document.body.innerHTML = '<pre>Error rendering plot: ' + e.message + '</pre>'; \n"
+                    + "        } \n"
+                    + "    <\/script>\n"
+                    + "</body>\n"
+                    + "</html>";
+
+                downloadFile('visualization.html', htmlContent, 'text/html');
+            } catch (e) {
+                console.error("Error creating export HTML:", e);
+                alert('Failed to create HTML export from plot data.');
+            }
+        } else {
+            alert('HTML export requires rendered Plotly chart data.');
+        }
+    });
+
+    // --- View Code Button Handler ---
+    viewCodeButton.addEventListener('click', () => {
+        if (pythonScriptContent) {
+            pythonCodeDisplay.textContent = pythonScriptContent.trim(); // Display the script
+            Prism.highlightElement(pythonCodeDisplay); // Apply syntax highlighting
+            codeModal.style.display = "block"; // Show the modal
+        } else {
+            alert("No Python script content found to display.");
+        }
+    });
+
+    // --- View Data Button Handler ---
+    viewDataButton.addEventListener('click', () => {
+        try {
+            if (actualJsonData) {
+                const jsonDataString = JSON.stringify(actualJsonData, null, 2);
+                jsonDataDisplay.textContent = jsonDataString;
+                Prism.highlightElement(jsonDataDisplay);
+                dataModal.style.display = "block";
+            } else {
+                alert("JSON data is not available.");
+            }
+        } catch (e) {
+            alert(`Error formatting JSON data: ${e.message}`);
+        }
+    });
+
+    // --- View Worker Log Button Handler ---
+    viewWorkerLogButton.addEventListener('click', () => {
+        if (workerLogs.length > 0) { // Add check if logs exist
+            workerLogDisplay.textContent = workerLogs.join('\n'); // Display logs
+            Prism.highlightElement(workerLogDisplay); // Apply syntax highlighting
+            workerLogModal.style.display = "block"; // Show the modal
+        } else {
+            alert("No worker logs available.");
+        }
+    });
+
+    // --- Modal Close Button Handlers ---
+    closeModalButton.addEventListener('click', () => {
+        codeModal.style.display = "none"; // Hide the modal
+    });
+
+    closeDataModalButton.addEventListener('click', () => {
+        dataModal.style.display = "none"; // Hide the modal
+    });
+
+    closeWorkerLogModalButton.addEventListener('click', () => {
+        workerLogModal.style.display = "none"; // Hide the modal
+    });
+
+    // --- Copy Button Handlers ---
+    copyPythonButton.addEventListener('click', () => {
+        if (pythonScriptContent) copyToClipboard(pythonScriptContent.trim());
+    });
+
+    copyDataButton.addEventListener('click', () => {
+        try {
+            if (actualJsonData) {
+                const jsonDataString = JSON.stringify(actualJsonData, null, 2);
+                copyToClipboard(jsonDataString);
+            } else {
+                alert("JSON data is not available.");
+            }
+        } catch (e) { alert('Failed to copy JSON data.'); }
+    });
+
+    copyWorkerLogButton.addEventListener('click', () => {
+        if(workerLogs.length > 0) copyToClipboard(workerLogs.join('\n'));
+    });
+
+    // Initialize Prism for syntax highlighting if modals are used
+    if (typeof Prism !== 'undefined') {
+        Prism.highlightAll();
+    }
+
+    // --- Robust Plot Resizing Logic ---
+    window.addEventListener('resize', updatePlotLayout);
+
+    if (window.ResizeObserver && plotArea) {
+        const resizeObserver = new ResizeObserver(() => {
+            updatePlotLayout();
+        });
+        resizeObserver.observe(plotArea);
+    } else {
+        console.warn('ResizeObserver not supported or plotArea not found.');
+    }
+});
+
+// --- Worker Setup and Communication --- ---
+function initializePyodideWorker(workerScriptContent, pythonScriptContent, jsonData) {
+    console.log("Main: Initializing Pyodide Worker...");
+    if (!workerScriptContent) {
+        displayError("Worker script content is missing.");
+        return;
+    }
+    const workerBlob = new Blob([workerScriptContent], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(workerBlob);
+    pyodideWorker = new Worker(workerUrl);
+    pyodideWorker.onmessage = (event) => {
+        // --- Capture ALL messages for logging (Verbose) ---
+        const messageString = JSON.stringify(event.data); // Log the full data
+        workerLogs.push(messageString); 
+        console.log(`Main: Received from worker: ${messageString}`);
+        // --- Original message parsing for actions ---
+        const { type, message, data } = event.data;
+
+        // Show log button if there are logs
+        if (workerLogs.length > 0) {
+            viewWorkerLogButton.style.display = 'inline-block';
+        }
+
+        // --- Handle message actions ---
+        switch (type) {
+            case 'pyodide_loaded':
+                console.log("Main: Pyodide loaded in worker. Sending script and data.");
+                loadingIndicator.textContent = 'Executing Python script...';
+                pyodideWorker.postMessage({
+                    type: 'execute_script',
+                    pythonScript: pythonScriptContent,
+                    jsonData: jsonData // Use global jsonData here
+                });
+                break;
+            case 'status':
+                console.log(`Main: Worker status update: ${message}`);
+                loadingIndicator.textContent = message; // Update loading message
+                break;
+            case 'result':
+                console.log("Main: Received plot data from worker.");
+                loadingIndicator.style.display = 'none'; // Hide loading indicator
+                displayOutput('plotly_json', data);
+                break;
+            case 'error':
+                console.error("Main: Received error from worker:", message);
+                displayError(message);
+                // workerLogs already captured above
+                // viewWorkerLogButton display already handled above
+                loadingIndicator.style.display = 'none';
+                break;
+            default:
+                // workerLogs already captured above
+                console.warn("Main: Received unknown message type from worker:", type);
+        }
+    };
+
+    // --- Worker Error Handling ---
+    pyodideWorker.onerror = (error) => {
+        console.error('Main: Error in Pyodide Worker:', error);
+        workerLogs.push(`[ERROR] Worker Error: ${error.message}`); // Log error
+        displayError(`Worker error: ${error.message}`);
+        if (pyodideWorker) {
+            pyodideWorker.terminate(); // Clean up the worker on error
+            pyodideWorker = null;
+        }
+    };
+
+    // Clean up worker URL
+    URL.revokeObjectURL(workerUrl);
+
+    // Send initialization message (optional, if worker needs setup before loading pyodide)
+    // pyodideWorker.postMessage({ type: 'init' }); 
+    console.log("Main: Worker created and message listener attached.");
+}
+
+function updateExportButtonStates(outputType) {
+    // Enable/disable based on output type and library capabilities (match working example)
+    const hasPlotly = typeof Plotly !== 'undefined' && typeof Plotly.toImage === 'function';
+    if (exportPngButton) exportPngButton.disabled = !(outputType === 'plotly_json' && hasPlotly);
+    if (exportSvgButton) exportSvgButton.disabled = !(outputType === 'plotly_json' && hasPlotly);
+    if (exportHtmlButton) exportHtmlButton.disabled = !(outputType === 'plotly_json');
+    console.log(`Main: Button states updated - PNG: ${exportPngButton ? !exportPngButton.disabled : 'N/A'}, SVG: ${exportSvgButton ? !exportSvgButton.disabled : 'N/A'}, HTML: ${exportHtmlButton ? !exportHtmlButton.disabled : 'N/A'}`);
+}
+
+function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+    </script>
+
+    <!-- Bootstrap script to execute the main script -->
+    <script type="text/javascript">
+        try {
+            const mainScriptContent = document.getElementById('main-script-template')?.textContent;
+            if (mainScriptContent) {
+                // Execute the script content in the global scope
+                new Function(mainScriptContent)();
+            } else {
+                throw new Error("Main script template content not found.");
+            }
+        } catch (e) {
+            console.error("Failed to execute main visualization script:", e);
+            const errorArea = document.getElementById('error-area');
+            if (errorArea) {
+                errorArea.textContent = `Fatal Error: Could not run visualization script. ${e.message}`;
+                errorArea.style.display = 'block';
+                document.getElementById('loading-indicator').style.display = 'none'; // Hide loading
+            }
+        }
+    </script>
+
+</body>
+</html>

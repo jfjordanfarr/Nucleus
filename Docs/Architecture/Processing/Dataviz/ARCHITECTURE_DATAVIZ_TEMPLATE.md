@@ -1,9 +1,15 @@
 ---
 title: Data Visualization Template
 description: Specifies a skill that can be performed by personas, which involves writing structured data and simple visualization code snippets into a template pyodide-based static HTML page.
-version: 1.0
-date: 2025-04-13
+version: 1.2
+date: 2025-04-16
 ---
+
+# Cross-Links to Code & Example
+- [dataviz_script.js](../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
+- [dataviz_plotly_script.py](../../../Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py)
+- [DatavizHtmlBuilder.cs](../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)
+- [Working Example Output](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
 
 # Delivering AI-Generated Pyodide Visualizations in Teams via Self-Contained HTML Artifacts
 
@@ -17,6 +23,8 @@ This report details an architecture for generating and delivering interactive, A
 4. **Integrated Hosting:** Minimizing external dependencies by integrating the necessary components for delivering the HTML content to the Task Module within the C# Bot Framework application itself, aiming for a single deployable unit.
 
 The core idea is to leverage the C# bot to orchestrate the creation and storage of a fully functional, interactive HTML visualization file, and then reliably deliver its content for rendering within the Teams UI.
+
+> **See also:** [Section 3.1: Rationale for Refactoring Away from Script Injection](#31-rationale-for-refactoring-away-from-script-injection)
 
 ## 2. Core Artifact: The `viz.html` Template
 
@@ -61,11 +69,9 @@ The key template files involved are:
 
 This modular template approach allows the `DatavizHtmlBuilder` to assemble a complete, functional visualization artifact by combining these standard parts with the dynamic content (Python code, JSON data) provided by an AI Persona.
 
-## 3. Backend Implementation (C# Bot Framework Application)
+## 3. Artifact Generation Process (`viz.html`)
 
-The C# bot application (deployable as a single Azure App Service or Container App) handles the orchestration.
-
-### 3.1. Artifact Generation:
+> **See also:** [Section 3.1: Rationale for Refactoring Away from Script Injection](#31-rationale-for-refactoring-away-from-script-injection)
 
 C#
 
@@ -118,7 +124,125 @@ finalHtml = finalHtml.Replace("/* JSON_DATA_PLACEHOLDER */ {}", $"/* JSON_DATA_P
 // 'finalHtml' string now contains the complete, ready-to-use HTML content
 ```
 
-### 3.2. SharePoint Storage (using Microsoft.Graph SDK):
+### 3.1 Rationale for Refactoring Away from Script Injection
+
+**Motivation:**
+The initial Dataviz prototype used dynamic HTML/script injection (as in the [working example](./EXAMPLE_OUTPUT_nucleus_dataviz_20250415111719.html)) to render Plotly plots and enable export. While this approach “just worked” for static artifacts, it posed challenges for maintainability, security, and agentic AI development.
+
+**Key Reasons for the Shift:**
+- **Separation of Concerns:** The new architecture separates Python, JSON data, and rendering logic, allowing each to be reasoned about and validated independently.
+- **Maintainability:** Avoids brittle, hard-to-debug dynamic script injection. All dynamic content is injected via well-defined template placeholders.
+- **Security:** Reduces risk from arbitrary script execution by controlling all injected logic.
+- **AI-Friendliness:** Enables LLMs and agentic tools to generate, review, and validate each component (data, Python, template) separately.
+- **Extensibility:** Supports future enhancements (multiple chart types, richer interactivity, new export formats) without re-architecting.
+
+**Trade-Offs:**
+- Plotly’s export and resizing logic is tightly coupled to its DOM/script execution context; the new approach requires additional engineering to restore these features.
+- Until these are resolved, some “out-of-the-box” Plotly features (like SVG/PNG export) may not work as seamlessly as in the working example.
+
+**References:**
+- [`DatavizHtmlBuilder.cs`](../../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs) (see XML comment at class level)
+- [Working Example Output](./EXAMPLE_OUTPUT_nucleus_dataviz_20250415111719.html)
+
+**Next Steps:**
+Engineer robust export/resizing logic within this maintainable, agentic architecture. See [section 7: Open Issues & Engineering Plan](#7-open-issues--engineering-plan).
+
+## Plotly Responsiveness: Lessons Learned
+Repeated issues with Plotly chart resizing (especially after export or container resizes) led to a series of experiments and bug fixes. The final robust solution is:
+- Always call `Plotly.newPlot` with `{responsive: true}` as the config argument.
+- Ensure the plot container (`#plot-area`) uses flexible CSS sizing (`width: 100%`, `height: 100%`, or `min-height` as needed).
+- Initialization and event listeners (ResizeObserver, window resize) must be attached after `DOMContentLoaded`.
+- Manual relayout and resize logic is retained as a fallback for rare edge cases, but Plotly's built-in responsiveness now handles the vast majority of scenarios.
+
+**References:**
+- [dataviz_script.js](../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
+- [Working Example](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
+
+### Architecture Diagram: Responsive Rendering Pipeline
+```mermaid
+flowchart TD
+    subgraph C#
+        A[DatavizHtmlBuilder.cs]
+    end
+    subgraph HTML Artifact
+        B[dataviz_template.html]
+        C[dataviz_script.js]
+        D[dataviz_plotly_script.py]
+    end
+    subgraph Browser
+        E[Pyodide Worker]
+        F[Plotly.js]
+        G[ResizeObserver / window.resize]
+    end
+    A --> B
+    B --> C
+    B --> D
+    C -- injects data --> F
+    D -- generates JSON --> C
+    F -- renders plot with responsive:true --> H[plot-area div]
+    G -- triggers resize --> F
+    style H fill:#cff,stroke:#333,stroke-width:2px
+    F -. fallback relayout/resize .-> F
+```
+
+## 4. Backend Implementation (C# Bot Framework Application)
+
+The C# bot application (deployable as a single Azure App Service or Container App) handles the orchestration.
+
+### 4.1. Artifact Generation:
+
+C#
+
+```csharp
+using System.Text;
+using System.Text.Json; // Requires System.Text.Json nuget package
+using System.Text.RegularExpressions; // For escaping
+
+//... within your bot logic (e.g., inside a Dialog or Activity Handler)
+
+// 1. Load the HTML template content
+string templateHtml = await File.ReadAllTextAsync("./path/to/your/template.html"); // Adjust path
+
+// 2. Get Branding CSS (e.g., from config)
+string brandingCss = "/* Your custom CSS rules here */\n.plotly-graph-div { border: 1px solid #ccc; }"; // Example
+
+// 3. Get AI-generated Python code snippet and JSON data
+string aiPythonSnippet = @"
+# Example AI code:
+final_fig_plotly = px.histogram(data_frame, x=data_frame.columns, title='AI Histogram')
+js.pyodideWorker.postMessage({ type: 'progress', payload: 0.6 });
+"; // Replace with actual AI output
+
+object aiDataObject = new { // Replace with actual data structure
+    data = new {
+        new { category = "A", value = 10 },
+        new { category = "B", value = 25 },
+        new { category = "C", value = 15 }
+    },
+    metadata = new { title = "Sample Data" }
+};
+string aiJsonDataString = JsonSerializer.Serialize(aiDataObject, new JsonSerializerOptions { WriteIndented = true });
+
+// 4. Inject into template
+string finalHtml = templateHtml;
+
+// Inject CSS
+finalHtml = finalHtml.Replace("", brandingCss);
+
+// Inject Python (escape backticks, backslashes, ${} for JS template literals)
+string escapedPythonSnippet = aiPythonSnippet
+   .Replace("\\", "\\\\") // Escape backslashes
+   .Replace("`", "\\`")  // Escape backticks
+   .Replace("${", "\\${"); // Escape ${ sequence
+finalHtml = finalHtml.Replace("### START AI GENERATED CODE ###", "### START AI GENERATED CODE ###\n" + escapedPythonSnippet); // Inject within markers
+
+// Inject JSON data
+finalHtml = finalHtml.Replace("/* JSON_DATA_PLACEHOLDER */ {}", $"/* JSON_DATA_PLACEHOLDER */ {aiJsonDataString}");
+
+// 'finalHtml' string now contains the complete, ready-to-use HTML content
+```
+
+### 4.2. SharePoint Storage (using Microsoft.Graph SDK):
 
 - **Permissions:** Ensure your bot's Azure AD App Registration has `Sites.Selected` Graph API permission (Application type) granted by an admin. Then, grant specific Write permissions to the bot's service principal for the target SharePoint site(s) using the `/sites/{site-id}/permissions` endpoint (this usually requires a separate script or process run by an admin).
 - **C# Code Snippet:**
@@ -182,7 +306,7 @@ async Task StoreArtifactInSharePoint(GraphServiceClient graphClient, string grou
 // await StoreArtifactInSharePoint(graphClient, teamId, uniqueVizId, finalHtml);
 ```
 
-### 3.3. Task Module Delivery & Integrated Hosting:
+### 4.3. Task Module Delivery & Integrated Hosting:
 
 - **Caching:** Use `IMemoryCache` for simplicity and alignment with ephemeral processing goals. If performance in a multi-instance deployment *absolutely requires* shared state (which should generally be avoided), an external cache like Redis could be considered, but in-memory is strongly preferred.
 
@@ -285,7 +409,7 @@ app.MapGet("/api/renderViz", (string id, IMemoryCache cache, ILogger<Program> lo
 app.Run();
 ```
 
-## 4. Security Considerations
+## 5. Security Considerations
 
 - **Python Template:** The strict structure, pre-defined imports, and clear AI code boundaries are crucial.
 - **CSP Header:** The `Content-Security-Policy` header set by the `/api/renderViz` endpoint is vital for mitigating XSS, restricting network connections, and ensuring the content can only be framed by Teams. **Crucially, for Pyodide/micropip to download packages, the `connect-src` directive MUST include `https://cdn.jsdelivr.net`, `https://pypi.org`, and `https://files.pythonhosted.org`. Additionally, `script-src` needs `'unsafe-inline'`, `'unsafe-eval'`, and the CDNs (`https://cdn.jsdelivr.net`, `https://cdn.plot.ly`), while `worker-src` requires `blob:` for the Pyodide worker.**
@@ -293,10 +417,21 @@ app.Run();
 - **Graph Permissions:** Use `Sites.Selected` for least privilege access to SharePoint.
 - **Input Validation:** The bot backend should ideally perform basic validation on the AI-generated Python snippet (e.g., checking for obviously malicious patterns, though this is hard) and the size/structure of the JSON data before generating the final HTML.
 
-## 5. Deployment
+## 6. Deployment
 
 The C# Bot Framework application, now containing the bot logic (`/api/messages`), artifact generation, SharePoint upload logic, caching (`IMemoryCache` preferred), and the HTML serving endpoint (`/api/renderViz`), can be deployed as a single unit to Azure App Service or Azure Container Apps. Ensure the service has network access to Microsoft Graph. External caching (like Redis) should generally be avoided but may require network configuration if deemed strictly necessary.
 
-## 6. Conclusion
+## 7. Conclusion
 
 This architecture provides a robust method for delivering AI-generated, interactive Python visualizations within Teams. It creates a self-contained, branded HTML artifact stored persistently in SharePoint, while ensuring reliable interactive delivery via a Task Module powered by an integrated endpoint within the bot application itself. This approach balances functionality, security, and deployment simplicity.
+
+## Cross-References
+- [ARCHITECTURE_PROCESSING_DATAVIZ.md](../ARCHITECTURE_PROCESSING_DATAVIZ.md)
+- [dataviz_script.js](../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
+- [dataviz_plotly_script.py](../../../Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py)
+- [DatavizHtmlBuilder.cs](../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)
+- [EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
+
+---
+
+_Metadata last updated: 2025-04-16_
