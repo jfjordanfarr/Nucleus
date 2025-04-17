@@ -8,10 +8,17 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Nucleus.Personas.Core\Nucleus.Personas.Core.csproj" />
+    <ProjectReference Include="..\Nucleus.Processing\Nucleus.Processing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.25207.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.0" /> 
   </ItemGroup>
 
 </Project>

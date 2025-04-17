@@ -18,13 +18,38 @@ Nucleus OmniRAG is a platform designed to empower individuals and teams by trans
 
 This document provides a high-level map of the system's components, interactions, required infrastructure, and codebase structure. Detailed designs for specific areas can be found in the subsequent architecture documents:
 
-*   [01_ARCHITECTURE_PROCESSING.md](./01_ARCHITECTURE_PROCESSING.md)
-*   [02_ARCHITECTURE_PERSONAS.md](./02_ARCHITECTURE_PERSONAS.md)
-*   [03_ARCHITECTURE_STORAGE.md](./03_ARCHITECTURE_STORAGE.md)
-*   [04_ARCHITECTURE_DATABASE.md](./04_ARCHITECTURE_DATABASE.md)
-*   [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md)
-*   [06_ARCHITECTURE_SECURITY.md](./06_ARCHITECTURE_SECURITY.md)
-*   [07_ARCHITECTURE_DEPLOYMENT.md](./07_ARCHITECTURE_DEPLOYMENT.md)
+### Core Components Overview
+
+This section provides links to detailed architecture documents for major components:
+
+#### Core & Orchestration
+
+*   [01_ARCHITECTURE_PROCESSING.md](./01_ARCHITECTURE_PROCESSING.md) - Overall data processing flow and orchestration.
+*   [Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md) - Detailed orchestration logic.
+*   [Processing/Ingestion/ARCHITECTURE_INGESTION_*.md](./Processing/Ingestion/) - Specific data ingestion methods.
+*   [Processing/Dataviz/ARCHITECTURE_PROCESSING_DATAVIZ.md](./Processing/Dataviz/ARCHITECTURE_PROCESSING_DATAVIZ.md) - Data visualization generation.
+
+#### Intelligence & Personas
+
+*   [02_ARCHITECTURE_PERSONAS.md](./02_ARCHITECTURE_PERSONAS.md) - High-level persona concepts.
+*   [08_ARCHITECTURE_AI_INTEGRATION.md](./08_ARCHITECTURE_AI_INTEGRATION.md) - Integration patterns for external AI models.
+*   [Personas/*/*.md](./Personas/) - Specific persona implementations (Bootstrapper, Educator, Professional).
+
+#### Data & Storage
+
+*   [03_ARCHITECTURE_STORAGE.md](./03_ARCHITECTURE_STORAGE.md) - General storage concepts (embeddings, metadata, source content).
+*   [04_ARCHITECTURE_DATABASE.md](./04_ARCHITECTURE_DATABASE.md) - Database schema and interaction patterns (likely Cosmos DB).
+
+#### Interaction & Clients
+
+*   [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md) - How users interact with Nucleus.
+*   [ClientAdapters/ARCHITECTURE_ADAPTER_*.md](./ClientAdapters/) - Specific client adapters (Console, Teams, Email, etc.).
+
+#### Security & Deployment
+
+*   [06_ARCHITECTURE_SECURITY.md](./06_ARCHITECTURE_SECURITY.md) - Security considerations, authentication, and authorization.
+*   [07_ARCHITECTURE_DEPLOYMENT.md](./07_ARCHITECTURE_DEPLOYMENT.md) - Deployment models, CI/CD, and hosting environments.
+*   [Deployment/*/*.md](./Deployment/) - Specific deployment/hosting details.
 
 ## 2. Deployment Models: Individuals vs. Teams
 
