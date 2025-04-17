@@ -1,8 +1,8 @@
 ---
 title: "Phase 1: MVP - Core Console Interaction & Basic Backend Tasks"
 description: "Detailed tasks for implementing the Nucleus OmniRAG Minimum Viable Product (MVP) focused on a Console Application client and backend API."
-version: 1.1 # First version reflecting the Console MVP
-date: 2025-04-15 # Today's date
+version: 1.2 # Updated after basic AI integration
+date: 2025-04-17 # Today's date
 ---
 
 # Phase 1: MVP - Core **Console Interaction** & Basic Backend Tasks
@@ -25,7 +25,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [X] **TASK-MVP-SETUP-05:** Create `Nucleus.ApiService` (ASP.NET Core WebAPI) project and add to AppHost. (Ref Code: `Nucleus.ApiService/`, `Nucleus.AppHost/Program.cs`)
 *   [X] **TASK-MVP-SETUP-06:** Create `Nucleus.Console` (.NET Console App) project and add to AppHost. (Ref Code: `Nucleus.Console/`, `Nucleus.AppHost/Program.cs`)
 *   [X] **TASK-MVP-SETUP-07:** Ensure AppHost correctly injects connection strings/service URIs into `Nucleus.ApiService` and `Nucleus.Console`. (Ref Config: Aspire Configuration)
-*   [ ] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Google Gemini) and necessary configuration (API keys via user secrets/env vars).
+*   [X] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Google Gemini) and necessary configuration (API keys via user secrets/env vars).
 
 ## `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for Ingestion)
 *(Ref Arch: [`01_ARCHITECTURE_PROCESSING.md`](../Architecture/01_ARCHITECTURE_PROCESSING.md), [`ARCHITECTURE_PROCESSING_INGESTION.md`](../Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md))*
@@ -37,8 +37,8 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 ## `ISSUE-MVP-PERSONA-01`: Create Initial **Bootstrapper Persona**
 *(Ref Arch: [`02_ARCHITECTURE_PERSONAS.md`](../Architecture/02_ARCHITECTURE_PERSONAS.md), [`ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md`](../Architecture/Personas/ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md))*
 *   [ ] **TASK-MVP-PER-01:** Define the output C# record model(s) for the `BootstrapperPersona`'s structured analysis/knowledge representation. (Ref Code: `Nucleus.Personas/Bootstrapper/Models/` - TBD)
-*   [ ] **TASK-MVP-PER-02:** Implement `BootstrapperPersona` class inheriting `IPersona<T>`. (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs` - TBD)
-*   [ ] **TASK-MVP-PER-03:** Implement `AnalyzeContentAsync` logic (Initial focus on basic metadata extraction or identifying content type).
+*   [X] **TASK-MVP-PER-02:** Implement `BootstrapperPersona` class inheriting `IPersona<T>`. (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs` - TBD)
+*   [X] **TASK-MVP-PER-03:** Integrate preferred LLM client (`IGenerativeAI`) into the `BootstrapperPersona` via DI. (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs`)
 *   [ ] **TASK-MVP-PER-04:** Define `IPersona` interface (refine as needed from architecture doc, include `HandleQueryAsync`). (Ref Code: `Nucleus.Abstractions/Interfaces/IPersona.cs` - TBD)
 *   [ ] **TASK-MVP-PER-05:** Implement `HandleQueryAsync` logic for `BootstrapperPersona`:
     *   Construct prompt using query and potentially minimal context (TBD).
@@ -48,10 +48,10 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 
 ## `ISSUE-MVP-API-01`: Develop Backend API (WebAPI for Console)
 *(Ref Arch: [`07_ARCHITECTURE_DEPLOYMENT.md`](../Architecture/07_ARCHITECTURE_DEPLOYMENT.md))*
-*   [ ] **TASK-MVP-API-01:** **Re-implement/Refine** `Nucleus.ApiService` project (replacing any template placeholders) with necessary services (DI, logging, configuration, controllers). (Ref Code: `Nucleus.ApiService/Program.cs`)
-*   [ ] **TASK-MVP-API-02:** Define API controllers and endpoints relevant for Console App interaction (e.g., `/api/ingest`, `/api/query`, `/api/status`). (Ref Code: `Nucleus.ApiService/Controllers/` - TBD)
-*   [ ] **TASK-MVP-API-03:** Implement the `/api/query` endpoint to inject and call `BootstrapperPersona.HandleQueryAsync`. (Ref Code: `Nucleus.ApiService/Controllers/QueryController.cs` - TBD)
-*   [ ] **TASK-MVP-API-04:** Implement the `/api/ingest` endpoint (details TBD - might receive file path/content and trigger **in-process background processing**). (Ref Code: `Nucleus.ApiService/Controllers/IngestController.cs` - TBD)
+*   [X] **TASK-MVP-API-01:** **Re-implement/Refine** `Nucleus.ApiService` project (replacing any template placeholders) with necessary services (DI, logging, configuration, controllers). (Ref Code: `Nucleus.ApiService/Program.cs`)
+*   [X] **TASK-MVP-API-02:** Define API controllers and endpoints relevant for Console App interaction (e.g., `/api/ingest`, `/api/query`, `/api/status`). (Ref Code: `Nucleus.ApiService/Controllers/` - TBD)
+*   [X] **TASK-MVP-API-03:** Wire up the `BootstrapperPersona` within the API controllers (e.g., `/api/query` should invoke the persona). (Ref Code: `Nucleus.ApiService/Controllers/QueryController.cs`)
+*   [ ] **TASK-MVP-API-04:** Implement the `/api/ingest` endpoint to inject and call `IContentExtractor` selection logic. (Ref Code: `Nucleus.ApiService/Controllers/IngestController.cs` - TBD)
 *   [ ] **TASK-MVP-API-05:** Implement basic health check endpoint (`/healthz`). (Ref Code: `Nucleus.ApiService/Program.cs`)
 *   [ ] **TASK-MVP-API-06:** Ensure API configuration and DI are correctly set up. (Ref Code: `Nucleus.ApiService/Program.cs`)
 

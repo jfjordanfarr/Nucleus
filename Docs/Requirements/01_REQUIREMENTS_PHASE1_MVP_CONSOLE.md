@@ -1,12 +1,12 @@
 title: "Requirements: MVP - Console Application Interaction"
 description: Minimum requirements for the initial Console Application interaction model for Nucleus OmniRAG, focusing on rapid iteration.
-version: 1.1
-date: 2025-04-15
+version: 1.2
+date: 2025-04-17
 
 # Requirements: MVP - Console Application Interaction
 
-**Version:** 1.1
-**Date:** 2025-04-15
+**Version:** 1.2
+**Date:** 2025-04-17
 
 ## 1. Goal
 
@@ -35,8 +35,8 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 ### 3.2. Admin Experience (Configuration)
 
 *   **REQ-MVP-ADM-001:** An Administrator (developer during MVP) MUST be able to configure necessary connection details/credentials for external services not managed by Aspire emulators, primarily:
-    *   Configured AI Model Provider API Key and Endpoint (e.g., Google Gemini).
-*   **REQ-MVP-ADM-002:** Configuration MUST be manageable through standard .NET mechanisms (e.g., `appsettings.json`, user secrets, environment variables).
+    *   Configured AI Model Provider API Key and Endpoint (e.g., Google Gemini). **(PARTIAL - Key configured; endpoint implicit in SDK)**
+*   **REQ-MVP-ADM-002:** Configuration MUST be manageable through standard .NET mechanisms (e.g., `appsettings.json`, user secrets, environment variables). **(COMPLETE)**
 
 ### 3.3. Console Application (`Nucleus.Console`)
 
@@ -57,7 +57,7 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
 
 ### 3.4. Backend API (`Nucleus.ApiService`)
 
-*   **REQ-MVP-API-001:** The API MUST expose a `/api/query` endpoint (e.g., `POST`).
+*   **REQ-MVP-API-001:** The API MUST expose a `/api/query` endpoint (e.g., `POST`). **(COMPLETE)**
     *   Accepts a query object (e.g., containing query text).
     *   Injects and calls the `HandleQueryAsync` method of the registered `BootstrapperPersona`.
     *   Returns the persona's response.
@@ -67,15 +67,15 @@ To establish the core interaction loop for Nucleus OmniRAG using a **Console App
     *   Returns a success/acknowledgement response.
 *   **REQ-MVP-API-003:** The API MUST expose a placeholder `/api/status` endpoint (e.g., `GET`).
     *   Returns basic status information (e.g., API health, loaded personas).
-*   **REQ-MVP-API-004:** The API MUST correctly register and inject the `BootstrapperPersona` and other necessary services (Logging, Configuration, `IPersonaKnowledgeRepository`, `IEmbeddingGenerator`).
-*   **REQ-MVP-API-005:** The API MUST correctly use connection strings/configurations provided by Aspire/environment for accessing emulated/external services (Cosmos DB, AI Provider).
+*   **REQ-MVP-API-004:** The API MUST correctly register and inject the `BootstrapperPersona` and other necessary services (Logging, Configuration, `IPersonaKnowledgeRepository`, `IEmbeddingGenerator`). **(PARTIAL - Persona, Logging, Config injected. Repository/Embeddings TBD)**
+*   **REQ-MVP-API-005:** The API MUST correctly use connection strings/configurations provided by Aspire/environment for accessing emulated/external services (Cosmos DB, AI Provider). **(PARTIAL - AI Provider config used. Cosmos DB TBD)**
 *   **REQ-MVP-API-006:** The API MUST include basic health checks (`/healthz`).
 
 ### 3.5. System Behavior (Core Logic & Processing)
 
-*   **REQ-MVP-SYS-001:** The `BootstrapperPersona` MUST implement `HandleQueryAsync` to:
+*   **REQ-MVP-SYS-001:** The `BootstrapperPersona` MUST implement `HandleQueryAsync` to: **(COMPLETE)**
     *   Receive the query text from the API.
-    *   Interact with the configured AI Model (via `IChatCompletionService` or similar) to generate a response.
+    *   Interact with the configured AI Model (via `IGenerativeAI`) to generate a response.
     *   Return the generated response.
 *   **REQ-MVP-SYS-002:** (Stretch Goal/Minimal) After handling a query, the system SHOULD:
     *   Generate embeddings for the query and/or response (`IEmbeddingGenerator`).

@@ -2,8 +2,8 @@
 
 **Attention AI Assistant:** This document provides high-level context for the .NET/Azure implementation using Azure Cosmos DB. Refer to `/docs/` for full details and the Project Mandate (`/docs/Requirements/00_PROJECT_MANDATE.md`) for motivation.
 
-**Version:** 1.9
-**Date:** 2025-04-15
+**Version:** 2.0 # Reflects successful base AI integration
+**Date:** 2025-04-17
 
 ## Vision & Goal
 
@@ -18,12 +18,12 @@
 *   **Primary Backend (Knowledge Store):** **Azure Cosmos DB (NoSQL API w/ Integrated Vector Search)** - Stores `PersonaKnowledgeEntry` documents.
 *   **Primary Backend (Metadata Store):** **Azure Cosmos DB** - Stores `ArtifactMetadata` objects alongside knowledge entries (potentially separate container).
 *   **Key Azure Services:** Cosmos DB, **Azure OpenAI Service / Google Gemini AI**, Service Bus, Functions (v4+ Isolated Worker - for later phases), Key Vault.
-*   **AI Provider:** **Google Gemini AI** (Primary for `Microsoft.Extensions.AI`), Azure OpenAI Service (Secondary/Future).
+*   **AI Provider:** **Google Gemini AI** (Primary, integrated via `Mscc.GenerativeAI` v2.5.0+), Azure OpenAI Service (Secondary/Future).
 *   **Platform Integration (Phase 2+):** Microsoft Bot Framework SDK / Graph API (Teams), Slack Bolt/API, Discord.NET/API, Email Processing (e.g., MailKit/MimeKit).
 *   **MVP Client (Phase 1):** **.NET Console Application (`Nucleus.Console`)** using `System.CommandLine`.
 *   **MVP API (Phase 1):** **ASP.NET Core WebAPI (`Nucleus.ApiService`)**
 *   **Development:** Git, VS Code / Windsurf, .NET SDK 9.x, NuGet, **DotNet Aspire** (9.2+), xUnit, Moq/NSubstitute, TDD focus.
-*   **AI Abstractions:** **`Microsoft.Extensions.AI`** (`IChatClient`, `IEmbeddingGenerator`).
+*   **AI Abstractions:** `Mscc.GenerativeAI.IGenerativeAI` (for Gemini interaction), `Microsoft.Extensions.AI` (Potential future use, especially for Azure OpenAI `IEmbeddingGenerator`).
 *   **Infrastructure-as-Code (Optional/Later):** Bicep / Terraform.
 
 ## Architecture Snapshot (Phase 1 - Console App Focus)
@@ -32,7 +32,7 @@
 *   **Client:** .NET Console Application (`Nucleus.Console`).
 *   **Backend Core:** .NET 9 / Aspire
     *   **API Endpoints (`Nucleus.ApiService`):** **ASP.NET Core WebAPI** handling requests from the `Nucleus.Console` client. Orchestrates interaction with AI services and Personas.
-    *   **AI Integration:** Uses `Microsoft.Extensions.AI` (`IChatClient`, `IEmbeddingGenerator`) configured for the chosen provider (e.g., Google Gemini).
+    *   **AI Integration:** Uses `Mscc.GenerativeAI.IGenerativeAI` injected into personas (e.g., `BootstrapperPersona`) for interaction with the configured provider (Google Gemini).
     *   **Persona Implementations (`Nucleus.Personas.*`):** Initial `BootstrapperPersona` invoked by the API.
     *   **Database (`Nucleus.Infrastructure`):** Adapters (`IPersonaKnowledgeRepository`) for Cosmos DB to store/retrieve persona-generated knowledge.
     *   *Note: Platform Adapters, complex Orchestration, Metadata Service, File Storage are deferred to Phase 2+.*
@@ -42,7 +42,7 @@
     3.  API processes the request. This may involve:
         *   Retrieving relevant context from Cosmos DB via `IPersonaKnowledgeRepository`.
         *   Invoking the `BootstrapperPersona` logic (`HandleQueryAsync`).
-        *   Calling the configured LLM (`IChatClient`) for response generation.
+        *   Calling the configured LLM (via `IGenerativeAI`.`GenerativeModel().StartChat().SendMessageAsync()`) for response generation.
     4.  API sends response back to the **`Nucleus.Console`**.
     5.  Console App formats and displays the response to the user.
 *   **Deployment Model (P1):** Backend API (`Nucleus.ApiService`) hosted on Azure App Service / Azure Container Apps. Console App runs locally or can be distributed.
@@ -99,4 +99,5 @@ NucleusOmniRAG.sln
 3.  **Configure Aspire (`ISSUE-MVP-SETUP-01`):** Ensure AppHost correctly manages dependencies and configurations for `Nucleus.ApiService` and `Nucleus.Console` (including emulated Cosmos DB).
 4.  **Integrate `BootstrapperPersona` (`ISSUE-MVP-PERSONA-01`):** Implement the basic Bootstrapper logic and connect it to the API flow.
 5.  **Implement Basic Knowledge Storage/Retrieval (`ISSUE-MVP-RETRIEVAL-01`):** Implement `IPersonaKnowledgeRepository` using Cosmos DB and integrate saving/retrieval within the Persona/API flow.
-6.  **Configure AI Provider (`ISSUE-MVP-SETUP-01`):** Set up chosen LLM provider (e.g., Gemini) via `Microsoft.Extensions.AI` and manage secrets.
+6.  **Configure AI Provider (`ISSUE-MVP-SETUP-01`):** Set up chosen LLM provider (e.g., Gemini) via `Mscc.GenerativeAI` and manage secrets. **(DONE)**
+7.  **Implement File Content Ingestion (`ISSUE-MVP-INGEST-01`):** Define API mechanism (e.g., modify `/api/query` or add `/api/ingest`) to accept file content for AI context.

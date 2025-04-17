@@ -1,7 +1,7 @@
 ---
 title: "Architecture: AI Integration"
 description: "Overview of strategies and patterns for integrating external AI models and services into the Nucleus platform."
-version: 1.0
+version: 1.1
 date: 2025-04-17
 ---
 
@@ -31,7 +31,7 @@ Integration attempts revealed discrepancies between the documentation/intended u
 
 Due to the issues with the `Mscc.GenerativeAI.Microsoft` layer, the recommended and currently implemented pattern for **Gemini** relies directly on the base `Mscc.GenerativeAI` package:
 
-1.  **Dependency Injection:** Register the core `Mscc.GenerativeAI.IGenerativeAI` interface in the service container. The specific implementation (`Mscc.GenerativeAI.GoogleAI`) is instantiated with the necessary configuration (like API keys) retrieved from application settings.
+1.  **Dependency Injection:** Register the core `Mscc.GenerativeAI.IGenerativeAI` interface in the service container. The specific implementation (`Mscc.GenerativeAI.GoogleAI`) is instantiated with the necessary configuration (like API keys) retrieved primarily from environment variables (`GEMINI_API_KEY`), falling back to application settings (`appsettings.json`).
     *   **Code Link:** [Nucleus.ApiService/Program.cs](../../../Nucleus.ApiService/Program.cs)
 2.  **Usage in Personas/Services:** Inject `IGenerativeAI` into consuming classes (like Personas).
 3.  **Chat Interaction:** To initiate a chat:
@@ -39,8 +39,10 @@ Due to the issues with the `Mscc.GenerativeAI.Microsoft` layer, the recommended 
     *   Start a chat session using `GenerativeModel.StartChat()`.
     *   Send messages using `ChatSession.SendMessageAsync(prompt)`.
     *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Nucleus.Personas.Core/BootstrapperPersona.cs)
+4.  **API Invocation:** The API layer (e.g., `QueryController`) receives client requests, validates them, and invokes the relevant persona method (`HandleQueryAsync`).
+    *   **Code Link:** [Nucleus.ApiService/Controllers/QueryController.cs](../../../Nucleus.ApiService/Controllers/QueryController.cs)
 
-This pattern aligns with the examples provided in the `Mscc.GenerativeAI` library's primary documentation and avoids the problematic dependencies of the Microsoft integration layer *for Gemini*. It serves as the blueprint for the initial MVP.
+This pattern aligns with the examples provided in the `Mscc.GenerativeAI` library's primary documentation and avoids the problematic dependencies of the Microsoft integration layer *for Gemini*. It serves as the blueprint for the initial MVP **and has been successfully implemented and tested, enabling basic query interaction with the Gemini API via the `/api/query` endpoint.**
 
 ## 3. Future Considerations & Multi-Provider Strategy
 
