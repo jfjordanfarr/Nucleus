@@ -1,9 +1,13 @@
-using Mscc.GenerativeAI;
-using Nucleus.Abstractions;
-using Nucleus.Personas.Core;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Mscc.GenerativeAI; 
+using Nucleus.Abstractions; 
+using Nucleus.ApiService.Configuration; 
+using Nucleus.Personas.Core; 
 using System;
+using System.Security.Cryptography;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +57,14 @@ builder.Services.AddScoped<IPersona<EmptyAnalysisData>, BootstrapperPersona>();
 
 // Add services for controllers (required by app.MapControllers)
 builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+// Register IMemoryCache for ephemeral content storage used by personas.
+// See: ../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#2-caching-bootstrapperpersonaanalyzeephemeralcontentasync
+builder.Services.AddMemoryCache();
+
+// --- Configure Strongly Typed Options ---
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 
 var app = builder.Build();
 
@@ -72,8 +84,8 @@ app.MapGet("/weatherforecast", () =>
         new WeatherForecast
         (
             DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
+            System.Security.Cryptography.RandomNumberGenerator.GetInt32(-20, 55),
+            summaries[System.Security.Cryptography.RandomNumberGenerator.GetInt32(summaries.Length)]
         ))
         .ToArray();
     return forecast;

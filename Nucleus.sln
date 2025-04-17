@@ -9,104 +9,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.ServiceDefaults", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.ApiService", "Nucleus.ApiService\Nucleus.ApiService.csproj", "{E3B6F934-B6A7-163E-45E5-1EDD2CAB6CD5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Tests", "Nucleus.Tests\Nucleus.Tests.csproj", "{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "AgentOps", "AgentOps", "{76150982-B6A9-4A29-AA78-B16F97DD0D86}"
-	ProjectSection(SolutionItems) = preProject
-		AgentOps\00_START_HERE_METHODOLOGY.md = AgentOps\00_START_HERE_METHODOLOGY.md
-		AgentOps\01_PROJECT_CONTEXT.md = AgentOps\01_PROJECT_CONTEXT.md
-		AgentOps\02_CURRENT_SESSION_STATE.md = AgentOps\02_CURRENT_SESSION_STATE.md
-		AgentOps\03_PROJECT_PLAN_KANBAN.md = AgentOps\03_PROJECT_PLAN_KANBAN.md
-		AgentOps\04_AGENT_TO_AGENT_CONVERSATION.md = AgentOps\04_AGENT_TO_AGENT_CONVERSATION.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Scripts", "Scripts", "{8BE0BBD5-B77D-480E-A5E7-DCB889FD2ABC}"
-	ProjectSection(SolutionItems) = preProject
-		AgentOps\Scripts\codebase_to_markdown.py = AgentOps\Scripts\codebase_to_markdown.py
-		AgentOps\Scripts\csharp_code_analyzer.csx = AgentOps\Scripts\csharp_code_analyzer.csx
-		AgentOps\Scripts\tree_gitignore.py = AgentOps\Scripts\tree_gitignore.py
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Archive", "Archive", "{099EB3AC-7565-4A54-896D-436EB18B617C}"
-	ProjectSection(SolutionItems) = preProject
-		Docs\HelpfulMarkdownFiles\OriginatingConversation.md = Docs\HelpfulMarkdownFiles\OriginatingConversation.md
-		Docs\HelpfulMarkdownFiles\OriginatingConversation02.md = Docs\HelpfulMarkdownFiles\OriginatingConversation02.md
-		AgentOps\Archive\STORY_01_NavigatingEvolvingAILibraries.md = AgentOps\Archive\STORY_01_NavigatingEvolvingAILibraries.md
-		AgentOps\Archive\STORY_02_MCP_Server_Integration_Lessons.md = AgentOps\Archive\STORY_02_MCP_Server_Integration_Lessons.md
-		AgentOps\Archive\STORY_03_LinterIntegration.md = AgentOps\Archive\STORY_03_LinterIntegration.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Architecture", "Architecture", "{5E1FC52B-A389-4232-9DEE-14EF2EC851BD}"
-	ProjectSection(SolutionItems) = preProject
-		Docs\Architecture\00_ARCHITECTURE_OVERVIEW.md = Docs\Architecture\00_ARCHITECTURE_OVERVIEW.md
-		Docs\Architecture\01_ARCHITECTURE_PROCESSING.md = Docs\Architecture\01_ARCHITECTURE_PROCESSING.md
-		Docs\Architecture\02_ARCHITECTURE_PERSONAS.md = Docs\Architecture\02_ARCHITECTURE_PERSONAS.md
-		Docs\Architecture\03_ARCHITECTURE_STORAGE.md = Docs\Architecture\03_ARCHITECTURE_STORAGE.md
-		Docs\Architecture\04_ARCHITECTURE_DATABASE.md = Docs\Architecture\04_ARCHITECTURE_DATABASE.md
-		Docs\Architecture\05_ARCHITECTURE_CLIENTS.md = Docs\Architecture\05_ARCHITECTURE_CLIENTS.md
-		Docs\Architecture\06_ARCHITECTURE_SECURITY.md = Docs\Architecture\06_ARCHITECTURE_SECURITY.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Requirements", "Requirements", "{429C6202-803A-4A99-8E46-F36ED2AF5D8D}"
-	ProjectSection(SolutionItems) = preProject
-		Docs\Requirements\00_PROJECT_MANDATE.md = Docs\Requirements\00_PROJECT_MANDATE.md
-		Docs\Requirements\01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md = Docs\Requirements\01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md
-		Docs\Requirements\02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md = Docs\Requirements\02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md
-		Docs\Requirements\03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md = Docs\Requirements\03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md
-		Docs\Requirements\04_REQUIREMENTS_PHASE4_MATURITY.md = Docs\Requirements\04_REQUIREMENTS_PHASE4_MATURITY.md
-		Docs\Requirements\05_REQUIREMENTS_PHASE5_PUBLIC_GOOD.md = Docs\Requirements\05_REQUIREMENTS_PHASE5_PUBLIC_GOOD.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Planning", "Planning", "{3A649559-1EDE-4821-86C7-F2ECA75EB6E7}"
-	ProjectSection(SolutionItems) = preProject
-		Docs\Planning\00_ROADMAP.md = Docs\Planning\00_ROADMAP.md
-		Docs\Planning\01_PHASE1_MVP_TASKS.md = Docs\Planning\01_PHASE1_MVP_TASKS.md
-		Docs\Planning\02_PHASE2_MULTI_PLATFORM_TASKS.md = Docs\Planning\02_PHASE2_MULTI_PLATFORM_TASKS.md
-		Docs\Planning\03_PHASE3_ENHANCEMENTS_TASKS.md = Docs\Planning\03_PHASE3_ENHANCEMENTS_TASKS.md
-		Docs\Planning\04_PHASE4_MATURITY_TASKS.md = Docs\Planning\04_PHASE4_MATURITY_TASKS.md
-		Docs\Planning\05_PHASE5_PUBLIC_GOOD_TASKS.md = Docs\Planning\05_PHASE5_PUBLIC_GOOD_TASKS.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HelpfulMarkdownFiles", "HelpfulMarkdownFiles", "{0B6C89FF-9935-4200-AA6D-C86BB136622F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Library-References", "Library-References", "{067D1B3B-B613-4684-948A-3DB2D6D784F7}"
-	ProjectSection(SolutionItems) = preProject
-		Docs\HelpfulMarkdownFiles\Library-References\Aspire-AI-Template-Extended-With-Gemini.md = Docs\HelpfulMarkdownFiles\Library-References\Aspire-AI-Template-Extended-With-Gemini.md
-		Docs\HelpfulMarkdownFiles\Library-References\AzureAI.md = Docs\HelpfulMarkdownFiles\Library-References\AzureAI.md
-		Docs\HelpfulMarkdownFiles\Library-References\AzureCosmosDBDocumentation.md = Docs\HelpfulMarkdownFiles\Library-References\AzureCosmosDBDocumentation.md
-		Docs\HelpfulMarkdownFiles\Library-References\DotnetAspire.md = Docs\HelpfulMarkdownFiles\Library-References\DotnetAspire.md
-		Docs\HelpfulMarkdownFiles\Library-References\MicrosoftExtensionsAI.md = Docs\HelpfulMarkdownFiles\Library-References\MicrosoftExtensionsAI.md
-		Docs\HelpfulMarkdownFiles\Library-References\Mscc.GenerativeAI.Microsoft-Reference.md = Docs\HelpfulMarkdownFiles\Library-References\Mscc.GenerativeAI.Microsoft-Reference.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Processing", "Processing", "{BD10BA5C-70C1-4DE8-8D63-870A652E16A4}"
-	ProjectSection(SolutionItems) = preProject
-		ARCHITECTURE_PROCESSING_DATAVIZ.md = ARCHITECTURE_PROCESSING_DATAVIZ.md
-		ARCHITECTURE_PROCESSING_INGESTION.md = ARCHITECTURE_PROCESSING_INGESTION.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Personas", "Personas", "{9BE6DCDA-3132-46CA-A8D3-DF6B4C746126}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EduFlow", "EduFlow", "{C6269D01-5489-4B88-B80A-FA70DDF4F1F6}"
-	ProjectSection(SolutionItems) = preProject
-		ARCHITECTURE_PERSONAS_EDUCATOR.md = ARCHITECTURE_PERSONAS_EDUCATOR.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Bootstrapper", "Bootstrapper", "{F25DC2ED-75E2-412F-81C5-97E6A63ED81D}"
-	ProjectSection(SolutionItems) = preProject
-		ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md = ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ProfessionalColleague", "ProfessionalColleague", "{4FD511B9-D77E-4434-AC28-8C43F1AE5350}"
-	ProjectSection(SolutionItems) = preProject
-		ARCHITECTURE_PERSONAS_PROFESSIONAL.md = ARCHITECTURE_PERSONAS_PROFESSIONAL.md
-	EndProjectSection
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Console", "Nucleus.Console\Nucleus.Console.csproj", "{BE9E7224-A010-4E53-A464-AC47105A6F0D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Processing", "Nucleus.Processing\Nucleus.Processing.csproj", "{F419D325-AF97-4B1F-8162-C2288D2E48A9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Abstractions", "Nucleus.Abstractions\Nucleus.Abstractions.csproj", "{5B287949-4290-0E31-01F7-076A42580039}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nucleus.Personas.Core", "Nucleus.Personas.Core\Nucleus.Personas.Core.csproj", "{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -154,18 +63,6 @@ Global
 		{E3B6F934-B6A7-163E-45E5-1EDD2CAB6CD5}.Release|x64.Build.0 = Release|Any CPU
 		{E3B6F934-B6A7-163E-45E5-1EDD2CAB6CD5}.Release|x86.ActiveCfg = Release|Any CPU
 		{E3B6F934-B6A7-163E-45E5-1EDD2CAB6CD5}.Release|x86.Build.0 = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|x64.Build.0 = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Debug|x86.Build.0 = Debug|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|x64.ActiveCfg = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|x64.Build.0 = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|x86.ActiveCfg = Release|Any CPU
-		{8D472E2D-E39D-CDEC-4EB0-64C519C4A18F}.Release|x86.Build.0 = Release|Any CPU
 		{BE9E7224-A010-4E53-A464-AC47105A6F0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BE9E7224-A010-4E53-A464-AC47105A6F0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BE9E7224-A010-4E53-A464-AC47105A6F0D}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -190,23 +87,33 @@ Global
 		{F419D325-AF97-4B1F-8162-C2288D2E48A9}.Release|x64.Build.0 = Release|Any CPU
 		{F419D325-AF97-4B1F-8162-C2288D2E48A9}.Release|x86.ActiveCfg = Release|Any CPU
 		{F419D325-AF97-4B1F-8162-C2288D2E48A9}.Release|x86.Build.0 = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|x64.Build.0 = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Debug|x86.Build.0 = Debug|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|x64.ActiveCfg = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|x64.Build.0 = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|x86.ActiveCfg = Release|Any CPU
+		{5B287949-4290-0E31-01F7-076A42580039}.Release|x86.Build.0 = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|x64.Build.0 = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Debug|x86.Build.0 = Debug|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|x64.ActiveCfg = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|x64.Build.0 = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|x86.ActiveCfg = Release|Any CPU
+		{23D6B0BD-8189-A2E8-5751-8B01D1DFDBF0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{8BE0BBD5-B77D-480E-A5E7-DCB889FD2ABC} = {76150982-B6A9-4A29-AA78-B16F97DD0D86}
-		{099EB3AC-7565-4A54-896D-436EB18B617C} = {76150982-B6A9-4A29-AA78-B16F97DD0D86}
-		{5E1FC52B-A389-4232-9DEE-14EF2EC851BD} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{429C6202-803A-4A99-8E46-F36ED2AF5D8D} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{3A649559-1EDE-4821-86C7-F2ECA75EB6E7} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{0B6C89FF-9935-4200-AA6D-C86BB136622F} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{067D1B3B-B613-4684-948A-3DB2D6D784F7} = {0B6C89FF-9935-4200-AA6D-C86BB136622F}
-		{BD10BA5C-70C1-4DE8-8D63-870A652E16A4} = {5E1FC52B-A389-4232-9DEE-14EF2EC851BD}
-		{9BE6DCDA-3132-46CA-A8D3-DF6B4C746126} = {5E1FC52B-A389-4232-9DEE-14EF2EC851BD}
-		{C6269D01-5489-4B88-B80A-FA70DDF4F1F6} = {9BE6DCDA-3132-46CA-A8D3-DF6B4C746126}
-		{F25DC2ED-75E2-412F-81C5-97E6A63ED81D} = {9BE6DCDA-3132-46CA-A8D3-DF6B4C746126}
-		{4FD511B9-D77E-4434-AC28-8C43F1AE5350} = {9BE6DCDA-3132-46CA-A8D3-DF6B4C746126}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0C252295-6822-4B83-8E95-09A23E34CA75}

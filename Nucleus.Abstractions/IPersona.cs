@@ -86,13 +86,31 @@ public interface IPersona<TAnalysisData> where TAnalysisData : class
     Task<PersonaAnalysisResult<TAnalysisData>> AnalyzeContentAsync(ContentItem content, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Handles a user query directed at this persona, leveraging retrieval
-    /// and AI generation to provide a contextual answer.
+    /// Analyzes ephemeral content (e.g., raw text from ingestion) before full processing or persistence.
+    /// This is often used for temporary caching or initial context setup for subsequent queries.
+    /// See: [Architecture: AI Integration - Caching](~/../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#2-caching-bootstrapperpersonaanalyzeephemeralcontentasync)
     /// </summary>
-    /// <param name="query">The user query details.</param>
+    /// <param name="ephemeralContent">The raw or semi-processed content string.</param>
+    /// <param name="sourceIdentifier">An identifier for the source of the content (e.g., file path, URL).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The result of the query processing.</returns>
-    Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, CancellationToken cancellationToken = default);
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <seealso cref="Nucleus.Personas.Core.BootstrapperPersona.AnalyzeEphemeralContentAsync"/>
+    Task AnalyzeEphemeralContentAsync(string ephemeralContent, string sourceIdentifier, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Handles a user query directed at this persona, optionally using provided ephemeral context,
+    /// leveraging retrieval and AI generation to provide a contextual answer.
+    /// See: [Architecture: AI Integration - Chat Interaction](~/../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#3-chat-interaction)
+    /// See: [Architecture: AI Integration - Context Usage](~/../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#3-contextual-query-post-apiquery)
+    /// </summary>
+    /// <param name="query">The user's query details.</param>
+    /// <param name="contextContent">Optional pre-fetched ephemeral content to include in the prompt.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The result of the query, including the response text and any source references.</returns>
+    /// <seealso cref="UserQuery"/>
+    /// <seealso cref="PersonaQueryResult"/>
+    /// <seealso cref="Nucleus.Personas.Core.BootstrapperPersona.HandleQueryAsync"/>
+    Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, string? contextContent, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// (Optional) Allows the persona to load specific configuration during application startup.

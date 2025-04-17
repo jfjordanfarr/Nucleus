@@ -1,8 +1,8 @@
 ---
 title: "Windsurf Rules"
 description: "Guidelines for agentic AI development within the Nucleus codebase."
-version: 1.0
-date: 2025-04-15
+version: 1.1 # Updated version
+date: 2025-04-17 # Updated date
 ---
 
 
@@ -38,7 +38,9 @@ The user's pushback against the proposed Office processor and the subsequent ref
 
 ---
 
-## 3 - LLM Tool Usage During Agentic Development
+## 3 - Tool Usage Guidelines
+
+### 3.1 - `edit_file` Tool
 
 The `edit_file` tool modifies existing files. Key guidelines:
 1.  **Atomicity:** Aim to combine ALL related changes (even across different sections like CSS, HTML, JS) into a SINGLE `edit_file` call for atomicity and consistency.
@@ -49,14 +51,35 @@ The `edit_file` tool modifies existing files. Key guidelines:
 6.  **Fallback (Use Sparingly):** If persistent JSON errors block a complex single-call edit, consider breaking it into smaller, logically grouped sequential `edit_file` calls as a fallback. However, prioritize the single atomic edit whenever feasible.
 7.  **Arguments:** Provide `CodeMarkdownLanguage`, a clear `Instruction`, the `TargetFile` (as the first argument), and optional `TargetLintErrorIds`.
 
-When using the `edit_file` tool:
+**Specific `edit_file` Considerations:**
 1.  **Robust Content Injection:** For injecting dynamic content (especially potentially complex strings like code or JSON) into files (e.g., HTML templates), prefer server-side encoding (like `HtmlEncode`) and client-side decoding. Avoid relying solely on client-side string manipulation/escaping for robustness, as inputs might vary unexpectedly.
 2.  **Large File Edits:** Be mindful of file size. Edits involving very large code blocks (e.g., > ~700 lines in an HTML/JS context) might risk timing out during generation or application. Consider strategies like breaking down large edits or ensuring the generation process is efficient for large content blocks if necessary.
 3.  **Iterative Refinement:** Editing often requires iteration. If an initial approach (like simple JS escaping) proves insufficient, pivot to more robust methods (like `HtmlEncode`) based on testing and feedback.
 
+### 3.2 - Search Tools (`find_by_name`, `grep_search`, `codebase_search`, `search_in_file`)
+
+To optimize codebase navigation and information retrieval:
+
+1.  **Select the Right Tool:**
+    *   Use `find_by_name` to locate files/directories by name/pattern.
+    *   Use `grep_search` for finding exact literal text/definitions (e.g., `public class MyClass`). Requires precise queries.
+    *   Use `codebase_search` for conceptual/semantic searches (e.g., "logic for user authentication").
+    *   Use `search_in_file` for semantic searches within a single known file.
+
+2.  **Optimize Queries and Scope:**
+    *   For `grep_search`, use specific keywords and syntax (`class`, `record`, `(`, `)`, etc.) for targeted results.
+    *   Scope searches (`TargetDirectories`, `SearchPath`) to relevant project directories (e.g., `Nucleus.ApiService`, `Nucleus.Abstractions`) instead of the solution root when possible.
+
+3.  **Combine Tools Sequentially:**
+    *   Often, a sequence is most effective (e.g., `find_by_name` -> `view_file_outline` -> `grep_search`).
+
+4.  **Verify Results:**
+    *   `codebase_search` provides semantic relevance, not guaranteed definitions.
+    *   Use `grep_search` to definitively find all exact matches or confirm existence/absence.
+
 ---
 
-## 4 - Development Insights Worth Saving
+## 4 - Development Insights Worth Saving (Previously Section 4)
 
 ### Insight 1
 
@@ -73,7 +96,7 @@ The user prefers an initial deployment architecture consisting of a single Azure
 
 ---
 
-## 5 - Context, Cross-Checking, and Persona-Centric Design
+## 5 - Context, Cross-Checking, and Persona-Centric Design (Previously Section 5)
 
 ### Rule: Comprehensive Context is Mandatory
 During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
@@ -94,10 +117,4 @@ Key models include `ArtifactMetadata` (factual data about source, stored in cent
 Ingestion involves ephemeral processing: Source Fetch (Adapter) -> Content Extraction/Synthesis (Processor) -> Standardized Markdown -> Persona Analysis (`AnalyzeContentAsync`) -> Knowledge Storage (`PersonaKnowledgeEntry`).
 
 ### Grounding: Interaction Flow
-User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad -> LLM Prompt (Persona) -> Response Generation -> Response Delivery (Adapter) -> Scratchpad Cleanup.
-
-### Grounding: Key Interfaces
-Core interfaces: `IPersona`, `IPersonaInteractionContext`, `ISourceFileReader`, `IOutputWriter`, `IPlatformAdapter`, `IContentExtractor`, `IPersonaKnowledgeRepository`, `IChatClient`, `IEmbeddingGenerator`.
-
-### Rule: Documentation Rigor
-Treat Architecture Markdown (`Docs/Architecture/**/*.md`) with the same rigor as source code. Ensure metadata headers are current, links are valid, and structure follows the defined hierarchy.
+User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad ->
