@@ -1,0 +1,115 @@
+// d:\Projects\Nucleus\.devcontainer\devcontainer.json
+{
+  // Name displayed in Codespaces/Dev Containers UI
+  "name": "Nucleus (.NET 9 + Aspire)",
+
+  // Use the official Microsoft .NET Dev Container image for .NET 9
+  "image": "mcr.microsoft.com/devcontainers/dotnet:0-9.0",
+
+  // Features add tools and configurations to the base image
+  "features": {
+    // Installs .NET SDK, workloads, and tools. Explicitly targets .NET 9 SDK.
+    "ghcr.io/devcontainers/features/dotnet:1": {
+      "version": "9.0",
+      "aspire": "latest" // Install the latest Aspire workload for .NET 9
+    },
+    // Needed because Aspire orchestrates other containers (like Redis, Postgres, etc., if used)
+    // Also useful if your application interacts with Docker.
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true // Use Moby (open source upstream for Docker)
+    },
+    // Installs Azure CLI - useful for interacting with Azure resources (Cosmos DB, Service Bus, ACA)
+    "ghcr.io/devcontainers/features/azure-cli:1": {},
+    // Installs GitHub CLI - useful for interacting with the repo, PRs, Actions from within the container/Codespaces
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  // Ports to forward from the container to the local machine/Codespace
+  "forwardPorts": [
+    // Default port for the Aspire dashboard HTTP
+    18888,
+    // Default port for the Aspire dashboard HTTPS (if configured)
+    18889
+    // === Placeholder Ports for Nucleus Services ===
+    // Review Nucleus.AppHost and launchSettings.json for ports used by your services.
+    // Uncomment and adjust as needed. Examples:
+    // 7545, // From Nucleus.ApiService launchSettings?
+    // 5399  // From Nucleus.ApiService launchSettings?
+  ],
+  // Label commonly auto-forwarded ports for clarity (can be removed if not needed)
+  "portsAttributes": {
+		"5000": { "label": "Auto Forwarded HTTP" },
+    "5001": { "label": "Auto Forwarded HTTPS" }
+	},
+
+  // Environment variables available inside the container
+  "containerEnv": {
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    // Uncomment if hot reload issues occur in the container:
+    // "DOTNET_USE_POLLING_FILE_WATCHER": "true",
+    // Uncomment if user secrets are used and need a specific path inside container:
+    // "DOTNET_USER_SECRETS_FALLBACK_DIR": "/root/.microsoft/usersecrets" // Adjust path as needed
+  },
+
+  // Commands executed after the container is created but before VS Code connects
+  // Ensures all dependencies are available immediately.
+  "postCreateCommand": "echo 'Container created, restoring dependencies...' && dotnet restore Nucleus.sln",
+
+  // Commands executed when VS Code first attaches to the container
+  // Useful for verifying environment setup.
+  "postAttachCommand": {
+     "server": "echo 'VS Code attached, verifying .NET environment...' && dotnet --info"
+  },
+  // Example: Auto-start the Aspire AppHost when the container starts (uncomment if desired)
+  // "postStartCommand": "dotnet run --project Nucleus.AppHost/Nucleus.AppHost.csproj",
+
+  // VS Code specific customizations
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // --- General ---
+        "terminal.integrated.shell.linux": "/bin/bash", // Use bash
+        "files.eol": "\n", // Enforce Unix line endings
+        "editor.formatOnSave": true, // Format code on save
+
+        // --- .NET / C# ---
+        "dotnet.codeAction.sortUsings.enabled": true, // Auto-sort usings
+        "dotnet.codeAction.removeUnnecessaryUsings.enabled": true, // Auto-remove unused usings
+        "[csharp]": { // Apply formatting specifically for C# files
+            "editor.defaultFormatter": "ms-dotnettools.csdevkit"
+        },
+        "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution", // Analyze entire solution
+        "dotnet.referencesCodeLens.enabled": true, // Show CodeLens references
+
+        // --- Telemetry ---
+        "dotnet.telemetry.enabled": false,
+        "redhat.telemetry.enabled": false // For YAML extension
+      },
+      "extensions": [
+        // *** Core Development ***
+        "ms-dotnettools.csdevkit",      // C# Dev Kit (MUST HAVE for modern .NET/Aspire)
+        "ms-azuretools.vscode-docker", // Docker integration
+
+        // *** Azure Integration (Essential for Nucleus based on context) ***
+        "ms-azuretools.vscode-azureresourcegroups", // View/Manage Azure resources
+        "ms-azuretools.vscode-cosmosdb",            // Cosmos DB specific tools
+        "ms-azuretools.vscode-azureappservice",     // Useful for ACA/WebApps deployment/management
+
+        // *** GitHub / Codespaces Integration ***
+        "github.vscode-pull-request-github", // PR management within VS Code
+        "github.codespaces",                 // Essential for Codespaces features
+        "github.vscode-github-actions",      // View GitHub Actions runs
+
+        // *** Quality of Life / Common Tools ***
+        "eamodio.gitlens",                  // Advanced Git insights
+        "ms-vscode.powershell",             // If you use PowerShell scripts
+        "redhat.vscode-yaml",               // YAML editing (for configs, etc.)
+        "streetsidesoftware.code-spell-checker" // Basic spell checking
+      ]
+    }
+  },
+
+  // Run as the standard non-root 'vscode' user for better security
+  "remoteUser": "vscode"
+}

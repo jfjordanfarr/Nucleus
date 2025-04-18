@@ -1,8 +1,8 @@
-# Nucleus OmniRAG: Project Plan (Kanban) - .NET/Azure (Cosmos DB Focus)
+# Nucleus: Project Plan (Kanban) - .NET 9 / Aspire / Azure Cosmos DB Backend
 
-**Attention AI Assistant:** This is the **MACROSTATE**. Use this for overall context and task progression. Update less frequently than Session State, primarily when tasks move between columns.
+**Attention AI Assistant:** This is the **MACROSTATE**. Use this for overall context and task progression. Update less frequently than Session State, primarily when tasks move between columns. **Refer to `.windsurfrules` for agent behavior guidelines.**
 
-**Last Updated:** `2025-04-17`
+**Last Updated:** `2025-04-18`
 
 ---
 
@@ -82,16 +82,14 @@
 *   [ ] **TASK-ID-015:** Update Project-Wide Copyright Headers (Replace "PlaceholderCompany").
 *   [ ] **TASK-ID-016:** Generate Project Documentation from XML Comments using DocFX or similar tool.
 
-## 🔨 Ready (Prioritized for P1: MVP Chat Template)
+## 🔨 Ready (Prioritized for Core Backend Setup)
 
-*   [ ] **`TASK-MVP-CONSOLE-01`:** Implement Core Console Application Interface (`Nucleus.Console`).
-*   [ ] **`TASK-MVP-CONSOLE-02`:** Define basic commands (e.g., ingest, query, status) for Console App.
-*   [ ] **`TASK-MVP-CONSOLE-03`:** Integrate Console App with `Nucleus.Api` (via HTTP client).
-*   [ ] **`TASK-MVP-RETRIEVAL-01` (`ISSUE-MVP-RETRIEVAL-01`):** Implement `IPersonaKnowledgeRepository` (Cosmos DB Adapter - *If required by BootstrapperPersona in P1*).
-*   [ ] **`TASK-MVP-RETRIEVAL-02` (`ISSUE-MVP-RETRIEVAL-01`):** Integrate `IPersonaKnowledgeRepository` into Persona/API Flow (*If required by BootstrapperPersona in P1*).
-*   [ ] **`TASK-MVP-INFRA-01` (`ISSUE-MVP-INFRA-01`):** Define Basic Azure Infrastructure for Console/API Deployment (App Service/ACA, AI Search, OpenAI, Cosmos DB).
-*   [ ] **`TASK-MVP-TEST-01` (`ISSUE-MVP-PERSONA-01`):** Write Unit Tests for `BootstrapperPersona`.
-*   [ ] **`TASK-MVP-TEST-02` (`ISSUE-MVP-RETRIEVAL-01`):** Write Unit Tests for `IPersonaKnowledgeRepository` Adapter (*If implemented in P1*).
+*   [ ] **`TASK-ASPIRE-SETUP-01`:** Configure Aspire `AppHost` to manage `Nucleus.ApiService` and necessary dependencies (e.g., Cosmos DB emulator).
+*   [ ] **`TASK-API-CORE-01`:** Implement foundational structure for `Nucleus.ApiService` (controllers, DI setup, basic request handling).
+*   [ ] **`TASK-COSMOS-IMPL-01`:** Implement `IPersonaKnowledgeRepository` and `IArtifactMetadataRepository` using Azure Cosmos DB adapter within `Nucleus.Infrastructure`.
+*   [ ] **`TASK-PERSONA-INTEG-01`:** Integrate initial `BootstrapperPersona` logic into the `Nucleus.ApiService` request flow, connecting to `IGenerativeAI` and Cosmos repositories.
+*   [ ] **`TASK-CORE-TEST-01`:** Write initial Unit Tests for core components (ApiService controllers, Cosmos repositories, BootstrapperPersona).
+*   [ ] **(WAS `TASK-MVP-INFRA-01`)** Define Basic Azure Infrastructure considerations for ACA deployment (networking, scaling, secrets).
 
 ## 👨‍💻 In Progress (Max 1-2 Active Items)
 
@@ -100,11 +98,11 @@
 ## ✅ Done (Recently Completed)
 
 *   [X] **`TASK-MVP-SETUP-01` (`ISSUE-MVP-SETUP-01`):** Configure AI Provider (Gemini via `Mscc.GenerativeAI`).
-*   [X] **`TASK-MVP-API-01` (`ISSUE-MVP-API-01`):** Re-implement `Nucleus.Api` for Console Interaction (Initial `/api/query` endpoint).
-*   [X] **`TASK-MVP-PERSONA-01` (`ISSUE-MVP-PERSONA-01`):** Define Basic `BootstrapperPersona` Logic & Data Model.
-*   [X] **`TASK-MVP-PERSONA-02` (`ISSUE-MVP-PERSONA-01`):** Integrate `BootstrapperPersona` into API Flow.
-*   [X] **(P1)** Update Planning/Requirements Docs for Console Pivot.
-*   [X] **`TASK-MVP-ARCH-01`:** Pivot Architecture & AppHost Config to Console App MVP.
+*   [X] **`TASK-MVP-API-01` (`ISSUE-MVP-API-01`):** Implement initial `Nucleus.Api` endpoint (`/api/query`) *(Context: Completed for prior Console MVP)*.
+*   [X] **`TASK-MVP-PERSONA-01` (`ISSUE-MVP-PERSONA-01`):** Define Basic `BootstrapperPersona` Logic & Data Model *(Context: Completed for prior Console MVP)*.
+*   [X] **`TASK-MVP-PERSONA-02` (`ISSUE-MVP-PERSONA-01`):** Integrate `BootstrapperPersona` into API Flow *(Context: Completed for prior Console MVP)*.
+*   [X] **(P1)** Update Planning/Requirements Docs *(Context: Completed for prior Console MVP)*.
+*   [X] **`TASK-MVP-ARCH-01`:** Pivot Architecture & AppHost Config *(Context: Completed for prior Console MVP)*.
 
 ## 🚧 Blockers
 
