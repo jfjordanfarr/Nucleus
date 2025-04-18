@@ -1,14 +1,14 @@
 ---
 title: Architecture - Storage & Metadata Management
 description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence.
-version: 1.6
-date: 2025-04-13
+version: 1.7
+date: 2025-04-18
 ---
 
 # Nucleus OmniRAG: Storage Architecture
 
-**Version:** 1.6
-**Date:** 2025-04-13
+**Version:** 1.7
+**Date:** 2025-04-18
 
 This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
@@ -24,58 +24,27 @@ This document outlines the architecture for managing **artifacts** and their ass
 
 The `ArtifactMetadata` record is the central object persisted in the `ArtifactMetadataContainer` within [Cosmos DB](./04_ARCHITECTURE_DATABASE.md) for *every* unique artifact Nucleus interacts with. It represents Nucleus's understanding of the artifact's properties and context, derived primarily from the source system via [Adapters](./05_ARCHITECTURE_CLIENTS.md).
 
-**Conceptual Fields (Illustrative - Not Exhaustive):**
+**Authoritative Definition:** The precise C# definition of the `ArtifactMetadata` record resides within the codebase (likely [`Nucleus.Abstractions/Models/ArtifactMetadata.cs`](../../../Nucleus.Abstractions/Models/ArtifactMetadata.cs)). Refer to the source code and its XML documentation for the exact fields and their types.
 
-*   **Identification & Core:**
-    *   `id`: (string) Unique Cosmos DB document ID. *Primary Key.*
-    *   `sourceIdentifier`: (string) A stable, unique logical identifier *within Nucleus* for this artifact (e.g., `spo://tenant.sharepoint.com/sites/TeamSite/Shared%20Documents/Report.docx?ver=1`, `msteams://channel/19:xxx@thread.tacv2/messageid/12345`, `slack://ws/T123/C456/p1678886400.123456`). *Logically Unique Key, Indexed.*
-    *   `sourceUri`: (string) The direct URI or locator used by the Platform Adapter to access the artifact content in the source system.
-    *   `sourceSystemType`: (string enum) e.g., `SharePoint`, `OneDrive`, `MSTeams`, `Slack`, `Web`, `LocalFile`, `Email`, `NucleusGenerated`.
-    *   `displayName`: (string) The human-readable name (e.g., filename, message snippet, page title).
-    *   `mimeType`: (string | null) e.g., `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `text/plain`, `message/rfc822`.
-    *   `sizeBytes`: (long | null) Size in bytes, if applicable.
+The conceptual categories of information stored within `ArtifactMetadata` include:
 
-*   **Relationships & Context (`Where` / `How` Part 1):**
-    *   `parentSourceIdentifier`: (string | null) `sourceIdentifier` of the container artifact (e.g., folder, channel, message for an attachment).
-    *   `replyToSourceIdentifier`: (string | null) `sourceIdentifier` of the message this artifact is a reply to.
-    *   `threadSourceIdentifier`: (string | null) `sourceIdentifier` of the root message of the conversation thread this artifact belongs to.
-    *   `referencedSourceIdentifiers`: (List<string> | null) `sourceIdentifier`s of other artifacts explicitly mentioned or linked within this one (e.g., linked files, @mentioned artifacts).
-    *   `compositeArtifactId`: (string | null) Identifier if this artifact is part of a larger logical unit (e.g., a multi-part email, a slide in a presentation represented individually).
-    *   `originatingContext`: (object | null) Additional source-specific context (e.g., `{ "channelId": "19:xxx@thread.tacv2", "teamId": "uuid" }` for Teams).
+*   **Identification & Core:** Unique identifiers within Nucleus and the source system, location URI, system type, name, MIME type, size.
 
-*   **Authorship & Ownership (`Who`):**
-    *   `sourceCreatedByUserId`: (string | null) Identifier of the user who created the artifact in the source system.
-    *   `sourceLastModifiedByUserId`: (string | null) Identifier of the user who last modified it in the source system.
-    *   `ownerUserId`: (string | null) Identifier of the user considered the 'owner' within Nucleus context (might align with `sourceCreatedByUserId` or be assigned).
+*   **Relationships & Context (`Where` / `How` Part 1):** Links to parent/container artifacts, related conversation threads, explicitly referenced artifacts, and source-specific context.
 
-*   **Timestamps (`When`):**
-    *   `sourceCreatedAt`: (DateTimeOffset | null) Timestamp from the source system.
-    *   `sourceLastModifiedAt`: (DateTimeOffset | null) Timestamp from the source system.
-    *   `timestampIngested`: (DateTimeOffset) When Nucleus first created this metadata record.
-    *   `timestampLastProcessed`: (DateTimeOffset | null) When any persona last successfully processed this artifact.
-    *   `timestampLastAccessed`: (DateTimeOffset | null) When the content was last fetched via an adapter (optional, for cache/staleness checks).
+*   **Authorship & Ownership (`Who`):** Information about the creator, modifier, and owner from the source system perspective.
 
-*   **Content & Purpose (`What` / `Why` - Often Inferred/Extracted):**
-    *   `contentHash`: (string | null) Hash of the content (e.g., SHA256) for change detection.
-    *   `extractedTextLength`: (int | null) Length of text extracted during processing.
-    *   `summary`: (string | null) A brief, objective summary extracted/generated by a foundational process (not persona-specific).
-    *   `keywords`: (List<string> | null) Extracted keywords.
-    *   `potentialPurposeTags`: (List<string> | null) Inferred tags about the artifact's likely purpose (e.g., 'report', 'meeting_notes', 'user_query').
+*   **Timestamps (`When`):** Creation, modification, ingestion, and processing timestamps.
 
-*   **Generation Info (`How` Part 2 - For Nucleus-Generated Artifacts):**
-    *   `generationMethod`: (string | null) e.g., `persona_generated`, `system_process`.
-    *   `generatingPersonaName`: (string | null) If `generationMethod` is `persona_generated`, the name of the persona (e.g., `ProfessionalColleague_v1`).
-    *   `originatingSourceIdentifier`: (string | null) The `sourceIdentifier` of the artifact (e.g., user message) that triggered the generation of this artifact.
+*   **Content & Purpose (`What` / `Why` - Often Inferred/Extracted):** Content hash, text length, objective summaries or keywords (if generated by core processes), and inferred purpose tags.
 
-*   **Processing State:**
-    *   `overallProcessingState`: (string enum) e.g., `Pending`, `Processing`, `Processed`, `Failed`, `Skipped`.
-    *   `personaProcessingStatus`: (Dictionary<string, PersonaProcessingState>) Tracks the status per target persona (e.g., `{"EduFlow_v1": {"state": "Processed", "timestamp": "...", "pkeId": "guid"}, "Health_v2": {"state": "Pending"}}`). Includes status, timestamp, errors, and optionally the ID of the generated `PersonaKnowledgeEntry`.
+*   **Generation Info (`How` Part 2 - For Nucleus-Generated Artifacts):** Details about how and why an artifact was generated by a persona, linking back to the originating request.
 
-*   **Access Control:**
-    *   `accessControlList`: (List<ACLEntry> | null) Denormalized list of users/groups and their permissions derived from the source system (can be complex).
-    *   `sensitivityLabel`: (string | null) e.g., 'Confidential', 'Public' (from source system).
+*   **Processing State:** Overall status and detailed per-persona processing status, including links to generated knowledge entries.
 
-**(Note:** The exact fields, types, and nullability will be refined during C# model implementation and depend on Adapter capabilities.)
+*   **Access Control:** Information related to permissions and sensitivity derived from the source system.
+
+**(Note:** The exact fields, types, and nullability are defined in the C# source code model.)
 
 ## 3. Handling Persona-Generated Artifacts
 

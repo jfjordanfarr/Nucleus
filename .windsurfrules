@@ -1,10 +1,9 @@
 ---
 title: "Windsurf Rules"
 description: "Guidelines for agentic AI development within the Nucleus codebase."
-version: 1.2 # Updated version
+version: 1.4 # Updated version reflecting clarifications
 date: 2025-04-18 # Updated date
 ---
-
 
 ## 1 - Quality Over Expedience
 
@@ -43,39 +42,34 @@ The user's pushback against the proposed Office processor and the subsequent ref
 ### 3.1 - `edit_file` Tool
 
 The `edit_file` tool modifies existing files. Key guidelines:
-1.  **Atomicity:** Aim to combine ALL related changes (even across different sections like CSS, HTML, JS) into a SINGLE `edit_file` call for atomicity and consistency.
+1.  **Granularity:** Aim for **one file per tool call**. Do NOT attempt to edit multiple different files in a single call. However, editing multiple, non-adjacent sections *within the same file* using `{{ ... }}` placeholders is expected and encouraged, especially for composite files (e.g., HTML with embedded JS/CSS).
 2.  **Precision:** Specify ONLY the precise lines of code to change.
 3.  **Placeholder:** NEVER write out unchanged code. ALWAYS represent unchanged lines/blocks with the special placeholder: `{{ ... }}`.
-4.  **Multiple Edits:** For non-adjacent edits within the same file, use `{{ ... }}` to represent the unchanged code between the edited sections within the single `CodeEdit` string.
-5.  **Formatting Challenges:** Complex single-call edits involving multiple sections are more prone to JSON formatting errors (e.g., incorrect escaping, quoting). Meticulous validation of the `CodeEdit` string's structure is critical.
-6.  **Fallback (Use Sparingly):** If persistent JSON errors block a complex single-call edit, consider breaking it into smaller, logically grouped sequential `edit_file` calls as a fallback. However, prioritize the single atomic edit whenever feasible.
-7.  **Arguments:** Provide `CodeMarkdownLanguage`, a clear `Instruction`, the `TargetFile` (as the first argument), and optional `TargetLintErrorIds`.
+4.  **Tool Limitations & Error Handling:** Be aware that the underlying tool mechanism performs validation and has practical limits (e.g., file size ~700 lines, delta size ~100 lines or a percentage). Very large or complex single-file edits might be rejected, often correctly identifying a problematic LLM suggestion. If a large refactoring within a single file is needed and risks hitting tool limits, break it down into smaller, logically sequential `edit_file` calls within the *same agentic response turn* as a fallback strategy.
+5.  **Formatting Challenges:** Complex multi-section edits are prone to JSON formatting errors (escaping, quoting). Meticulous validation of the `CodeEdit` string is critical.
+6.  **Arguments:** Provide `CodeMarkdownLanguage`, a clear `Instruction`, the `TargetFile` (as the first argument), and optional `TargetLintErrorIds`.
 
 **Specific `edit_file` Considerations:**
-1.  **Robust Content Injection:** For injecting dynamic content (especially potentially complex strings like code or JSON) into files (e.g., HTML templates), prefer server-side encoding (like `HtmlEncode`) and client-side decoding. Avoid relying solely on client-side string manipulation/escaping for robustness, as inputs might vary unexpectedly.
-2.  **Large File Edits:** Be mindful of file size. Edits involving very large code blocks (e.g., > ~700 lines in an HTML/JS context) might risk timing out during generation or application. Consider strategies like breaking down large edits or ensuring the generation process is efficient for large content blocks if necessary.
-3.  **Iterative Refinement:** Editing often requires iteration. If an initial approach (like simple JS escaping) proves insufficient, pivot to more robust methods (like `HtmlEncode`) based on testing and feedback.
 
-### 3.2 - Search Tools (`find_by_name`, `grep_search`, `codebase_search`, `search_in_file`)
+*   **Context is Key:** Before editing, ensure you have sufficient context, potentially viewing the file or relevant sections first. High-quality edits require understanding the surrounding code.
+*   **Metadata Updates:** When editing documentation (Markdown), *always* update the metadata header (version, date) within the same `edit_file` call if the changes are substantive.
+*   **Link Verification:** After editing documentation, mentally (or if necessary, using tools if uncertainty arises later) verify that internal links remain correct and relevant.
+*   **HTML Escaping:** When inserting HTML or code snippets *within* Markdown code blocks (e.g., inside ````html` or ````csharp`), ensure proper escaping. JSON encoding for the `CodeEdit` string often requires double escaping (e.g., `&lt;` becomes `&amp;lt;`). Consider using online tools or libraries for robust HTML encoding if manual escaping becomes complex.
 
-To optimize codebase navigation and information retrieval:
+### 3.2 - `view_*` Tools
 
-1.  **Select the Right Tool:**
-    *   Use `find_by_name` to locate files/directories by name/pattern.
-    *   Use `grep_search` for finding exact literal text/definitions (e.g., `public class MyClass`). Requires precise queries.
-    *   Use `codebase_search` for conceptual/semantic searches (e.g., "logic for user authentication").
-    *   Use `search_in_file` for semantic searches within a single known file.
+*   **`view_file_outline` First:** Use this as the initial step for exploring a file's structure.
+*   **`view_line_range` for Details:** Use this to view specific sections identified by the outline or search results. Request only the necessary lines, but be prepared to request more if context is insufficient.
+*   **`view_code_item` for Specific Nodes:** Use this for targeted viewing of functions/classes identified by search or outline, especially if the full content wasn't shown initially.
 
-2.  **Optimize Queries and Scope:**
-    *   For `grep_search`, use specific keywords and syntax (`class`, `record`, `(`, `)`, etc.) for targeted results.
-    *   Scope searches (`TargetDirectories`, `SearchPath`) to relevant project directories (e.g., `Nucleus.ApiService`, `Nucleus.Abstractions`) instead of the solution root when possible.
+### 3.3 - Search & Verification (`codebase_search`, `grep_search`, `search_in_file`, `run_command`)
 
-3.  **Combine Tools Sequentially:**
-    *   Often, a sequence is most effective (e.g., `find_by_name` -> `view_file_outline` -> `grep_search`).
-
-4.  **Verify Results:**
-    *   `codebase_search` provides semantic relevance, not guaranteed definitions.
-    *   Use `grep_search` to definitively find all exact matches or confirm existence/absence.
+*   **Purposeful Search:** Use `codebase_search` for conceptual exploration ("Find implementations of X"). Use `grep_search` or `search_in_file` for more precise pattern matching within known scopes ("Find uses of Y in Z.cs").
+*   **Refine Scope:** Use directory/file filters (`TargetDirectories`, `Includes`, `SearchPath`) to narrow searches and improve relevance/performance.
+*   **Verify Results - *CRITICAL*:**
+    *   `codebase_search` provides *semantic relevance* but can be **unreliable**, especially for confirming the *absence* of something or finding *all* exact matches. **Do NOT rely solely on `codebase_search` to prove non-existence.**
+    *   **Prefer Terminal Commands for Verification:** Use `run_command` with tools like `grep` or `find` (or platform equivalents like `Select-String`, `Get-ChildItem` in PowerShell) as the **gold standard** for definitively finding all exact matches, verifying file existence/absence, or confirming search results. The user's IDE provides a safe approval prompt for commands.
+    *   **Use Commands Judiciously:** While commands are reliable, avoid *needless* commands that unnecessarily pause the agentic workflow. Use them strategically for verification when search tools are insufficient or ambiguous.
 
 ---
 
@@ -91,30 +85,29 @@ Processing, especially LLM-driven synthesis, will inherently produce non-determi
 
 ### Insight 3
 
-The user prefers an initial deployment architecture consisting of a single Azure Container App (ACA) instance acting as a 'modular monolith'. This single ACA should host the API/ClientAdapters, ingestion/triage logic, session management (in-memory), and the core processing logic (potentially run as background tasks within the same instance). This minimizes deployment complexity and avoids the need for external session state management (like Redis) initially. The supporting infrastructure should ideally be limited to one Cosmos DB instance and potentially one Azure Service Bus (primarily for external integration or future scaling needs, not essential for the core internal processing flow). Components should be designed modularly within the monolith to allow for future separation and independent scaling if required.
-
+The user prefers an initial deployment architecture consisting of a single Azure Container App (ACA) instance acting as a 'modular monolith'. This single ACA should host the API/ClientAdapters, ingestion/triage logic, session management (in-memory), and the core processing logic (potentially run as background tasks within the same instance). This minimizes deployment complexity and avoids the need for external session state management (like Redis) initially. The supporting infrastructure should ideally be limited to one Cosmos DB instance and potentially one Azure Service Bus (primarily for external integration or future scaling needs, not essential for the core internal processing flow). Components should be designed modularly within the monolith to allow for future separation and independent scaling if required. (See [Deployment Architecture Overview](./Docs/Architecture/07_ARCHITECTURE_DEPLOYMENT.md) for full details).
 
 ---
 
-## 5 - Context, Cross-Checking, and Persona-Centric Design 
+## 5 - Context, Cross-Checking, and Persona-Centric Design
 
 ### Rule: Comprehensive Context is Mandatory
 During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
 
 ### Rule: Explicit Cross-Checking
-Before proposing changes to code or documentation, explicitly verify consistency with related architecture, requirements, and planning documents currently in context. Call out any discrepancies found.
+Before proposing changes to code or documentation, explicitly verify consistency with related architecture, requirements, and planning documents currently in context using reliable methods (including terminal commands if necessary). Call out any discrepancies found.
 
 ### Rule: Persona-Centric Design
 All features must consider the multi-persona nature of Nucleus. How will this change affect `EduFlow`? `ProfessionalColleague`? Ensure `IPersona`, `ArtifactMetadata`, and `PersonaKnowledgeEntry` support domain-specific needs.
 
 ### Rule: Adhere to Core Principles
-Remember Nucleus principles: Platform integration first, ephemeral processing (no intermediate storage), intelligence-driven analysis (no blind chunking), user data sovereignty.
+Remember Nucleus principles: Platform integration first, ephemeral processing (no intermediate storage; see [Storage Architecture](./Docs/Architecture/03_ARCHITECTURE_STORAGE.md#1-core-principles) and [Security Architecture](./Docs/Architecture/06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries) for implications), intelligence-driven analysis (no blind chunking), user data sovereignty.
 
 ### Grounding: Key Data Structures
-Key models include `ArtifactMetadata` (factual data about source, stored in central Cosmos container) and `PersonaKnowledgeEntry<T>` (persona's interpretation/analysis/snippet/embedding, stored in persona-specific Cosmos container, linked via `sourceIdentifier`).
+Key models include `ArtifactMetadata` (factual data about source artifacts) and `PersonaKnowledgeEntry<T>` (persona's interpretation/analysis). See [Storage Architecture](./Docs/Architecture/03_ARCHITECTURE_STORAGE.md) for the conceptual model of `ArtifactMetadata` and [Database Architecture](./Docs/Architecture/04_ARCHITECTURE_DATABASE.md) for details on how both are persisted in Cosmos DB.
 
 ### Grounding: Processing Flow
-Ingestion involves ephemeral processing: Source Fetch (Adapter) -> Content Extraction/Synthesis (Processor) -> Standardized Markdown -> Persona Analysis (`AnalyzeContentAsync`) -> Knowledge Storage (`PersonaKnowledgeEntry`).
+The core processing flow involves ephemeral handling: Source Fetch (Adapter) -> Content Extraction/Synthesis (Processor) -> Standardized Markdown -> Persona Analysis (`AnalyzeContentAsync`) -> Knowledge Storage (`PersonaKnowledgeEntry`). See the [Processing Architecture](./Docs/Architecture/01_ARCHITECTURE_PROCESSING.md) for the detailed pipeline.
 
 ### Grounding: Interaction Flow
-User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad ->
+User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad -> Persona Logic Invocation (`HandleInteractionAsync`) -> Response Generation (LLM) -> Response Formatting (Adapter) -> User.

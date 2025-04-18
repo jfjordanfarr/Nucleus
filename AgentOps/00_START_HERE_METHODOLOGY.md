@@ -1,3 +1,10 @@
+---
+title: AgentOps - Nucleus Development Methodology
+description: Supplementary AgentOps methodology for AI-assisted development within the Nucleus project.
+version: 1.1
+date: 2025-04-18
+---
+
 # AgentOps Methodology for Nucleus (.NET 9 / Aspire / Azure Cosmos DB Backend)
 
 ## Introduction
@@ -8,16 +15,16 @@ Following this process helps maintain context, track progress, and ensure effici
 
 ## Core Principles (Supplementary to `.windsurfrules`)
 
-**(Review `.windsurfrules` first for foundational principles like Quality over Expedience, No Assumptions, Documentation Rigor, etc.)**
+**(Review the foundational principles like Quality over Expedience, No Assumptions, Documentation Rigor, Tool Usage, Persona-Centric Design, and Ephemeral Processing defined in [`.windsurfrules`](../.windsurfrules) first.)**
 
 1.  **Stateful Context Management**: Using dedicated documents (`01_PROJECT_CONTEXT.md`, `02_CURRENT_SESSION_STATE.md`, `03_PROJECT_PLAN_KANBAN.md`, `/docs/00_PROJECT_MANDATE.md`) to preserve context. Accurate state tracking is paramount for effective collaboration and training data generation.
 2.  **Incremental Progress Tracking**: Breaking work into manageable tasks (Kanban) and tracking the immediate focus (Session State).
 3.  **Structured Collaboration**: AI assistants use the provided state documents to understand the current focus and assist with the defined "Next Step", following specific interaction patterns. Human leads provide guidance, feedback, and validation.
 4.  **Continuous Documentation**: Updating state documents in real-time as progress is made or issues arise. **AI assistance in keeping these updated is expected and crucial for training data quality.**
-5.  **Architectural Adherence**: Development must align with the architecture summarized in `01_PROJECT_CONTEXT.md` (Cosmos DB backend, external orchestrator, multi-persona interaction model). Emphasize SOLID principles, Dependency Injection, and asynchronous programming (`async`/`await`).
+5.  **Architectural Adherence**: Development must align with the established architectural patterns and component responsibilities defined in the project's architecture documents (see [`../Docs/Architecture/`](../Docs/Architecture/)). Emphasize SOLID principles, Dependency Injection, and asynchronous programming (`async`/`await`).
 6.  **Test-Driven Development (TDD):** Aim to write tests (Unit, Integration) before or alongside implementation where practical. Define test cases as part of task definitions.
 7.  **Distinguish Process Types:** Be mindful of the difference between "Slow Processes" (asynchronous, potentially long-running tasks like ingestion analysis) and "Fast Processes" (low-latency operations like chat responses or tool calls). Design components appropriately.
-8.  **Persona Interaction & Deduplication:** Recognize that personas can interact (especially during ingestion) and that mechanisms to prevent duplicate data ingestion are necessary. Review `.windsurfrules` regarding Persona-Centric Design.
+8.  **Deduplication:** Recognize that mechanisms to prevent duplicate processing or storage of the same source artifact (based on `ArtifactMetadata` or similar) are necessary, especially during ingestion. (See [Storage Architecture](../Docs/Architecture/03_ARCHITECTURE_STORAGE.md)).
 
 ## Roles of Key AgentOps Files
 
@@ -50,19 +57,5 @@ Following this process helps maintain context, track progress, and ensure effici
 7.  **Consider Multi-Persona Interaction:** How might this component be used by different personas? Does the data model support persona-specific insights?
 8.  **Slow vs. Fast Processes:** Is this part of ingestion (slow, async) or query handling (fast, sync API)?
 9.  **Deduplication:** During ingestion, ask: "How will we prevent processing the same artifact multiple times?"
-10. **Troubleshooting Build Issues:** (Note: `.windsurfrules` principles apply first)
-    - **Project Structure Issues:** Check for parent-child conflicts in nested directories. A parent project (e.g., `Nucleus.Personas.csproj`) with subprojects in subdirectories (e.g., `EduFlow/EduFlow.csproj`) needs proper exclusions:
-      ```xml
-      <ItemGroup>
-        <Compile Remove="SubDir\**" />
-        <EmbeddedResource Remove="SubDir\**" />
-        <None Remove="SubDir\**" />
-        <Content Remove="SubDir\**" />
-      </ItemGroup>
-      ```
-    - **Missing Namespaces:** Check for specialized sub-namespaces (e.g., `Nucleus.Abstractions.Services.Retrieval`).
-    - **Constructor Parameters:** Check dependent test files for mock setup.
-    - **Method Name Mismatches:** Verify exact names in extension method calls.
-    - **Project References:** Ensure necessary projects are referenced.
 
 By adhering to this methodology, the `.windsurfrules`, and keeping these thoughts in mind, you will significantly contribute to the successful development of Nucleus and help train more effective AI development assistants.

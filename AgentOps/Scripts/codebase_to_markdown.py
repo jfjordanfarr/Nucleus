@@ -136,7 +136,14 @@ def main():
     parser.add_argument("-s", "--source", required=True, help="Source directory to scan.")
     parser.add_argument("-o", "--output", required=True, help="Output Markdown file path.")
     parser.add_argument("-e", "--exclude", nargs='*', default=['.git', '.vscode', '.idea', 'bin', 'obj', 'node_modules'],
-                        help="Directory names to exclude.")
+                        help="Directory names to exclude (exact match). Example: bin obj")
+    parser.add_argument("-ep", "--exclude-patterns", nargs='*', 
+                        default=[
+                            'Docs/Architecture/Personas/Educator/Pedagogical_And_Tautological_Trees_Of_Knowledge/*',
+                            'Docs/Architecture/Processing/Davaviz/Examples/*',
+                            'Docs/HelpfulMarkdownFiles/Library-References/*'
+                            ],
+                        help="Glob patterns for paths to exclude (relative to source). Example: '**/temp/*' '*.log'")
     parser.add_argument("-f", "--force", action="store_true", help="Overwrite output file if it exists.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output.")
 
@@ -145,6 +152,7 @@ def main():
     source_dir = Path(args.source).resolve()
     output_file = Path(args.output).resolve()
     exclude_dirs = set(args.exclude)
+    exclude_patterns = args.exclude_patterns # Store the patterns
     verbose = args.verbose
 
     if not source_dir.is_dir():
@@ -161,6 +169,7 @@ def main():
     print(f"Source Directory: {source_dir}")
     print(f"Output File: {output_file}")
     print(f"Exclude Dirs: {', '.join(exclude_dirs)}")
+    print(f"Exclude Patterns: {', '.join(exclude_patterns)}") # Print the patterns
 
     # --- Gitignore Handling ---
     print("Collecting .gitignore patterns...")
@@ -172,6 +181,7 @@ def main():
     skipped_gitignore = 0
     skipped_read_error = 0
     skipped_output_file = 0 # Added counter for the output file itself
+    skipped_pattern_exclude = 0 # Added counter for pattern excludes
 
     try:
         with open(output_file, 'w', encoding='utf-8') as md_file:
@@ -184,28 +194,39 @@ def main():
 
                 # --- Directory Exclusion ---
                 # Modify dirs in-place to prevent os.walk from descending
-                dirs[:] = [d for d in dirs if d not in exclude_dirs and not d.startswith('.')] # Also exclude hidden dirs
-
-                # Filter dirs based on gitignore (simplistic: check if dir name matches pattern)
-                original_dirs = list(dirs) # Copy before filtering for verbose reporting
+                original_dirs = list(dirs) # Copy before filtering
+                dirs_to_remove_std_exclude = {d for d in dirs if d in exclude_dirs or d.startswith('.')}
                 dirs_to_remove_gitignore = set()
-                for d in dirs:
-                     dir_rel_path_posix = (relative_dir_path / d).as_posix().replace('\\', '/')
-                     if matches_gitignore(dir_rel_path_posix, gitignore_map):
-                         dirs_to_remove_gitignore.add(d)
+                dirs_to_remove_pattern = set() # Set for pattern excluded dirs
 
-                # Report skipped dirs
-                skipped_now_excluded = set(original_dirs) - set(dirs)
-                skipped_now_gitignore = dirs_to_remove_gitignore
-                for skipped_dir in skipped_now_excluded:
-                     if verbose: print(f"Skipping excluded directory: {(relative_dir_path / skipped_dir).as_posix()}")
-                     skipped_excluded_dir += 1 # Rough count
-                for skipped_dir in skipped_now_gitignore:
-                     if verbose: print(f"Skipping gitignored directory: {(relative_dir_path / skipped_dir).as_posix()}")
-                     skipped_gitignore += 1 # Rough count
+                dirs[:] = [d for d in dirs if d not in dirs_to_remove_std_exclude]
+
+                # Filter remaining dirs based on gitignore and patterns
+                for d in list(dirs): # Iterate over a copy while potentially modifying dirs
+                    dir_rel_path = relative_dir_path / d
+                    dir_rel_path_posix = dir_rel_path.as_posix().replace('\\', '/')
+
+                    # Check exclude patterns
+                    if any(fnmatch.fnmatch(dir_rel_path_posix, pattern) for pattern in exclude_patterns):
+                        dirs_to_remove_pattern.add(d)
+                        if verbose: print(f"Skipping excluded pattern directory: {dir_rel_path_posix}")
+                        skipped_pattern_exclude += 1
+                        continue # Skip gitignore check if already pattern-excluded
+
+                    # Check gitignore
+                    if matches_gitignore(dir_rel_path_posix, gitignore_map):
+                        dirs_to_remove_gitignore.add(d)
+                        # Verbose reporting for gitignore is handled within matches_gitignore
+                        # if verbose: print(f"Skipping gitignored directory: {dir_rel_path_posix}")
+                        skipped_gitignore += 1 # Count handled here
+
+                # Report skipped standard excludes
+                for skipped_dir in dirs_to_remove_std_exclude:
+                     if verbose: print(f"Skipping standard excluded directory: {(relative_dir_path / skipped_dir).as_posix()}")
+                     skipped_excluded_dir += 1
 
                 # Update dirs list for os.walk
-                dirs[:] = [d for d in dirs if d not in dirs_to_remove_gitignore]
+                dirs[:] = [d for d in dirs if d not in dirs_to_remove_gitignore and d not in dirs_to_remove_pattern]
 
 
                 # --- File Processing ---
@@ -220,10 +241,16 @@ def main():
                         skipped_output_file += 1
                         continue
 
-                    # Check exclusions again (e.g. if a file is explicitly excluded)
+                    # Check standard exclusions first (e.g., if a file is in an excluded dir name like 'bin')
                     if any(part in exclude_dirs for part in relative_path.parts):
-                        if verbose: print(f"Skipping excluded file (in path): {relative_path_posix}")
+                        if verbose: print(f"Skipping excluded file (in standard excluded path): {relative_path_posix}")
                         skipped_excluded_dir +=1 # Count doesn't distinguish file/dir well here
+                        continue
+
+                    # Check exclude patterns
+                    if any(fnmatch.fnmatch(relative_path_posix, pattern) for pattern in exclude_patterns):
+                        if verbose: print(f"Skipping excluded pattern file: {relative_path_posix}")
+                        skipped_pattern_exclude += 1
                         continue
 
                     # Check gitignore
@@ -255,11 +282,12 @@ def main():
 
     print("\nScript finished.")
     print(f" - Files dumped: {processed_count}")
-    total_skipped = skipped_excluded_dir + skipped_gitignore + skipped_read_error + skipped_output_file # Added output file skip to total
+    total_skipped = skipped_excluded_dir + skipped_gitignore + skipped_read_error + skipped_output_file + skipped_pattern_exclude # Add pattern skips to total
     print(f" - Total items skipped: {total_skipped}")
-    print(f"   - Skipped (Excluded Dir/Path): {skipped_excluded_dir}")
+    print(f"   - Skipped (Standard Exclude Dir/Path): {skipped_excluded_dir}")
+    print(f"   - Skipped (Exclude Pattern): {skipped_pattern_exclude}") # Added summary line for patterns
     print(f"   - Skipped (.gitignore): {skipped_gitignore}")
-    print(f"   - Skipped (Output File): {skipped_output_file}") # Added summary line
+    print(f"   - Skipped (Output File): {skipped_output_file}")
     print(f"   - Skipped (Read Error): {skipped_read_error}")
     print(f"Output written to: {output_file}")
 

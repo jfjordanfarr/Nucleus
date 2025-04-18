@@ -365,3 +365,5 @@ FodyWeavers.xsd
 # Nucleus Specific Temporary/Local Data
 Nucleus.ApiService/TempData/
 Nucleus.ApiService/LocalTeamDirectory/
+
+.CodebaseDump.md

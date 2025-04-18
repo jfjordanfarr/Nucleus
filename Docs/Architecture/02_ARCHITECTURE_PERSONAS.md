@@ -1,14 +1,14 @@
 ---
 title: Architecture - Personas & Verticals
 description: Details the architecture for implementing specialized AI assistants (Personas/Verticals) within the Nucleus OmniRAG platform.
-version: 1.1
-date: 2025-04-07
+version: 1.2
+date: 2025-04-18
 ---
 
 # Nucleus OmniRAG: Persona/Vertical Architecture
 
-**Version:** 1.1
-**Date:** 2025-04-07
+**Version:** 1.2
+**Date:** 2025-04-18
 
 This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md).
 
@@ -18,43 +18,11 @@ Personas are distinct, configurable AI agents designed to address specific domai
 
 ## 2. The `IPersona` Interface
 
-The foundation of the persona system is the `IPersona` interface (likely defined in `Nucleus.Abstractions` or a dedicated `Nucleus.Personas.Abstractions` project). This interface defines the essential contract for all personas, ensuring they can integrate consistently with the platform.
+The foundation of the persona system is the `IPersona<TAnalysisData>` interface, which serves as the essential contract for all personas. It ensures consistent integration with the core platform for tasks like content analysis and query handling.
 
-```csharp
-// Example Interface (Subject to refinement)
-public interface IPersona<TAnalysisData> where TAnalysisData : class
-{
-    // Identifier for the persona
-    string PersonaId { get; }
+**Authoritative Definition:** The precise C# definition of `IPersona<TAnalysisData>` and its related types (e.g., `ContentItem`, `PersonaAnalysisResult`, `UserQuery`, `PersonaQueryResult`) resides within the `Nucleus.Abstractions` project (specifically, likely in [`IPersona.cs`](../../../Nucleus.Abstractions/IPersona.cs)). Refer to the source code and its XML documentation for the exact method signatures and type definitions.
 
-    // Display name for the persona
-    string DisplayName { get; }
-
-    // Description of the persona's purpose and capabilities
-    string Description { get; }
-
-    // Performs persona-specific analysis on the standardized content (e.g., Markdown)
-    // provided by the upstream processing pipeline, identifying relevant sections
-    // and producing structured analysis results.
-    Task<PersonaAnalysisResult<TAnalysisData>> AnalyzeContentAsync(ContentItem content, CancellationToken cancellationToken = default);
-
-    // Handles a user query directed at this persona, leveraging retrieval
-    // and AI generation to provide a contextual answer.
-    Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, CancellationToken cancellationToken = default);
-
-    // (Optional) Method for persona-specific configuration loading
-    Task ConfigureAsync(IConfigurationSection configurationSection);
-}
-
-// Supporting types (Examples)
-// Represents the input for persona analysis, containing the standardized content.
-public record ContentItem(string SourceIdentifier, string StandardizedContent, ArtifactMetadata Metadata, Dictionary<string, object>? AdditionalContext = null);
-public record PersonaAnalysisResult<TAnalysisData>(TAnalysisData StructuredAnalysis, string RelevantTextSnippetOrSummary) where TAnalysisData : class;
-public record UserQuery(string QueryText, string UserId, Dictionary<string, object> Context);
-public record PersonaQueryResult(string ResponseText, List<string> SourceReferences);
-```
-
-Key responsibilities defined by `IPersona`:
+Key responsibilities defined conceptually by `IPersona`:
 *   **Identification:** Provide unique ID and descriptive info.
 *   **Content Analysis:** Process the **standardized content (e.g., Markdown)** provided by the [Processing Pipeline](./01_ARCHITECTURE_PROCESSING.md), identify relevant sections *within that content*, and generate structured insights stored as `PersonaKnowledgeEntry` records in the [Database](./04_ARCHITECTURE_DATABASE.md).
 *   **Query Handling:** Respond to user queries (originating from [Clients](./05_ARCHITECTURE_CLIENTS.md)) within its domain.
@@ -76,21 +44,22 @@ This structure allows new personas to be added relatively independently.
 
 ## 4. Initial & Planned Verticals/Personas
 
-Based on the [Project Mandate](./00_PROJECT_MANDATE.md) and existing project structure, the following are initial or planned personas:
+Based on the [Project Mandate](./00_PROJECT_MANDATE.md) and existing project structure, the following are initial or planned persona categories:
 
-### 4.1 Business Knowledge Assistant (Initial Vertical)
+### 4.1 Professional Colleague (Initial Vertical)
 
-*   **Target Deployment:** Self-Hosted Instance (Persistent background processing).
-*   **Goal:** Provide a reliable, access-controlled internal Q&A assistant grounded *only* in authorized company information sources.
+*   **Detailed Architecture:** [./Personas/ARCHITECTURE_PERSONAS_PROFESSIONAL.md](./Personas/ARCHITECTURE_PERSONAS_PROFESSIONAL.md)
+
+*   **Goal:** Simulates a professional colleague to provide insights, assistance, and perform tasks within a specific work context (e.g., IT Helpdesk, domain-specific knowledge Q&A).
+*   **Target Deployment:** Often self-hosted or within enterprise environments (e.g., integrated with Teams) where access to internal knowledge bases is required.
 *   **Key Functionality:**
     *   Implements `IPersona`.
-    *   Primarily focused on the `HandleQueryAsync` aspect, retrieving relevant content from authorized sources based on the user query and potentially user permissions.
-    *   Uses RAG (Retrieval Augmented Generation) to synthesize answers based *only* on retrieved content.
-    *   Interacts with artifacts ingested via persistent connections configured in the self-hosted environment (SharePoint, configured object storage, etc.).
-    *   May involve simpler analysis during ingestion compared to other personas, focusing more on accurate retrieval during query time.
-    *   Leverages message queues for asynchronous ingestion and processing triggers.
+    *   Leverages RAG against authorized company/domain-specific knowledge sources.
+    *   May integrate with specific enterprise tools or APIs via client adapters.
 
 ### 4.2 EduFlow OmniEducator (Initial Vertical)
+
+*   **Detailed Architecture:** [./Personas/ARCHITECTURE_PERSONAS_EDUCATOR.md](./Personas/ARCHITECTURE_PERSONAS_EDUCATOR.md)
 
 *   **Target Deployment:** Cloud-Hosted Service (Ephemeral user sessions).
 *   **Goal:** Observe, document, and provide insights on authentic learning activities (e.g., analyzing Scratch projects, documents, web browsing related to a project).

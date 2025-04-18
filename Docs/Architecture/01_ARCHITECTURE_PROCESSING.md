@@ -1,14 +1,11 @@
 ---
 title: Architecture - Processing Pipeline
 description: Details the architecture for artifact ingestion, content extraction, persona-driven analysis, knowledge storage, and retrieval within Nucleus OmniRAG.
-version: 1.4
+version: 1.5
 date: 2025-04-18
 ---
 
 # Nucleus OmniRAG: Processing Architecture
-
-**Version:** 1.4
-**Date:** 2025-04-18
 
 This document outlines the architecture of the processing components in the Nucleus OmniRAG system, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It focuses on **artifact ingestion, content extraction, persona-driven analysis, and the storage of resulting knowledge entries** used for intelligent retrieval.
 
@@ -28,38 +25,9 @@ Before personas can analyze an artifact, its raw content needs to be extracted a
 
 ### 2.1 Abstraction: `IContentExtractor`
 
-An `IContentExtractor` interface provides a standard way to handle the *initial parsing* of different file types:
+An `IContentExtractor` interface provides a standard way to handle the *initial parsing* of different file types. Its purpose is to retrieve the raw content (e.g., text, metadata) from a source artifact before it's passed to subsequent processing stages.
 
-```csharp
-/// <summary>
-/// Interface for services that can extract textual content (and potentially other data)
-/// from a source artifact stream.
-/// </summary>
-public interface IContentExtractor
-{
-    /// <summary>
-    /// Checks if this extractor supports the given MIME type.
-    /// </summary>
-    bool SupportsMimeType(string mimeType);
-
-    /// <summary>
-    /// Extracts content from the provided stream.
-    /// </summary>
-    /// <param name="sourceStream">The stream containing the artifact content.</param>
-    /// <param name="mimeType">The MIME type of the content.</param>
-    /// <param name="sourceUri">Optional URI of the source for context.</param>
-    /// <returns>A result containing extracted text and potentially other metadata.</returns>
-    Task<ContentExtractionResult> ExtractContentAsync(Stream sourceStream, string mimeType, string? sourceUri = null);
-}
-
-/// <summary>
-/// Holds the result of content extraction.
-/// </summary>
-public record ContentExtractionResult(
-    string ExtractedText,
-    Dictionary<string, object>? AdditionalMetadata = null // e.g., page numbers, structural info
-);
-```
+The specific definition of this interface can be found in the [Shared Processing Interfaces document](./Processing/ARCHITECTURE_PROCESSING_INTERFACES.md#1-icontentextractor).
 
 ### 2.3 Handling Complex and Multimodal Content (Planned - see [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md))
 
