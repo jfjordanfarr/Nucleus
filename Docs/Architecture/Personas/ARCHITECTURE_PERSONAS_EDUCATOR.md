@@ -28,42 +28,34 @@ It transforms ephemeral moments of creation into tangible evidence of learning, 
 
 ```mermaid
 sequenceDiagram
-    participant LearnerApp as Learner Interface / App
-    participant ACA_Instance as Azure Container App Instance (API / Ingestion / Processing)
-    participant TempStorage as Temporary Raw Data Storage
-    participant KnowledgeDB as Cosmos DB (IngestionRecord, ArtifactMetadata & PersonaKnowledgeEntries)
-    participant EducatorPersona as Educator Persona Module (within ACA)
-    participant AIService as AI Model (e.g., Google Gemini)
+    participant LearnerApp
+    participant ACAInstance
+    participant TempStorage
+    participant KnowledgeDB
+    participant EducatorPersona
+    participant AIService
 
-    LearnerApp->>+ACA_Instance: Submits Artifact (API Request)
-    activate ACA_Instance
-    ACA_Instance->>ACA_Instance: Establish Session Context (In-Memory)
-    ACA_Instance->>+TempStorage: Store Raw Artifact (gets Temp Pointer)
-    ACA_Instance->>+KnowledgeDB: Create IngestionRecord (IngestionID, SourceType, Temp Pointer)
-    ACA_Instance->>ACA_Instance: Schedule Background Task (IngestionID, Session Context Ref)
-    ACA_Instance-->>-LearnerApp: Return API Response (e.g., Accepted 202)
-    deactivate ACA_Instance
+    LearnerApp->>ACAInstance: Submits Artifact
+    ACAInstance->>ACAInstance: Establish Session Context
+    ACAInstance->>TempStorage: Store Raw Artifact
+    ACAInstance->>KnowledgeDB: Create IngestionRecord
+    ACAInstance->>ACAInstance: Schedule Background Task
+    ACAInstance-->>LearnerApp: Return API Response
 
-    %% --- Background Task Execution --- %%
-    activate ACA_Instance
-    ACA_Instance->>+KnowledgeDB: Read IngestionRecord (using IngestionID)
-    ACA_Instance->>+TempStorage: Fetch Raw Artifact Data (using Temp Pointer)
-    ACA_Instance->>+KnowledgeDB: Create/Update ArtifactMetadata (Initial - Status: Processing)
-    ACA_Instance->>+EducatorPersona: Initiate Analysis (Salience Check, pass Raw Data/Metadata/Context)
-    Note right of EducatorPersona: Persona determines if artifact is relevant based on data and session context.
-    EducatorPersona-->>-ACA_Instance: Confirms Salience
-    ACA_Instance->>+EducatorPersona: Process Artifact (Extract Text/Features, Use AI)
-    EducatorPersona->>+AIService: Analyze Content (Apply Learning Facets, Identify Skills/Domains)
-    AIService-->>-EducatorPersona: Return Analysis Results (Structured Data)
-    EducatorPersona-->>-ACA_Instance: Return Derived Knowledge (e.g., LearningEvidenceAnalysis)
-    ACA_Instance->>+AIService: Generate Embeddings for Key Snippets/Analysis
-    AIService-->>-ACA_Instance: Return Embeddings
-    ACA_Instance->>+KnowledgeDB: Write PersonaKnowledgeEntry (Analysis, Embeddings)
-    ACA_Instance->>+KnowledgeDB: Update ArtifactMetadata (Processing Complete)
-    ACA_Instance->>-TempStorage: Delete Raw Artifact Data
-    deactivate ACA_Instance
-
-    %% Optional Notification Back to Learner App can be added here (e.g., via SignalR/WebSockets) %%
+    ACAInstance->>KnowledgeDB: Read IngestionRecord
+    ACAInstance->>TempStorage: Fetch Raw Artifact Data
+    ACAInstance->>KnowledgeDB: Create or Update ArtifactMetadata
+    ACAInstance->>EducatorPersona: Initiate Analysis
+    EducatorPersona-->>ACAInstance: Confirms Salience
+    ACAInstance->>EducatorPersona: Process Artifact
+    EducatorPersona->>AIService: Analyze Content
+    AIService-->>EducatorPersona: Return Analysis Results
+    EducatorPersona-->>ACAInstance: Return Derived Knowledge
+    ACAInstance->>AIService: Generate Embeddings
+    AIService-->>ACAInstance: Return Embeddings
+    ACAInstance->>KnowledgeDB: Write PersonaKnowledgeEntry
+    ACAInstance->>KnowledgeDB: Update ArtifactMetadata
+    ACAInstance->>TempStorage: Delete Raw Artifact Data
 ```
 
 **Explanation:** A learner submits an artifact via an API call to the main Azure Container App (ACA) instance. The ACA handler establishes session context, creates an Ingestion Record, stores raw data temporarily, and schedules an in-process background task. The API responds quickly. The background task then executes within the same ACA instance, fetches the raw data using the Ingestion ID, accesses session context if needed, and invokes the Educator Persona. The Persona checks relevance (salience) and, if salient, orchestrates the analysis using AI services (like Gemini). The derived knowledge and embeddings are stored as a `PersonaKnowledgeEntry` in Cosmos DB. Finally, temporary data is cleaned up.

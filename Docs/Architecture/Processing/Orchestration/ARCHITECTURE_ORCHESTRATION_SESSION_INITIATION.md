@@ -45,37 +45,29 @@ If no existing session claims the message, the `InteractionRouter` coordinates t
 
 ```mermaid
 graph TD
-    A[InteractionRouter Receives & Hydrates Message] --> B(Broadcast to Managers: Check Salience vs EXISTING Sessions);
-    B --> C{Wait for Salience Signals/Timeout};
-    C -- Message Claimed by Existing Session --> D(Route to Claiming Manager/Session);
-    C -- No Salience Claim --> E{InteractionRouter: Broadcast to Managers: EVALUATE FOR NEW Session};
-
-    subgraph "Persona Manager 1 (e.g., Bootstrapper)"
-        E --> PM1_Eval(Receive Eval Request);
-        PM1_Eval --> PM1_Decide{Decide: Should Bootstrapper Handle NEW Session?};
-        PM1_Decide -- Yes --> PM1_Cosmos[Attempt Cosmos DB Placeholder Create];
-        PM1_Decide -- No --> PM1_Abort(Abort Initiation);
-        PM1_Cosmos -- Success (201 Created) --> PM1_Create[Create Scratchpad, Register Session Internally];
-        PM1_Create --> PM1_Trig(Trigger Initial Persona Processing);
-        PM1_Cosmos -- Conflict (409) --> PM1_Abort;
-    end
-
-    subgraph "Persona Manager N (e.g., EduFlow)"
-        E --> PMN_Eval(Receive Eval Request);
-        PMN_Eval --> PMN_Decide{Decide: Should EduFlow Handle NEW Session?};
-        PMN_Decide -- Yes --> PMN_Cosmos[Attempt Cosmos DB Placeholder Create];
-        PMN_Decide -- No --> PMN_Abort(Abort Initiation);
-        PMN_Cosmos -- Success (201 Created) --> PMN_Create[Create Scratchpad, Register Session Internally];
-        PMN_Create --> PMN_Trig(Trigger Initial Persona Processing);
-        PMN_Cosmos -- Conflict (409) --> PMN_Abort;
-    end
-
-    D --> Z(End Flow);
-    PM1_Trig --> Z;
-    PMN_Trig --> Z;
-    PM1_Abort --> Z;
-    PMN_Abort --> Z;
-
+    A[InteractionRouter Receives and Hydrates Message] --> B[Broadcast to Managers: Check Salience vs Existing Sessions]
+    B --> C[Wait for Salience Signals or Timeout]
+    C -- Message Claimed by Existing Session --> D[Route to Claiming Manager or Session]
+    C -- No Salience Claim --> E[Broadcast to Managers: Evaluate for New Session]
+    E --> PM1_Eval[Receive Eval Request]
+    PM1_Eval --> PM1_Decide[Decide: Should Bootstrapper Handle New Session?]
+    PM1_Decide -- Yes --> PM1_Cosmos[Attempt Cosmos DB Placeholder Create]
+    PM1_Decide -- No --> PM1_Abort[Abort Initiation]
+    PM1_Cosmos -- Success --> PM1_Create[Create Scratchpad, Register Session]
+    PM1_Create --> PM1_Trig[Trigger Initial Persona Processing]
+    PM1_Cosmos -- Conflict --> PM1_Abort
+    E --> PMN_Eval[Receive Eval Request]
+    PMN_Eval --> PMN_Decide[Decide: Should EduFlow Handle New Session?]
+    PMN_Decide -- Yes --> PMN_Cosmos[Attempt Cosmos DB Placeholder Create]
+    PMN_Decide -- No --> PMN_Abort[Abort Initiation]
+    PMN_Cosmos -- Success --> PMN_Create[Create Scratchpad, Register Session]
+    PMN_Create --> PMN_Trig[Trigger Initial Persona Processing]
+    PMN_Cosmos -- Conflict --> PMN_Abort
+    D --> Z[End Flow]
+    PM1_Trig --> Z
+    PMN_Trig --> Z
+    PM1_Abort --> Z
+    PMN_Abort --> Z
 ```
 
 **Detailed Steps:**

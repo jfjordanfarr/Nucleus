@@ -76,43 +76,41 @@ The system comprises several key interacting components, orchestrated primarily 
 ```mermaid
 graph LR
     subgraph User Interaction Channels
-        User[<fa:fa-user> User] -- CLI Commands --> ConsoleApp["<fa:fa-terminal> Console App (MVP)"];
-        User -- (Future) --> PlatformBots["<fa:fa-robot> Platform Bots (Phase 2+)"];
-        User -- (Future) --> EmailSrv["<fa:fa-envelope-open-text> Email (Phase 2+)"];
+        User -- CLI Commands --> ConsoleApp[Console App MVP]
+        User -- Future --> PlatformBots[Platform Bots Phase 2+]
+        User -- Future --> EmailSrv[Email Phase 2+]
     end
 
     subgraph Nucleus Backend Platform
-        ConsoleApp -- HTTP API Calls --> API["<fa:fa-server> API (ASP.NET Core)"];
-        PlatformBots -- (Future) --> Adapter["<fa:fa-plug> Platform Adapters (Phase 2+)"];
-        EmailSrv -- Triggers (Future) --> Adapter;
+        ConsoleApp -- HTTP API Calls --> API[API ASP.NET Core]
+        PlatformBots -- Future --> Adapter[Platform Adapters Phase 2+]
+        EmailSrv -- Triggers Future --> Adapter
 
-        Adapter -- (Future) --> MQ{<fa:fa-envelope> Message Queue (Service Bus)}; // For async processing
-        API -- Triggers --> MQ; // For async processing (e.g., file uploads)
-        API <--> Personas[<fa:fa-brain> Persona Logic]; // For direct queries/chat
-        API --> DB[(<fa:fa-database> Cosmos DB)]; // e.g., saving chat history, config
+        Adapter -- Future --> MQ[Message Queue Service Bus]
+        API -- Triggers --> MQ
+        API <--> Personas[Persona Logic]
+        API --> DB[Cosmos DB]
 
         subgraph Artifact Processing Pipeline
             direction LR
-            ProcFunc -- Gets Content --> Extr[<fa:fa-file-alt> Content Extractors];
-            Extr -- Raw Text --> Personas; // Persona determines relevance directly
-            Personas -- "Analysis + Relevant Text" --> Embed[<fa:fa-vector-square> Embedding Generator];
-            Embed -- Embeddings + Analysis --> DBPersist(Save PersonaKnowledgeEntry);
+            ProcFunc -- Gets Content --> Extr[Content Extractors]
+            Extr -- Raw Text --> Personas
+            Personas -- Analysis and Relevant Text --> Embed[Embedding Generator]
+            Embed -- Embeddings and Analysis --> DBPersist[Save PersonaKnowledgeEntry]
         end
 
-        ProcFunc --> SourceStore[(<fa:fa-database> Source Storage)]; // Updates ArtifactMetadata
-        ProcFunc --> DBPersist;
-        DBPersist --> DB[(<fa:fa-database> Knowledge DB (Cosmos))]; // Saves PersonaKnowledgeEntry (links via sourceIdentifier)
-        MQ -- "ReplyReadyEvent" --> Adapter; // For sending async replies
+        ProcFunc --> SourceStore[Source Storage]
+        ProcFunc --> DBPersist
+        DBPersist --> DB[Knowledge DB Cosmos]
+        MQ -- ReplyReadyEvent --> Adapter
 
-        %% Persona Logic Interaction
-        Personas -- Uses --> AI[<fa:fa-microchip> AI Services (IChatClient/IEmbeddingGenerator)];
-        Personas -- Accesses --> DB; // Retrieve knowledge, store analysis
+        Personas -- Uses --> AI[AI Services]
+        Personas -- Accesses --> DB
     end
 
     subgraph Data Stores
-        style DataStores fill:#ccf,stroke:#333,stroke-width:2px
-        DB; // Defined above
-        SourceStore[<fa:fa-hdd> Source Content Store (Blob/etc.)]; // Holds originals/attachments
+        DB
+        SourceStore[Source Content Store]
     end
 
     style User fill:#lightblue,stroke:#333,stroke-width:2px
@@ -205,14 +203,17 @@ graph TD
     end
 
     subgraph "Proposed Nucleus System Architecture"
-        E["IT Staff Member via Microsoft Teams"] --> F{Nucleus Helpdesk Bot};
-        F --> G["Backend Processing & Analysis Engine"];
-        G -- Processes & Analyzes --> A & B & C & D;
-        G -- Stores Metadata & Derived Knowledge --> H(("Knowledge Store <br/>[Cosmos DB - ArtifactMetadata & PersonaKnowledgeEntries]"));
-        G -- Retrieves Derived Knowledge --> H;
-        G --> F;
-        F --> K["Retrieved Solutions, KB Links, <br/>Relevant Snippets"];
-        K --> E;
+        E["IT Staff Member via Microsoft Teams"] --> F{"Nucleus Helpdesk Bot"}
+        F --> G["Backend Processing & Analysis Engine"]
+        G -- "Processes & Analyzes" --> A
+        G -- "Processes & Analyzes" --> B
+        G -- "Processes & Analyzes" --> C
+        G -- "Processes & Analyzes" --> D
+        G -- "Stores Metadata & Derived Knowledge" --> H["Knowledge Store - Cosmos DB"]
+        G -- "Retrieves Derived Knowledge" --> H
+        G --> F
+        F --> K["Retrieved Solutions, KB Links, Relevant Snippets"]
+        K --> E
     end
 ```
 
@@ -224,58 +225,27 @@ graph TD
 
 ```mermaid
 graph TD
-    subgraph "Standard RAG Approach"
-        direction LR
-        A["IT Documentation / Ticket Data"] --> B("Generic Text Chunking <br/> Fixed Size/Overlap");
-        B --> C("Vectorize All Text Chunks");
-        C --> D(("Vector Store <br/> Unstructured Text Chunks + Vectors"));
-        E["User Query"] --> F{Similarity Retriever};
-        D --> F;
-        F --> G("Retrieve Chunks based on Text Similarity");
-        G --> H{LLM Generator};
-        E --> H;
-        H --> I["Generated Answer <br/> (May lack specific solution structure)"];
-    end
-
-    subgraph "Nucleus IT Persona Approach"
-        direction LR
-        N_A["IT Documentation / Ticket Data"] --> N_B("Ephemeral Processing & IT Persona Analysis <br/> Extracts Problem, Solution, Links, Metadata");
-        N_B --> N_C("Structured Knowledge + Snippet Vectorization");
-        N_C --> N_D(("Knowledge Store <br/> [Cosmos DB] <br/> PersonaKnowledgeEntry: <br/> Structured Data, Snippets, Vectors"));
-        N_E["User Query"] --> N_F{Intelligent Retriever <br/> (Vector + Structured Data Filters)};
-        N_D --> N_F;
-        N_F --> N_G("Retrieve Relevant PersonaKnowledgeEntries");
-        N_G --> N_H{LLM Generator / Persona Logic};
-        N_E --> N_H;
-        N_H --> N_I["Contextual Answer <br/> (Grounded in identified solutions/steps)"];
-    end
-```
-
-**Explanation:** This illustrates a key difference from standard RAG. Typical systems perform generic text chunking, persist those chunks, and rely solely on text similarity for retrieval, which can be imprecise and use stale data. The Nucleus approach processes source data ephemerally within a session and uses specialized Personas to analyze content contextually (extracting problems, solutions, etc.). This structured information, along with vector embeddings of key snippets, is stored in Cosmos DB. Retrieval then uses both semantic search *and* this structured data, enabling more precise identification of relevant derived knowledge from past analyses, applied to freshly processed context.
-
-```mermaid
-graph TD
     subgraph "User & Source Data"
         A["User Query"]
-        B["Source Documents <br/> (e.g., Knowledge Base Articles (KBs))"]
+        B["Source Documents (e.g., Knowledge Bases, Files)"]
     end
 
     subgraph "Traditional RAG (Simplified)"
         direction LR
         C["User Query Vector"]
-        D["KB Vector Index <br/> (Pre-computed)"]
-        E{Vector Similarity Search}
+        D["Vector Index"]
+        E{"Vector Similarity Search"}
         F["Retrieved Relevant KB Chunks"]
-        G["LLM Prompt <br/> (Query + Retrieved Chunks)"]
-        H["LLM Generates Answer"]        
+        G["LLM Prompt (Query + Retrieved Chunks)"]
+        H["LLM Generates Answer"]
     end
 
     subgraph "Nucleus OmniRAG Enhancement"
         direction LR
-        I["Persona Analyzes Source <br/> (On-Demand or Triggered)"]
-        J["Creates Structured Knowledge <br/> (PersonaKnowledgeEntry in Cosmos DB)"]
-        K["Enriched Context <br/> (Query + Structured Knowledge + Optional Source Snippets)"]
-        L["LLM Prompt <br/> (Using Enriched Context)"]
+        I["Persona Analyzes Source (On-Demand or Triggered)"]
+        J["Creates Structured Knowledge (PersonaKnowledgeEntry in Cosmos DB)"]
+        K["Enriched Context (Query + Structured Knowledge + Optional Source Snippets)"]
+        L["LLM Prompt (Using Enriched Context)"]
         M["LLM Generates More Accurate/Contextual Answer"]
     end
 
@@ -294,100 +264,67 @@ graph TD
     J --> K
     K --> L
     L --> M
-
-    style B fill:#ddf
-    style D fill:#ccf
-    style J fill:#ccf
-    style H fill:#f9f
-    style M fill:#cfc
 ```
 
+**Explanation:** This illustrates a key difference from standard RAG. Typical systems perform generic text chunking, persist those chunks, and rely solely on text similarity for retrieval, which can be imprecise and use stale data. The Nucleus approach processes source data ephemerally within a session and uses specialized Personas to analyze content contextually (extracting problems, solutions, etc.). This structured information, along with vector embeddings of key snippets, is stored in Cosmos DB. Retrieval then uses both semantic search and this structured data, enabling more precise identification of relevant derived knowledge from past analyses, applied to freshly processed context.
+
 ```mermaid
-graph TD
-    A["User Interaction <br/> (e.g., Teams Message)"] --> B{Nucleus API Endpoint};
-    B --> C[Orchestrator];
-    C --> D{"Identify Target Persona(s) <br/> & Check for Active Session"};
-    D -- "Existing Session Found" --> E[Route to Existing Persona Session];
-    D -- "No Active Session / New Interaction" --> F[Initiate New Persona Session];
-    
-    subgraph "Persona Session Processing"
+graph LR
+    subgraph User & Source Data
+        A["User Query"]
+        B["Source Documents (e.g., Knowledge Bases, Files)"]
+    end
+
+    subgraph Traditional RAG
         direction LR
-        E --> G[Load Session Context];
-        F --> G;
-        G --> H{Access Artifacts via Adapters};
-        H --> I[("Source Systems <br/> (SharePoint, etc.)")];
-        H --> J[LLM Analysis / Interaction];
-        J --> K{{Cosmos DB <br/> (Store Knowledge, Update Metadata)}};
-        J --> L["Generate Response <br/> (Using LLM + Knowledge)"];
-        L --> M[Update Session Context];
-        M --> N[Return Response];
-    end
-    
-    N --> C;
-    C --> B;
-    B --> A;
-
-    style I fill:#ddf
-    style K fill:#ccf
-    style J fill:#cfc
-    style L fill:#cfc
-```
-
-```mermaid
-graph TD
-    subgraph "User Interaction (e.g., Teams, Console)"
-        A[User Asks Question]
+        C["User Query Vector"]
+        D["Vector Index"]
+        E{"Vector Similarity Search"}
+        F["Retrieved Relevant KB Chunks"]
+        G["LLM Prompt (Query + Retrieved Chunks)"]
+        H["LLM Generates Answer"]
     end
 
-    subgraph "Nucleus Core"
-        B["Nucleus API <br/> (Receives Request)"] --> C{Orchestrator};
-        C -- "Trigger Persona(s)" --> D[Persona Processing];
-        D -- "Access Knowledge" --> E{{Cosmos DB <br/> (Metadata + Knowledge)}};
-        D -- "Fetch Source Content" --> F[("External System <br/> (e.g., SharePoint via Adapter)")];
-        D -- "Generate Response" --> G["LLM Interaction <br/> (e.g., Gemini)"];
-        G --> C;
-        C -- "Send Response" --> H["Nucleus API <br/> (Sends Response)"];
+    subgraph Nucleus OmniRAG Enhancement
+        direction LR
+        I["Persona Analyzes Source (On-Demand or Triggered)"]
+        J["Creates Structured Knowledge (PersonaKnowledgeEntry in Cosmos DB)"]
+        K["Enriched Context (Query + Structured Knowledge + Optional Source Snippets)"]
+        L["LLM Prompt (Using Enriched Context)"]
+        M["LLM Generates More Accurate/Contextual Answer"]
     end
 
-    subgraph "External Systems"
-        I{{Message Queue (Service Bus)}}; // For potential async operations/integration
-        E;
-        F;
-        J{{Azure Key Vault}}; // For secrets
-    end
+    A --> C
+    C --> E
+    B --> D
+    D --> E
+    E --> F
+    A --> G
+    F --> G
+    G --> H
 
-    A --> B;
-    H --> A;
-    C -- "Get Secrets" --> J;
-    D -- "Signal Events?" --> I;
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style H fill:#f9f,stroke:#333,stroke-width:2px
-    style E fill:#ccf,stroke:#333,stroke-width:1px
-    style F fill:#ddf,stroke:#333,stroke-width:1px
-    style G fill:#cfc,stroke:#333,stroke-width:1px
-    style I fill:#eee,stroke:#333,stroke-width:1px
-    style J fill:#eee,stroke:#333,stroke-width:1px
+    A --> K
+    B --> I
+    I --> J
+    J --> K
+    K --> L
+    L --> M
 ```
 
 ```mermaid
 graph LR
-    A["User Query (via Teams/Console)"] --> B(Nucleus API);
-    B --> C{Orchestrator};
-    C -- "Identify Relevant Persona(s)" --> D["Persona Manager <br/> (e.g., 'Helpdesk')"];
-    D -- "Fetch Artifact Metadata" --> E{{Cosmos DB}};    
-    D -- "Request Artifact Content" --> F["Client Adapter <br/> (e.g., SharePoint)"];
-    F -- "Get Content" --> G[("Source System <br/> (SharePoint)")];
-    F -- "Return Content" --> D;
-    D -- "Analyze Content" --> H["LLM (Gemini)"];
-    D -- "Store Derived Knowledge" --> E;
-    H -- "Analysis Result" --> D;
-    D -- "Formulate Response" --> C;
-    C --> B;
-    B -- "Deliver Response" --> A;
-
-    style E fill:#ccf,stroke:#333,stroke-width:1px
-    style G fill:#ddf,stroke:#333,stroke-width:1px
-    style H fill:#cfc,stroke:#333,stroke-width:1px
-    style L fill:#cfc
+    A["User Interaction (e.g., Teams/Console)"] --> B(Nucleus API)
+    B --> C{Orchestrator}
+    C -- "Identify Relevant Persona(s)" --> D["Persona Manager (e.g., 'Helpdesk')"]
+    D -- "Fetch Artifact Metadata" --> E([Cosmos DB])
+    
+    D -- "Request Artifact Content" --> F(["External System (e.g., SharePoint via Adapter)"])
+    F -- "Get Content" --> G(["Source System (SharePoint)"])
+    F -- "Return Content" --> D
+    D -- "Analyze Content" --> H(["LLM (Gemini)"])
+    D -- "Store Derived Knowledge" --> E
+    H -- "Analysis Result" --> D
+    D -- "Formulate Response" --> C
+    C --> B
+    B -- "Deliver Response" --> A
 ```

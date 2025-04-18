@@ -1,8 +1,8 @@
 ---
 title: "Windsurf Rules"
 description: "Guidelines for agentic AI development within the Nucleus codebase."
-version: 1.1 # Updated version
-date: 2025-04-17 # Updated date
+version: 1.2 # Updated version
+date: 2025-04-18 # Updated date
 ---
 
 
@@ -79,7 +79,7 @@ To optimize codebase navigation and information retrieval:
 
 ---
 
-## 4 - Development Insights Worth Saving (Previously Section 4)
+## 4 - Development Insights Worth Saving
 
 ### Insight 1
 
@@ -96,7 +96,7 @@ The user prefers an initial deployment architecture consisting of a single Azure
 
 ---
 
-## 5 - Context, Cross-Checking, and Persona-Centric Design (Previously Section 5)
+## 5 - Context, Cross-Checking, and Persona-Centric Design 
 
 ### Rule: Comprehensive Context is Mandatory
 During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.

@@ -161,28 +161,15 @@ Repeated issues with Plotly chart resizing (especially after export or container
 ### Architecture Diagram: Responsive Rendering Pipeline
 ```mermaid
 flowchart TD
-    subgraph C#
-        A[DatavizHtmlBuilder.cs]
-    end
-    subgraph HTML Artifact
-        B[dataviz_template.html]
-        C[dataviz_script.js]
-        D[dataviz_plotly_script.py]
-    end
-    subgraph Browser
-        E[Pyodide Worker]
-        F[Plotly.js]
-        G[ResizeObserver / window.resize]
-    end
-    A --> B
-    B --> C
-    B --> D
-    C -- injects data --> F
-    D -- generates JSON --> C
-    F -- renders plot with responsive:true --> H[plot-area div]
-    G -- triggers resize --> F
-    style H fill:#cff,stroke:#333,stroke-width:2px
-    F -. fallback relayout/resize .-> F
+    A[DatavizHtmlBuilder.cs] --> B[dataviz_template.html]
+    B --> C[dataviz_script.js]
+    B --> D[dataviz_plotly_script.py]
+    C --> E[Pyodide Worker]
+    C --> F[Plotly.js]
+    D --> E
+    E --> D
+    F --> G[ResizeObserver]
+    G --> F
 ```
 
 ## 4. Backend Implementation (C# Bot Framework Application)

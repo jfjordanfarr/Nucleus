@@ -78,20 +78,8 @@
 ```
 Nucleus.sln
 ├── AgentOps/                  # Documentation for AI agent collaboration
-├── docs/                      # Project documentation (requirements, architecture, etc.)
-├── aspire/
-│   ├── Nucleus.AppHost/         # Aspire application host project
-│   └── Nucleus.ServiceDefaults/ # Shared Aspire configurations
-├── src/
-│   ├── Nucleus.ApiService/      # ASP.NET Core WebAPI Backend
-│   ├── Nucleus.Abstractions/    # Core Interfaces
-│   ├── Nucleus.Core/            # Core Models
-│   ├── Nucleus.Infrastructure/  # Adapters (Cosmos DB, AI Providers)
-│   ├── Nucleus.Personas/        # Persona implementations (Bootstrapper, EduFlow, etc.)
-│   ├── Nucleus.Processing/      # Specialized processing services
-│   └── # Potentially other projects (e.g., Client Adapters) later
-├── tests/ 
-│   └── Nucleus.Tests/         # Unit/Integration tests
+├── Docs/                      # Project documentation (requirements, architecture, etc.)
+├── {Individual C# Project Directories (i.e. AppHost, ServiceDefaults, ApiService, etc.)}
 ├── .gitignore
 └── README.md
 ```

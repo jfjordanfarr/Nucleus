@@ -2,7 +2,7 @@
 title: Reference Implementation - Educator Persona
 description: Outlines a conceptual reference implementation for the EduFlow OmniEducator persona within Nucleus OmniRAG.
 version: 0.1
-date: 2025-04-13
+date: 2025-04-18
 ---
 
 # Reference Implementation: Educator Persona
@@ -15,50 +15,32 @@ This document outlines conceptual architecture, data flow, and key models for im
 
 ```mermaid
 graph LR
-    subgraph User Interaction (Learner/Parent/Educator App)
-        User([fa:fa-user User])
-    end
+    User[User]
+    IngestionAPI[Nucleus Ingestion API]
+    QueryAPI[Nucleus Query API]
+    MessagingService[Messaging Service]
+    ProcessingSvc[Processing Service]
+    KnowledgeDB[Cosmos DB]
+    AI_SVC[AI Model]
+    Config[System Configuration]
+    EducatorModule[Educator Persona Logic]
+    LearningFacets[Learning Facets Schema]
+    StandardsMapping[Curriculum Standards DB]
 
-    subgraph Nucleus Core Services
-        IngestionAPI[fa:fa-cloud-upload Nucleus Ingestion API]
-        QueryAPI[fa:fa-search Nucleus Query API]
-        MessagingService[(fa:fa-envelope Messaging Service (Pub/Sub))]
-        ProcessingSvc[fa:fa-cogs Nucleus Processing Service]
-        KnowledgeDB[fa:fa-database Cosmos DB]
-        AI_SVC[fa:fa-microchip Configured AI Model (Gemini)]
-        Config[fa:fa-cog System Configuration]
-    end
-
-    subgraph Educator Persona Components
-        EducatorModule[fa:fa-brain Educator Persona Logic]
-        LearningFacets[fa:fa-tags Learning Facets Schema]
-        StandardsMapping[fa:fa-link Curriculum Standards DB]
-    end
-
-    User -- 1. Submits Artifact / Query --> IngestionAPI / QueryAPI
-    IngestionAPI -- 2a. Creates ArtifactMetadata --> KnowledgeDB
-    IngestionAPI -- 2b. Publishes Job Trigger --> MessagingService
-    MessagingService -- 3. Triggers --> ProcessingSvc
-    ProcessingSvc -- 4. Reads/Updates --> KnowledgeDB %% ArtifactMetadata %%
-    ProcessingSvc -- 5. Orchestrates Ephemeral Ingestion --> EducatorModule
-    EducatorModule -- 6. Analyzes Artifact Content --> AI_SVC
-    EducatorModule -- 7. Applies Schema --> LearningFacets
-    EducatorModule -- 8. Maps to Standards --> StandardsMapping
-    EducatorModule -- 9. Generates Analysis --> ProcessingSvc
-    ProcessingSvc -- 10. Generates Embeddings --> AI_SVC
-    ProcessingSvc -- 11. Writes PersonaKnowledgeEntry --> KnowledgeDB
-    QueryAPI -- 12a. Receives Query --> EducatorModule
-    EducatorModule -- 12b. Retrieves Data --> KnowledgeDB
-    EducatorModule -- 12c. Synthesizes Response --> AI_SVC
-    EducatorModule -- 12d. Returns Response --> QueryAPI
-    QueryAPI -- 13. Returns Response --> User
-
-    Config -- Manages Settings --> ProcessingSvc
-    Config -- Manages Settings --> EducatorModule
-    Config -- Manages Settings --> AI_SVC
+    User -- Submits Artifact or Query --> IngestionAPI
+    User -- Submits Query --> QueryAPI
+    IngestionAPI -- Creates ArtifactMetadata --> KnowledgeDB
+    IngestionAPI -- Publishes Job Trigger --> MessagingService
+    MessagingService -- Triggers --> ProcessingSvc
+    ProcessingSvc -- Processes Data --> EducatorModule
+    EducatorModule -- Uses Schema --> LearningFacets
+    EducatorModule -- Maps to Standards --> StandardsMapping
+    EducatorModule -- Stores Results --> KnowledgeDB
+    EducatorModule -- Uses AI --> AI_SVC
+    Config -- Configures --> EducatorModule
 ```
 
-**Explanation:** User interactions (submitting artifacts or querying) go through dedicated APIs. Artifact ingestion triggers asynchronous processing via a **messaging service (Pub/Sub Topic)**. The Processing Service coordinates with the Educator Persona Module, which utilizes AI services, internal schemas (Learning Facets), and potentially external standards databases to analyze content. Results (`PersonaKnowledgeEntry`) are stored in Cosmos DB. Queries are handled more directly, retrieving stored knowledge and synthesizing answers.
+**Explanation:** User interactions (submitting artifacts or querying) go through dedicated APIs. Artifact ingestion triggers asynchronous processing via a messaging service. The Processing Service coordinates with the Educator Persona Module, which utilizes AI services, internal schemas (Learning Facets), and potentially external standards databases to analyze content. Results (`PersonaKnowledgeEntry`) are stored in Cosmos DB. Queries are handled more directly, retrieving stored knowledge and synthesizing answers.
 
 ## 2. Core Data Model Summary
 
@@ -87,34 +69,53 @@ This persona relies heavily on structured data captured during the 'slow path' a
 ## 3. Key Architectural Characteristics
 
 ```mermaid
-mindmap
-  root((EduFlow OmniEducator Characteristics))
-    ::icon(fa fa-graduation-cap)
-    (+) Authentic Learning Capture
-      ::icon(fa fa-camera)
-      Focus on digital creation & projects
-      Multimodal input (video, code, text, images)
-    (+) Dual-Lens Analysis
-      ::icon(fa fa-binoculars)
-      Pedagogical Subjects (What)
-      Foundational Capabilities (How)
-      Schema-driven (Learning Facets)
-    (+) Personalized Knowledge Base
-      ::icon(fa fa-database)
-      Per-learner data in Cosmos DB
-      Tracks trajectory and connections
-    (+) Insightful Retrieval & Reporting
-      ::icon(fa fa-chart-bar)
-      Agentic querying combines vectors & metadata
-      Supports progress reports & contextual help
-    (+) Safety & Privacy Focused
-      ::icon(fa fa-shield-alt)
-      Private knowledge base per learner
-      Leverages ephemeral processing principles
-    (+) Extensible & Adaptable
-      ::icon(fa fa-puzzle-piece)
-      Modular persona design
-      Potential for interactive learning tools
+graph LR
+    A["EduFlow OmniEducator Characteristics"]
+    B["Authentic Learning Capture"]
+    C["Dual-Lens Analysis"]
+    D["Personalized Knowledge Base"]
+    E["Insightful Retrieval and Reporting"]
+    F["Safety and Privacy Focused"]
+    G["Extensible and Adaptable"]
+
+    A --> B
+    A --> C
+    A --> D
+    A --> E
+    A --> F
+    A --> G
+
+    B1["Focus on digital creation and projects"]
+    B2["Multimodal input (video, code, text, images)"]
+    B --> B1
+    B --> B2
+
+    C1["Pedagogical Subjects (What)"]
+    C2["Foundational Capabilities (How)"]
+    C3["Schema-driven (Learning Facets)"]
+    C --> C1
+    C --> C2
+    C --> C3
+
+    D1["Per-learner data in Cosmos DB"]
+    D2["Tracks trajectory and connections"]
+    D --> D1
+    D --> D2
+
+    E1["Agentic querying combines vectors and metadata"]
+    E2["Supports progress reports and contextual help"]
+    E --> E1
+    E --> E2
+
+    F1["Private knowledge base per learner"]
+    F2["Leverages ephemeral processing principles"]
+    F --> F1
+    F --> F2
+
+    G1["Modular persona design"]
+    G2["Potential for interactive learning tools"]
+    G --> G1
+    G --> G2
 ```
 
 **Explanation:** The Educator persona prioritizes capturing learning from authentic activities, analyzing it through multiple lenses (subject matter and cognitive processes), storing this rich data securely per learner, and enabling powerful querying for insights. Its design emphasizes privacy and adaptability.

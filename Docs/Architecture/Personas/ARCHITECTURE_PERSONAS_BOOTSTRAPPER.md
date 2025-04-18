@@ -23,22 +23,20 @@ It typically involves minimal analysis during ingestion and focuses on direct re
 
 ```mermaid
 sequenceDiagram
-    participant UserInterface as User Interface
-    participant QueryAPI as Nucleus Query API
-    participant BootstrapperPersona as Bootstrapper Persona Module
-    participant KnowledgeDB as Cosmos DB (ArtifactMetadata & Minimal PKEs)
-    participant AIService as AI Model (Optional)
+    participant UserInterface
+    participant QueryAPI
+    participant BootstrapperPersona
+    participant KnowledgeDB
+    participant AIService
 
-    UserInterface->>+QueryAPI: Sends Basic Query
-    QueryAPI->>+BootstrapperPersona: Handle Query Request
-    BootstrapperPersona->>+KnowledgeDB: Retrieve Relevant ArtifactMetadata or simple PKEs
-    KnowledgeDB-->>-BootstrapperPersona: Return Basic Data/Text Snippets
-    %% Optional: Simple AI summarization/formatting %%
-    BootstrapperPersona->>+AIService: (Optional) Format/Summarize Snippets
-    AIService-->>-BootstrapperPersona: Formatted Response
-    BootstrapperPersona-->>-QueryAPI: Return Response
-    QueryAPI-->>-UserInterface: Display Response
-
+    UserInterface->>QueryAPI: Sends Basic Query
+    QueryAPI->>BootstrapperPersona: Handle Query Request
+    BootstrapperPersona->>KnowledgeDB: Retrieve Data
+    KnowledgeDB-->>BootstrapperPersona: Return Data
+    BootstrapperPersona->>AIService: Format or Summarize (Optional)
+    AIService-->>BootstrapperPersona: Formatted Response
+    BootstrapperPersona-->>QueryAPI: Return Response
+    QueryAPI-->>UserInterface: Display Response
 ```
 
 **Explanation:** A user sends a simple query. The Bootstrapper persona directly retrieves potentially relevant metadata or very basic stored knowledge entries (perhaps just text snippets). It might perform minimal formatting, possibly using an AI service, before returning the result. Deep analysis or complex synthesis is generally avoided.

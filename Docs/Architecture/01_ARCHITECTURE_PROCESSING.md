@@ -72,47 +72,47 @@ This diagram illustrates the fundamental sequence of events when a user interact
 ```mermaid
 sequenceDiagram
     participant User
-    participant ClientPlatform as Client Platform (e.g., Teams, Filesystem)
-    participant Adapter as Client Adapter (e.g., TeamsAdapter, ConsoleAdapter)
-    participant MsgBus as Async Pub/Sub (e.g., Service Bus Topic)
-    participant Runtime as Compute Runtime (e.g., ACA Instance)
-    participant Processor as Orchestration/Persona Processor
-    participant DB as Document/Vector DB
-    participant AISvc as AI Services (LLM/Embed)
+    participant ClientPlatform
+    participant Adapter
+    participant MsgBus
+    participant Runtime
+    participant Processor
+    participant DB
+    participant AISvc
 
-    User->>+ClientPlatform: Sends message / provides file reference
-    ClientPlatform->>+Adapter: Receives interaction trigger (with Platform Message/File ID)
-    Adapter->>+MsgBus: Publish Message Identifier (incl. ConvID, UserID, PlatformMsgID/FileID)
-    MsgBus-->>-Adapter: Ack publish
-    ClientPlatform-->>-User: (Optional) Ack receipt
+    User->>ClientPlatform: Sends message or file reference
+    ClientPlatform->>Adapter: Receives interaction trigger
+    Adapter->>MsgBus: Publish message identifier
+    MsgBus-->>Adapter: Ack publish
+    ClientPlatform-->>User: Optional Ack receipt
 
-    Runtime->>+MsgBus: Subscribed to Topic
-    MsgBus->>+Runtime: Delivers Message Identifier
-    Runtime->>+Adapter: Identify Adapter (based on msg metadata)
-    Runtime->>+Adapter: Hydrate Context (using IDs)
-    Adapter->>+ClientPlatform: GetMessageContentAsync(PlatformMsgID)
-    ClientPlatform-->>-Adapter: Message Content
-    Adapter->>+ClientPlatform: GetConversationHistoryAsync(ConvID)
-    ClientPlatform-->>-Adapter: History
+    Runtime->>MsgBus: Subscribe to topic
+    MsgBus->>Runtime: Deliver message identifier
+    Runtime->>Adapter: Identify adapter
+    Runtime->>Adapter: Hydrate context
+    Adapter->>ClientPlatform: Get message content
+    ClientPlatform-->>Adapter: Message content
+    Adapter->>ClientPlatform: Get conversation history
+    ClientPlatform-->>Adapter: History
     opt Artifacts Referenced
-        Adapter->>+ClientPlatform: GetArtifactStreamAsync(PlatformFileID)
-        ClientPlatform-->>-Adapter: Artifact Stream
+        Adapter->>ClientPlatform: Get artifact stream
+        ClientPlatform-->>Adapter: Artifact stream
     end
-    Adapter-->>-Runtime: Return Hydrated IPersonaInteractionContext
+    Adapter-->>Runtime: Return hydrated context
 
-    Runtime->>+Processor: Process Interaction(Context)
+    Runtime->>Processor: Process interaction
     activate Processor
-    Processor->>+AISvc: (Ingestion/Analysis involves AI)
-    AISvc-->>-Processor: AI Results
-    Processor->>+DB: (Optional) Store/Query PersonaKnowledgeEntry
-    DB-->>-Processor: DB Results
-    Processor-->>-Runtime: Generate Response Content
+    Processor->>AISvc: Ingestion or analysis
+    AISvc-->>Processor: AI results
+    Processor->>DB: Store or query knowledge entry
+    DB-->>Processor: DB results
+    Processor-->>Runtime: Generate response content
     deactivate Processor
 
-    Runtime->>+Adapter: SendResponseAsync(ResponseContent, Context)
-    Adapter->>+ClientPlatform: Deliver response message
-    ClientPlatform-->>-User: Shows response
-    Runtime->>+MsgBus: Ack message processed
+    Runtime->>Adapter: Send response
+    Adapter->>ClientPlatform: Deliver response message
+    ClientPlatform-->>User: Show response
+    Runtime->>MsgBus: Ack message processed
 ```
 
 This flow highlights the decoupling provided by the asynchronous messaging system and the role of the Client Adapter in hydrating the full context needed for processing.
@@ -133,13 +133,13 @@ This flow assumes a single Azure Container App (ACA) instance hosting the API, I
 
 ```mermaid
 graph LR
-    A["API Request & Session Context"] -->|Establishes Session|> B["Ingestion Trigger & Triage"]
-    B -->|Schedules Background Task|> C["Background Task Scheduling (In-Process)"]
-    C -->|Executes Task|> D["Background Task Execution"]
-    D -->|Fetches Artifact & Metadata|> E[Content Extraction]
-    E -->|Synthesizes Content|> F[Content Synthesis]
-    F -->|Analyzes Content|> G[Persona Analysis Loop]
-    G -->|Stores Knowledge Entry|> H[Finalization & Cleanup]
+    A["API Request and Session Context"] -- "Establishes Session" --> B["Ingestion Trigger and Triage"]
+    B -- "Schedules Background Task" --> C["Background Task Scheduling"]
+    C -- "Executes Task" --> D["Background Task Execution"]
+    D -- "Fetches Artifact and Metadata" --> E["Content Extraction"]
+    E -- "Synthesizes Content" --> F["Content Synthesis"]
+    F -- "Analyzes Content" --> G["Persona Analysis Loop"]
+    G -- "Stores Knowledge Entry" --> H["Finalization and Cleanup"]
 ```
 
 *   **API Request & Session Context:**

@@ -42,37 +42,26 @@ The primary goals are:
 
 ```mermaid
 graph TD
-    A[InteractionRouter Receives & Hydrates Message] --> B{Rule-Based Filtering};
-    B -- Filtered --> X(Discard);
-    B -- Not Filtered --> E[InternalEventBus: Broadcast Hydrated Message Event];
-
-    subgraph "Persona Manager 1 (e.g., Bootstrapper)"
-        E --> PM1_Rcv(Receive Event);
-        PM1_Rcv --> PM1_Chk{Check Salience vs Own Active Sessions};
-        PM1_Chk -- Salient (Session S1) --> PM1_Sig[Signal Salience, Update Scratchpad S1];
-        PM1_Sig --> PM1_Trig[Trigger Persona S1 Processing];
-        PM1_Chk -- Not Salient --> PM1_Disc(Discard/Timeout);
-    end
-
-    subgraph "Persona Manager N (e.g., EduFlow)"
-        E --> PMN_Rcv(Receive Event);
-        PMN_Rcv --> PMN_Chk{Check Salience vs Own Active Sessions};
-        PMN_Chk -- Salient (Session S2) --> PMN_Sig[Signal Salience, Update Scratchpad S2];
-        PMN_Sig --> PMN_Trig[Trigger Persona S2 Processing];
-        PMN_Chk -- Not Salient --> PMN_Disc(Discard/Timeout);
-    end
-
-    PM1_Sig --> Wait;
-    PMN_Sig --> Wait;
-    PM1_Disc --> Wait;
-    PMN_Disc --> Wait;
-
-    subgraph Check for New Session Trigger
-        Wait{Wait for Salience Signals/Timeout from Managers} --> Q{Did *any* Manager signal salience?};
-        Q -- Yes --> R(Message Claimed by Existing Session);
-        Q -- No --> S[Proceed to New Session Initiation Logic];
-    end
-
+    A[InteractionRouter Receives and Hydrates Message] --> B[Rule-Based Filtering]
+    B -- Filtered --> X[Discard]
+    B -- Not Filtered --> E[Broadcast Hydrated Message Event]
+    E --> PM1_Rcv[Receive Event]
+    PM1_Rcv --> PM1_Chk[Check Salience vs Own Active Sessions]
+    PM1_Chk -- Salient --> PM1_Sig[Signal Salience, Update Scratchpad]
+    PM1_Sig --> PM1_Trig[Trigger Persona Processing]
+    PM1_Chk -- Not Salient --> PM1_Disc[Discard or Timeout]
+    E --> PMN_Rcv[Receive Event]
+    PMN_Rcv --> PMN_Chk[Check Salience vs Own Active Sessions]
+    PMN_Chk -- Salient --> PMN_Sig[Signal Salience, Update Scratchpad]
+    PMN_Sig --> PMN_Trig[Trigger Persona Processing]
+    PMN_Chk -- Not Salient --> PMN_Disc[Discard or Timeout]
+    PM1_Sig --> Wait[Wait]
+    PMN_Sig --> Wait
+    PM1_Disc --> Wait
+    PMN_Disc --> Wait
+    Wait --> Q[Did any Manager signal salience?]
+    Q -- Yes --> R[Message Claimed by Existing Session]
+    Q -- No --> S[Proceed to New Session Initiation Logic]
 ```
 
 **Flow Description:**
