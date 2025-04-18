@@ -48,11 +48,6 @@ The Nucleus system fundamentally requires the following types of infrastructure 
     *   **Key Needs:** Scalability, efficient querying of structured data, efficient vector similarity search (ANN), flexible schema (for `PersonaKnowledgeEntry`), persistence, backup/recovery.
     *   **Examples:** Azure Cosmos DB (NoSQL API + Integrated Vector Search), PostgreSQL with `pgvector`, Elasticsearch/OpenSearch, specialized vector databases (Pinecone, Weaviate, Qdrant, Milvus), Cloudflare Vectorize (for vectors) potentially paired with D1 or R2 (for structured/document data).
 
-4.  **Object/Blob Storage:**
-    *   **Requirement:** A scalable and durable storage service for holding original source artifacts (documents, images, etc.) uploaded by users.
-    *   **Key Needs:** High durability, cost-effective storage, retrieval via API/SDK.
-    *   **Examples:** Azure Blob Storage, AWS S3, Google Cloud Storage, Cloudflare R2.
-
 ## 3. External Dependencies
 
 Beyond the core infrastructure, Nucleus relies on:

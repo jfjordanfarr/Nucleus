@@ -50,13 +50,6 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
     *   **Configuration:** Define as a service in `docker-compose.yml`, configure persistent volume mapping for data durability, set up user/database, install `pgvector` extension.
     *   **Alternative:** Running other vector databases like Qdrant or Weaviate as separate containers.
 
-4.  **Object/Blob Storage:**
-    *   **Technology:** **Docker Volume Mounts** or **MinIO Docker Image**.
-    *   **Rationale:**
-        *   *Volume Mounts:* Simplest approach for local files. Map a host directory into the API/worker containers for storing source artifacts. Less scalable, data tied to the host filesystem.
-        *   *MinIO:* S3-compatible object storage server available as a Docker container. Provides an API similar to cloud storage, better separation.
-    *   **Recommendation:** Start with volume mounts for simplicity, consider MinIO if S3 compatibility is desired locally.
-
 ## 4. External Dependencies
 
 *   **AI Services (LLM & Embeddings):**

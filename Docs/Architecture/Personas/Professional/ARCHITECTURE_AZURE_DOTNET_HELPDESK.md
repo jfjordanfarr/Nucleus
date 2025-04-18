@@ -32,7 +32,6 @@ graph LR
         ItHelpdeskPersona[fa:fa-brain IT Helpdesk Persona Module <br/>(Analyzes Ephemeral Data)]
         AzureOpenAI[fa:fa-microchip Azure OpenAI <br/>(e.g., Google Gemini)]
         CosmosDB[fa:fa-database Azure Cosmos DB <br/>(ArtifactMetadata & PersonaKnowledgeEntries)]
-        BlobStorage[fa:fa-database Azure Blob Storage <br/>(Optional)]
         AzureAppConfig[fa:fa-cog Azure App Configuration]
     end
 
@@ -47,7 +46,6 @@ graph LR
     ItHelpdeskPersona -- 7. Calls AI --> AzureOpenAI
     Orchestrator -- 8. Reads/Writes Metadata --> CosmosDB
     Orchestrator -- 9. Reads/Writes Knowledge --> CosmosDB
-    Orchestrator -- 10. (Optional) Reads/Writes Source --> BlobStorage
     DotNetProcessingSvc -- 11. Sends Response via Adapter --> TeamsAdapter
     TeamsAdapter -- 12. Relays to Bot --> DotNetBotFramework
     DotNetBotFramework -- 13. Sends Reply --> TeamsClient

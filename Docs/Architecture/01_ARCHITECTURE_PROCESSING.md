@@ -1,14 +1,14 @@
 ---
 title: Architecture - Processing Pipeline
 description: Details the architecture for artifact ingestion, content extraction, persona-driven analysis, knowledge storage, and retrieval within Nucleus OmniRAG.
-version: 1.3
-date: 2025-04-08
+version: 1.4
+date: 2025-04-18
 ---
 
 # Nucleus OmniRAG: Processing Architecture
 
-**Version:** 1.3
-**Date:** 2025-04-08
+**Version:** 1.4
+**Date:** 2025-04-18
 
 This document outlines the architecture of the processing components in the Nucleus OmniRAG system, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It focuses on **artifact ingestion, content extraction, persona-driven analysis, and the storage of resulting knowledge entries** used for intelligent retrieval.
 
@@ -65,7 +65,59 @@ public record ContentExtractionResult(
 
 While initial implementations may focus on standard text-based documents, the architecture must accommodate more complex scenarios. These extractors produce intermediate representations (e.g., text + image descriptions, structured table data) that are fed into the synthesis step.
 
-## 3. Content Synthesis to Standardized Format
+## 3. Core Asynchronous Interaction Flow
+
+This diagram illustrates the fundamental sequence of events when a user interacts with the system via a client platform, triggering the asynchronous processing pipeline.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant ClientPlatform as Client Platform (e.g., Teams, Filesystem)
+    participant Adapter as Client Adapter (e.g., TeamsAdapter, ConsoleAdapter)
+    participant MsgBus as Async Pub/Sub (e.g., Service Bus Topic)
+    participant Runtime as Compute Runtime (e.g., ACA Instance)
+    participant Processor as Orchestration/Persona Processor
+    participant DB as Document/Vector DB
+    participant AISvc as AI Services (LLM/Embed)
+
+    User->>+ClientPlatform: Sends message / provides file reference
+    ClientPlatform->>+Adapter: Receives interaction trigger (with Platform Message/File ID)
+    Adapter->>+MsgBus: Publish Message Identifier (incl. ConvID, UserID, PlatformMsgID/FileID)
+    MsgBus-->>-Adapter: Ack publish
+    ClientPlatform-->>-User: (Optional) Ack receipt
+
+    Runtime->>+MsgBus: Subscribed to Topic
+    MsgBus->>+Runtime: Delivers Message Identifier
+    Runtime->>+Adapter: Identify Adapter (based on msg metadata)
+    Runtime->>+Adapter: Hydrate Context (using IDs)
+    Adapter->>+ClientPlatform: GetMessageContentAsync(PlatformMsgID)
+    ClientPlatform-->>-Adapter: Message Content
+    Adapter->>+ClientPlatform: GetConversationHistoryAsync(ConvID)
+    ClientPlatform-->>-Adapter: History
+    opt Artifacts Referenced
+        Adapter->>+ClientPlatform: GetArtifactStreamAsync(PlatformFileID)
+        ClientPlatform-->>-Adapter: Artifact Stream
+    end
+    Adapter-->>-Runtime: Return Hydrated IPersonaInteractionContext
+
+    Runtime->>+Processor: Process Interaction(Context)
+    activate Processor
+    Processor->>+AISvc: (Ingestion/Analysis involves AI)
+    AISvc-->>-Processor: AI Results
+    Processor->>+DB: (Optional) Store/Query PersonaKnowledgeEntry
+    DB-->>-Processor: DB Results
+    Processor-->>-Runtime: Generate Response Content
+    deactivate Processor
+
+    Runtime->>+Adapter: SendResponseAsync(ResponseContent, Context)
+    Adapter->>+ClientPlatform: Deliver response message
+    ClientPlatform-->>-User: Shows response
+    Runtime->>+MsgBus: Ack message processed
+```
+
+This flow highlights the decoupling provided by the asynchronous messaging system and the role of the Client Adapter in hydrating the full context needed for processing.
+
+## 4. Content Synthesis to Standardized Format
 
 A crucial step after initial extraction is synthesizing the potentially disparate pieces of content (e.g., text from DOCX, XML structure, image descriptions) into a single, standardized format that Personas can reliably process. Currently, this standard format is **Markdown**.
 
@@ -73,7 +125,7 @@ A crucial step after initial extraction is synthesizing the potentially disparat
 *   **Plaintext Processor:** The `PlaintextProcessor` (acting as a synthesizer in this context, as per Memory `0cb7dbac`) takes the aggregated inputs and uses an LLM to generate a coherent Markdown representation.
 *   **Ephemeral Nature:** This synthesized Markdown exists ephemerally during the processing session (Memory `08b60bec`). It is not persisted by Nucleus itself but is passed directly to the Persona analysis step.
 
-## 4. Processing Pipeline Flow (Modular Monolith ACA Pattern)
+## 5. Processing Pipeline Flow (Modular Monolith ACA Pattern)
 
 This flow assumes a single Azure Container App (ACA) instance hosting the API, Ingestion, Session Management (in-memory), and Processing logic (as background tasks), aligning with the 'Modular Monolith' preference (Memory `f210adc9`) detailed in the [Deployment Architecture](./07_ARCHITECTURE_DEPLOYMENT.md). It interacts with [Storage](./03_ARCHITECTURE_STORAGE.md) for ephemeral data and the [Database](./04_ARCHITECTURE_DATABASE.md) for persistent metadata and knowledge, triggered initially via [Client](./05_ARCHITECTURE_CLIENTS.md) interactions. **The detailed orchestration of handling user interactions and related processing tasks is described in the [Processing Orchestration Overview](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md).**
 
@@ -126,11 +178,11 @@ graph LR
     *   Cleans up/deletes the raw artifact data from ephemeral container storage.
     *   (No external queue message to acknowledge here for this internal flow).
 
-## 5. Embedding Generation
+## 6. Embedding Generation
 
 Embeddings are crucial for semantic search. They are generated *by the pipeline* after a persona has analyzed the **synthesized Markdown** and identified the most relevant text snippet.
 
-### 5.1 Abstraction Layer
+### 6.1 Abstraction Layer
 
 Nucleus OmniRAG leverages the standard `Microsoft.Extensions.AI` abstractions:
 
@@ -144,7 +196,7 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
 }
 ```
 
-### 5.2 Integration
+### 6.2 Integration
 
 *   An implementation of `IEmbeddingGenerator<string, Embedding<float>>` (e.g., using Google Gemini, Azure OpenAI) is registered in the DI container (see `Nucleus.Infrastructure`).
 *   This generator is used **by the Processing Pipeline** (not the persona) to create embeddings for:
@@ -152,7 +204,7 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
     *   Optionally, a derived summary from `PersonaKnowledgeEntry.analysis` -> stored as `analysisSummaryEmbedding`.
 *   These embeddings are stored within the `PersonaKnowledgeEntry` document in Cosmos DB (see [Database Architecture](./04_ARCHITECTURE_DATABASE.md)).
 
-## 6. Retrieval Flow
+## 7. Retrieval Flow
 
 Retrieval leverages the structured knowledge and embeddings derived from the **synthesized Markdown**, primarily stored as `PersonaKnowledgeEntry` documents in the [Database](./04_ARCHITECTURE_DATABASE.md):
 
@@ -166,7 +218,7 @@ The search likely includes metadata filters (e.g., `userId`, `tags` from related
 7.  The repository returns ranked, relevant `PersonaKnowledgeEntry` documents.
 8.  These entries (containing the persona's analysis and the relevant snippet) are used as context for generating a final response via an AI chat client, potentially after fetching the full `ArtifactMetadata` using the `sourceIdentifier` for more context.
 
-## 7. Configuration
+## 8. Configuration
 
 *   **Content Extractors:** Configuration might specify preferred extractors or settings for specific MIME types.
 *   **AI Providers:** Standard configuration for embedding generators and chat clients (API keys, endpoints, model IDs) via `appsettings.json`, environment variables, or a configuration provider like Azure App Configuration/Aspire.
@@ -174,7 +226,7 @@ The search likely includes metadata filters (e.g., `userId`, `tags` from related
 *   **Storage:** Configuration for accessing the storage mechanism where artifacts and `ArtifactMetadata` reside.
 *   **Target Personas:** Configuration defining which personas should process which types of artifacts or based on user context.
 
-## 8. Next Steps
+## 9. Next Steps
 
 1.  **Implement `IContentExtractor`:** Create initial implementations (PDF, DOCX, TXT, HTML).
 2.  **Implement Synthesizer Processors:** Develop `PlaintextProcessor` (leveraging LLM for Markdown synthesis) and potentially `FileCollectionsProcessor`.

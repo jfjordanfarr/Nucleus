@@ -26,7 +26,7 @@ The deployment architecture prioritizes:
 
 Regardless of the specific target environment, Nucleus OmniRAG fundamentally requires a set of core infrastructure capabilities. These abstract requirements are defined in detail in:
 
-*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the necessary compute runtime, asynchronous messaging (Pub/Sub), document/vector database, and object storage components in a provider-agnostic way.
+*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the necessary compute runtime, asynchronous messaging (Pub/Sub), and document/vector database components in a provider-agnostic way.
 
 Understanding these abstractions is key to mapping the system onto different infrastructure platforms.
 
@@ -34,8 +34,8 @@ Understanding these abstractions is key to mapping the system onto different inf
 
 Based on the abstract requirements, detailed deployment strategies have been outlined for common target environments. These documents specify the chosen services, configuration considerations, networking, security, and IaC approaches for each:
 
-*   **[Azure Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md):** Details the recommended architecture using Azure services like Container Apps, Cosmos DB, Service Bus, and Blob Storage.
-*   **[Cloudflare Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md):** Explores a potential architecture leveraging Cloudflare Workers, Queues, Vectorize, R2, and D1, focusing on cost-efficiency and edge performance.
+*   **[Azure Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md):** Details the recommended architecture using Azure services like Container Apps, Cosmos DB, and Service Bus.
+*   **[Cloudflare Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md):** Explores a potential architecture leveraging Cloudflare Workers, Queues, Vectorize, and D1, focusing on cost-efficiency and edge performance.
 *   **[Self-Hosted Home Network Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md):** Outlines deploying Nucleus locally using Docker containers for components like RabbitMQ/NATS and PostgreSQL/pgvector.
 
 Refer to these specific documents for implementation details relevant to your chosen deployment target.
@@ -54,6 +54,6 @@ Regardless of the chosen deployment strategy, several key steps and consideratio
 2.  **CI/CD Pipeline:** Create automated pipelines (e.g., Azure DevOps Pipelines, GitHub Actions) to build application artifacts (container images, Worker bundles), push them to a registry (if applicable), and deploy updates to the target environment.
 3.  **Monitoring Setup:** Configure appropriate monitoring and logging solutions (e.g., Application Insights, Cloudflare Analytics, Prometheus/Grafana) for observability.
 4.  **Cost Analysis:** Estimate and monitor costs based on expected usage patterns for the chosen services and tiers.
-5.  **Backup and Recovery:** Define and test backup/recovery strategies for databases and object storage, as required by [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-006).
+5.  **Backup and Recovery:** Define and test backup/recovery strategies for databases, as required by [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-006).
 
 ---

@@ -44,46 +44,28 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
     *   **Usage:** `Vectorize` for semantic search vectors. `D1` or `R2` (or a combination) for storing `ArtifactMetadata` and the structured parts of `PersonaKnowledgeEntry`. This requires careful design to ensure efficient lookups and joins between vector results and associated metadata.
     *   **Challenge:** No single Cloudflare service perfectly maps to a flexible document database *with* integrated vector search like Cosmos DB. Requires composing services.
 
-4.  **Object/Blob Storage:**
-    *   **Service:** **Cloudflare R2**
-    *   **Rationale:** S3-compatible object storage with zero egress fees (significant cost advantage compared to AWS S3/Azure Blob), globally distributed, generous free tier.
-    *   **Usage:** Storing original user-uploaded files.
+## 4. AI Services (LLM & Embeddings)
 
-## 3. External Dependencies
+*   **Service:** **Google Gemini API** (accessed directly via `fetch` from Workers)
+*   **Integration:** Direct API calls from Cloudflare Workers to the Google Cloud APIs.
+*   **Consideration:** Network latency between Cloudflare's edge and Google Cloud. Secure handling of Google API keys/credentials (using Worker secrets).
+*   **Alternatives:** Cloudflare AI Gateway (to manage other providers), Azure OpenAI (requires egress from Cloudflare).
 
-*   **AI Services (LLM & Embeddings):**
-    *   **Provider:** **Google Gemini API**
-    *   **Integration:** Direct API calls from Cloudflare Workers to the Google Cloud APIs.
-    *   **Consideration:** Network latency between Cloudflare's edge and Google Cloud. Secure handling of Google API keys/credentials (using Worker secrets).
+## 5. Networking & Security
 
-## 4. Networking and Security
-
+*   **Workers:** Code runs globally at the edge.
 *   **Built-in Security:** Cloudflare platform inherently provides DDoS mitigation, WAF (configurable), TLS encryption.
 *   **Secrets Management:** Cloudflare Workers support encrypted environment variables (secrets) for storing API keys (e.g., Google Gemini keys).
 *   **Authentication:** Can leverage Cloudflare Access for user authentication, or implement custom JWT/other schemes within Workers.
+*   **Monitoring:** Cloudflare Workers observability tools, Analytics.
 
-## 5. Monitoring and Observability
+## 6. Cost Considerations
 
-*   **Built-in Analytics:** Cloudflare provides analytics for Workers, Queues, R2, etc.
-*   **Logging:** Workers support `console.log` which can be viewed in the dashboard or potentially shipped to third-party logging services.
-*   **Distributed Tracing:** Supported via integrations.
+*   **Cost:** Potentially very low or free for moderate usage due to Cloudflare's generous free tiers. `Vectorize`, `D1`, and `Queues` have free tiers. Workers execution costs apply after free limits. **R2 egress is free.**
+*   **Management:** Serverless model reduces operational overhead.
 
-## 6. Infrastructure as Code (IaC)
+## 7. Summary
 
-*   **Tool:** **Terraform** or **Cloudflare Wrangler CLI**
-    *   **Rationale:** Terraform has a Cloudflare provider. Wrangler is the native CLI tool for managing Cloudflare developer resources.
-
-## 7. CI/CD
-
-*   **Platform:** **GitHub Actions**, **GitLab CI**, etc.
-    *   **Workflow:** Build/bundle Worker code (and potentially containers), deploy using Wrangler CLI or Terraform.
-
-## 8. Considerations Summary
-
-*   **Cost:** Potentially very low or free for moderate usage due to Cloudflare's generous free tiers, especially R2's zero egress fees.
-*   **Performance:** Global distribution via Cloudflare's edge network can offer low latency for users worldwide.
-*   **Developer Experience:** Running .NET natively might require container support on Workers or refactoring. The database solution requires careful composition of Vectorize + D1/R2.
-*   **Maturity:** Some Cloudflare developer services (like Vectorize, D1) are newer compared to established Azure/AWS counterparts, though evolving rapidly.
-*   **Security:** Simplified security management due to built-in features is a major advantage.
+Cloudflare offers a compelling, cost-effective, edge-focused deployment option. The primary challenges lie in the database abstraction (combining `Vectorize` with `D1`/`R2`) and ensuring efficient execution of .NET code within the Workers environment (potentially via container support).
 
 ---

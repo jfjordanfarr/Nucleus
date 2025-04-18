@@ -41,11 +41,6 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
     *   **Usage:** Storing structured/semi-structured metadata and derived knowledge including vector embeddings.
     *   **Alternative:** Azure PostgreSQL Flexible Server with `pgvector` - Viable, but requires managing relational schema and scaling more explicitly.
 
-4.  **Object/Blob Storage:**
-    *   **Service:** **Azure Blob Storage (Standard Tier)**
-    *   **Rationale:** Cost-effective, highly durable storage for source artifacts. Standard choice for unstructured data on Azure.
-    *   **Usage:** Storing original user-uploaded files.
-
 ## 3. External Dependencies
 
 *   **AI Services (LLM & Embeddings):**
@@ -53,34 +48,43 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
     *   **Integration:** Direct API calls from ACA compute instances to the Google Cloud APIs.
     *   **Consideration:** Network latency between Azure and Google Cloud. Ensure secure handling of Google API keys/credentials (e.g., via Azure Key Vault).
 
-## 4. Networking and Security
+## 4. AI Services (LLM & Embeddings)
 
-*   **ACA Environment:** Deploy within an ACA Environment, potentially linked to a Virtual Network for enhanced security and control if needed (e.g., using Private Endpoints for Service Bus, Cosmos DB, Blob Storage).
+*   **Service:** **Google Gemini API** (accessed directly)
+*   **Alternatives:** Azure OpenAI (requires separate resource and configuration).
+
+## 5. Networking & Security
+
+*   **ACA Environment:** Deploy within an ACA Environment, potentially linked to a Virtual Network for enhanced security and control if needed (e.g., using Private Endpoints for Service Bus, Cosmos DB).
 *   **Ingress:** Managed HTTPS ingress provided by ACA.
 *   **Secrets Management:** Utilize **Azure Key Vault** for storing connection strings, API keys (including Google Gemini keys), and other secrets. Access Key Vault using Managed Identities from ACA.
 *   **Authentication:** Implement robust authentication, likely using Azure AD (Entra ID) for user and potentially service principal authentication ([Architecture - Security](../06_ARCHITECTURE_SECURITY.md)).
+*   **Monitoring:** Azure Monitor for logs, metrics, and application insights.
 
-## 5. Monitoring and Observability
+## 6. Cost Considerations
+
+*   **Cost:** Primarily driven by ACA compute hours, Cosmos DB RU/s and storage, Service Bus operations. Utilize scaling features (especially scale-to-zero for ACA) to manage costs.
+*   **Management:** PaaS services reduce operational overhead compared to IaaS or self-hosting.
+
+## 7. Monitoring and Observability
 
 *   **Service:** **Azure Monitor (Application Insights)**
     *   **Rationale:** Integrated monitoring solution for collecting logs, metrics, and traces from ACA, Cosmos DB, Service Bus, etc.
     *   **Usage:** Application performance monitoring (APM), log analytics, alerting.
 
-## 6. Infrastructure as Code (IaC)
+## 8. Infrastructure as Code (IaC)
 
 *   **Tool:** **Bicep** or **Terraform**
     *   **Rationale:** Define and deploy Azure resources consistently and repeatably.
     *   **Recommendation:** Use Bicep for Azure-native focus, Terraform for potential multi-cloud scenarios (though this document focuses on Azure).
 
-## 7. CI/CD
+## 9. CI/CD
 
 *   **Platform:** **Azure DevOps Pipelines** or **GitHub Actions**
     *   **Workflow:** Build container images, push to Azure Container Registry (ACR), deploy to Azure Container Apps.
 
-## 8. Considerations Summary
+## 10. Summary
 
-*   **Cost:** Primarily driven by ACA compute hours, Cosmos DB RU/s and storage, Service Bus operations, and Blob Storage volume/transactions. Utilize scaling features (especially scale-to-zero for ACA) to manage costs.
-*   **Latency:** Potential latency for calls to Google Gemini APIs from Azure infrastructure.
-*   **Vendor Lock-in:** While using PaaS services increases efficiency, it creates dependence on Azure. The abstract design aims to mitigate this conceptually.
+This Azure-based deployment provides a robust, scalable, and manageable PaaS solution leveraging integrated services well-suited for the Nucleus OmniRAG architecture's core requirements (Compute, Messaging, Database).
 
 ---
