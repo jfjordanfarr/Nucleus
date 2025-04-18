@@ -50,7 +50,7 @@ graph TD
     C -- Message Claimed by Existing Session --> D(Route to Claiming Manager/Session);
     C -- No Salience Claim --> E{InteractionRouter: Broadcast to Managers: EVALUATE FOR NEW Session};
 
-    subgraph Persona Manager 1 (e.g., Bootstrapper)
+    subgraph "Persona Manager 1 (e.g., Bootstrapper)"
         E --> PM1_Eval(Receive Eval Request);
         PM1_Eval --> PM1_Decide{Decide: Should Bootstrapper Handle NEW Session?};
         PM1_Decide -- Yes --> PM1_Cosmos[Attempt Cosmos DB Placeholder Create];
@@ -60,7 +60,7 @@ graph TD
         PM1_Cosmos -- Conflict (409) --> PM1_Abort;
     end
 
-    subgraph Persona Manager N (e.g., EduFlow)
+    subgraph "Persona Manager N (e.g., EduFlow)"
         E --> PMN_Eval(Receive Eval Request);
         PMN_Eval --> PMN_Decide{Decide: Should EduFlow Handle NEW Session?};
         PMN_Decide -- Yes --> PMN_Cosmos[Attempt Cosmos DB Placeholder Create];

@@ -45,7 +45,7 @@ sequenceDiagram
     deactivate ACA_Instance
 
     %% --- Background Task Execution --- %%
-    activate ACA_Instance #LightSkyBlue
+    activate ACA_Instance
     ACA_Instance->>+KnowledgeDB: Read IngestionRecord (using IngestionID)
     ACA_Instance->>+TempStorage: Fetch Raw Artifact Data (using Temp Pointer)
     ACA_Instance->>+KnowledgeDB: Create/Update ArtifactMetadata (Initial - Status: Processing)
@@ -61,7 +61,7 @@ sequenceDiagram
     ACA_Instance->>+KnowledgeDB: Write PersonaKnowledgeEntry (Analysis, Embeddings)
     ACA_Instance->>+KnowledgeDB: Update ArtifactMetadata (Processing Complete)
     ACA_Instance->>-TempStorage: Delete Raw Artifact Data
-    deactivate ACA_Instance #LightSkyBlue
+    deactivate ACA_Instance
 
     %% Optional Notification Back to Learner App can be added here (e.g., via SignalR/WebSockets) %%
 ```

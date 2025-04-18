@@ -15,24 +15,24 @@ This document outlines a reference architecture for implementing the Nucleus Omn
 
 ```mermaid
 graph LR
-    subgraph User Interaction (Teams)
-        User([fa:fa-user IT Staff])
+    subgraph "User Interaction (Teams)"
+        User["fa:fa-user IT Staff"]
     end
 
-    subgraph Teams Integration Layer
-        TeamsClient[Teams Client]
-        DotNetBotFramework[fa:fa-robot .NET Bot Framework]
-        TeamsAdapter[Nucleus Teams Adapter]
+    subgraph "Teams Integration Layer"
+        TeamsClient["Teams Client"]
+        DotNetBotFramework["fa:fa-robot .NET Bot Framework"]
+        TeamsAdapter["Nucleus Teams Adapter"]
     end
 
-    subgraph Nucleus Backend Services (Azure @ WWR)
-        ServiceBus[(Azure Service Bus Topic)]
-        DotNetProcessingSvc[fa:fa-cogs .NET Processing Service <br/>(Azure Container App / Function / Worker)<br/>Handles Ephemeral Ingestion]
-        Orchestrator[fa:fa-cogs Orchestrator]
-        ItHelpdeskPersona[fa:fa-brain IT Helpdesk Persona Module <br/>(Analyzes Ephemeral Data)]
-        AzureOpenAI[fa:fa-microchip Azure OpenAI <br/>(e.g., Google Gemini)]
-        CosmosDB[fa:fa-database Azure Cosmos DB <br/>(ArtifactMetadata & PersonaKnowledgeEntries)]
-        AzureAppConfig[fa:fa-cog Azure App Configuration]
+    subgraph "Nucleus Backend Services (Azure @ WWR)"
+        ServiceBus["(Azure Service Bus Topic)"]
+        DotNetProcessingSvc["fa:fa-cogs .NET Processing Service <br/>(Azure Container App / Function / Worker)<br/>Handles Ephemeral Ingestion"]
+        Orchestrator["fa:fa-cogs Orchestrator"]
+        ItHelpdeskPersona["fa:fa-brain IT Helpdesk Persona Module <br/>(Analyzes Ephemeral Data)"]
+        AzureOpenAI["fa:fa-microchip Azure OpenAI <br/>(e.g., Google Gemini)"]
+        CosmosDB["fa:fa-database Azure Cosmos DB <br/>(ArtifactMetadata & PersonaKnowledgeEntries)"]
+        AzureAppConfig["fa:fa-cog Azure App Configuration"]
     end
 
     User -- 1. Sends Message via Teams --> TeamsClient
@@ -65,7 +65,7 @@ graph LR
 mindmap
   root((Proposed Nucleus Architecture <br/> for Enterprise IT))
     ::icon(fa fa-sitemap)
-    (+) Integrated IT Workflow
+    (+) "Integrated IT Workflow"
       ::icon(fab fa-microsoft)
       Operates within Microsoft Teams
       Uses Familiar Bot Interaction Model

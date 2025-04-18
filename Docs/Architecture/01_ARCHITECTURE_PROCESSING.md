@@ -133,9 +133,9 @@ This flow assumes a single Azure Container App (ACA) instance hosting the API, I
 
 ```mermaid
 graph LR
-    A[API Request & Session Context] -->|Establishes Session|> B[Ingestion Trigger & Triage]
-    B -->|Schedules Background Task|> C[Background Task Scheduling (In-Process)]
-    C -->|Executes Task|> D[Background Task Execution]
+    A["API Request & Session Context"] -->|Establishes Session|> B["Ingestion Trigger & Triage"]
+    B -->|Schedules Background Task|> C["Background Task Scheduling (In-Process)"]
+    C -->|Executes Task|> D["Background Task Execution"]
     D -->|Fetches Artifact & Metadata|> E[Content Extraction]
     E -->|Synthesizes Content|> F[Content Synthesis]
     F -->|Analyzes Content|> G[Persona Analysis Loop]

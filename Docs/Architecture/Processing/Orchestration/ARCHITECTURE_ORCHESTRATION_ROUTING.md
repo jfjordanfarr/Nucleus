@@ -46,7 +46,7 @@ graph TD
     B -- Filtered --> X(Discard);
     B -- Not Filtered --> E[InternalEventBus: Broadcast Hydrated Message Event];
 
-    subgraph Persona Manager 1 (e.g., Bootstrapper)
+    subgraph "Persona Manager 1 (e.g., Bootstrapper)"
         E --> PM1_Rcv(Receive Event);
         PM1_Rcv --> PM1_Chk{Check Salience vs Own Active Sessions};
         PM1_Chk -- Salient (Session S1) --> PM1_Sig[Signal Salience, Update Scratchpad S1];
@@ -54,7 +54,7 @@ graph TD
         PM1_Chk -- Not Salient --> PM1_Disc(Discard/Timeout);
     end
 
-    subgraph Persona Manager N (e.g., EduFlow)
+    subgraph "Persona Manager N (e.g., EduFlow)"
         E --> PMN_Rcv(Receive Event);
         PMN_Rcv --> PMN_Chk{Check Salience vs Own Active Sessions};
         PMN_Chk -- Salient (Session S2) --> PMN_Sig[Signal Salience, Update Scratchpad S2];

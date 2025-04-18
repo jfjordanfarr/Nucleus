@@ -39,27 +39,27 @@ Nucleus is designed to process user data, not to be its primary custodian.
 graph TD
     subgraph "User's Domain / Source System"
         direction LR
-        U[fa:fa-user User]
-        CS[fa:fa-cloud User Cloud Storage <br/> (e.g., SharePoint, OneDrive) <br/> **(Source of Truth for Artifacts)**]
+        U[fa:fa-user "User"]
+        CS[fa:fa-cloud "User Cloud Storage <br/> (e.g., SharePoint, OneDrive) <br/> **(Source of Truth for Artifacts)**"]
         U -- Interacts --> CS
     end
 
     subgraph "Nucleus Domain (Hosted @ WWR / Cloud)"
         direction LR
         subgraph "Security & Config"
-            KV[fa:fa-key Azure Key Vault <br/> (API Keys, DB Strings, OAuth Secrets)]
+            KV[fa:fa-key "Azure Key Vault <br/> (API Keys, DB Strings, OAuth Secrets)"]
         end
         subgraph "Interaction & API Layer"
-            Teams[fa:fa-users Teams Client / Other UI]
-            Adapter[fa:fa-plug Nucleus Adapter/API <br/> (e.g., Container App)]
+            Teams[fa:fa-users "Teams Client / Other UI"]
+            Adapter[fa:fa-plug "Nucleus Adapter/API <br/> (e.g., Container App)"]
         end
         subgraph "Processing & Logic (Ephemeral)"
-            Proc[fa:fa-cogs Processing Service <br/> (e.g., Container App/Functions) <br/> **(Handles Transient Sensitive Data)**]
-            Persona[fa:fa-brain Persona Modules]
-            AI[fa:fa-microchip AI Service <br/> (e.g., Azure OpenAI)]
+            Proc[fa:fa-cogs "Processing Service <br/> (e.g., Container App/Functions) <br/> **(Handles Transient Sensitive Data)**"]
+            Persona[fa:fa-brain "Persona Modules"]
+            AI[fa:fa-microchip "AI Service <br/> (e.g., Azure OpenAI)"]
         end
         subgraph "Persistent Nucleus Storage"
-            Cosmos[fa:fa-database Azure Cosmos DB <br/> **(ArtifactMetadata & PersonaKnowledgeEntry - NO Raw Content)**]
+            Cosmos[fa:fa-database "Azure Cosmos DB <br/> **(ArtifactMetadata & PersonaKnowledgeEntry - NO Raw Content)**"]
         end
     end
 
@@ -67,7 +67,7 @@ graph TD
     U -- 1. Query/Trigger via UI --> Teams
     Teams -- 2. Request --> Adapter
     Adapter -- 3. Reads Secrets --> KV
-    Adapter -- 4. Uses OAuth Token --> CSAPI{Cloud Storage API}
+    Adapter -- 4. Uses OAuth Token --> CSAPI{"Cloud Storage API"}
     CSAPI -- 5. Fetches Source Data --> Adapter %% Data fetched on demand %%
     Adapter -- 6. Initiates Processing --> Proc
     Proc -- 7. Handles Ephemeral Data --> Persona
@@ -168,3 +168,37 @@ Leverage platform capabilities and best practices.
 *   **Audit Logs (Future):** While not detailed in V1.0, future iterations, particularly for team/enterprise use, may require robust audit logging of user actions, data access, and administrative changes. The architecture should facilitate adding such capabilities later (e.g., logging interactions via the [API layer](./07_ARCHITECTURE_DEPLOYMENT.md), [processing events](./01_ARCHITECTURE_PROCESSING.md)).
 
 This document serves as the guiding framework for security decisions within the Nucleus OmniRAG project. It will be updated as the architecture evolves.
+
+```mermaid
+graph TD
+    subgraph "User Interaction & Client Adapters"
+        User["User via Client <br/> (e.g., Teams, Console)"] --> API{"Nucleus API <br/> (AuthN/AuthZ)"};
+    end
+
+    subgraph "Nucleus Core Processing (ACA)"
+        API --> ORCH{"Orchestrator <br/> (Secrets from Key Vault)"};
+        ORCH --> PERS{"Persona Processing <br/> (Ephemeral Data)"};
+        PERS --> |Fetch Metadata/Knowledge| COSMOS{{"Cosmos DB <br/> (RBAC, Encryption at Rest/Transit)"}};
+        PERS --> |Fetch Source Content| ADAPT{"Adapters <br/> (Use Managed Identity/Secrets)"};
+        PERS --> |Generate Insights| LLM{"LLM Service <br/> (API Key Auth, Endpoint Security)"};
+        ORCH --> |Return Response| API;
+    end
+
+    subgraph "External Systems & Data"
+        KV{{"Azure Key Vault <br/> (Managed Identity Access)"}};
+        COSMOS;
+        SRC{"("User Data Source <br/> (e.g., SharePoint, OneDrive - User Permissions Apply)")"};
+        LLM;
+    end
+
+    ORCH --> |Get Secrets| KV;
+    ADAPT --> |Access Data| SRC;
+    API --> User;
+
+    %% Styling
+    style User fill:#f9f,stroke:#333,stroke-width:2px
+    style SRC fill:#ddf,stroke:#333,stroke-width:1px
+    style COSMOS fill:#ccf,stroke:#333,stroke-width:1px
+    style KV fill:#eee,stroke:#333,stroke-width:1px
+    style LLM fill:#cfc,stroke:#333,stroke-width:1px
+```

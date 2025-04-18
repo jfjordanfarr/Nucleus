@@ -117,6 +117,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>(
     [JsonIgnore]
     public string PartitionKey => tenantId ?? userId;
 }
+```
 
 ## 5. Integration with Other Architectures
 
