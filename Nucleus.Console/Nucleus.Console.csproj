@@ -2,13 +2,15 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\Nucleus.Processing\Nucleus.Processing.csproj" /> 
+    <ProjectReference Include="..\Nucleus.Processing\Nucleus.Processing.csproj" />
+    <ProjectReference Include="..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" /> 
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0-preview.3.25171.5" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" /> 
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0-preview.3.25171.5" /> 
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.4" /> 
+    <PackageReference Include="System.CommandLine.Hosting" Version="0.4.0-alpha.22272.1" /> 
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,4 +1,5 @@
 using Aspire.Hosting; // Add this using for AddDashboard extension
+using Aspire.Dashboard; // Explicitly add this to check for namespace issue
 
 var builder = DistributedApplication.CreateBuilder(args);
 

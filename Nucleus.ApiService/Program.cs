@@ -4,21 +4,36 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Mscc.GenerativeAI; 
 using Nucleus.Abstractions; 
+using Nucleus.ApiService; 
 using Nucleus.ApiService.Configuration; 
 using Nucleus.Personas.Core; 
 using System;
 using System.Security.Cryptography;
+using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder.Integration.AspNet.Core;
+using Microsoft.Bot.Connector.Authentication;
+using Nucleus.Adapters.Teams; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add service defaults & Aspire client integrations.
+// Add service defaults & Aspire components (if used).
 builder.AddServiceDefaults();
 
 // Add services to the container.
 builder.Services.AddProblemDetails();
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
+// Configure API controllers
+builder.Services.AddControllers();
+
+// Add OpenAPI/Swagger services
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Nucleus API Service", Version = "v1" });
+
+    // Optional: Configure XML comments path if you want descriptions from XML docs
+    // var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    // options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, xmlFilename));
+});
 
 // Register the core IGenerativeAI service for Gemini
 // This uses the base Mscc.GenerativeAI library pattern found in examples,
@@ -56,25 +71,62 @@ builder.Services.AddSingleton<IGenerativeAI>(serviceProvider =>
 builder.Services.AddScoped<IPersona<EmptyAnalysisData>, BootstrapperPersona>();
 
 // Add services for controllers (required by app.MapControllers)
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-// Register IMemoryCache for ephemeral content storage used by personas.
-// See: ../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#2-caching-bootstrapperpersonaanalyzeephemeralcontentasync
 builder.Services.AddMemoryCache();
 
 // --- Configure Strongly Typed Options ---
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 
+// Configure Teams Adapter
+builder.Services.Configure<TeamsAdapterConfiguration>(builder.Configuration.GetSection("TeamsAdapter"));
+
+// Create the Bot Framework Authentication object.
+// The Bot Framework requires apps to provide their own implementation of IBotFrameworkHttpAdapter.
+// See https://aka.ms/botframework-authentication
+builder.Services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
+
+// Create the Bot Adapter with error handling enabled.
+// The Bot Framework Adapter is responsible for processing incoming activities.
+// It directs incoming activities to the Bot popular flow or handler logic.
+builder.Services.AddSingleton<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
+
+// Create the bot as a transient. In this case the ASP Controller is expecting an IBot.
+// See: https://learn.microsoft.com/en-us/azure/bot-service/bot-builder-basics?view=azure-bot-service-4.0&tabs=csharp#bot-logic
+builder.Services.AddTransient<IBot, TeamsAdapterBot>();
+
+// ---> Register Graph Client Service ---
+builder.Services.AddScoped<GraphClientService>();
+// <--- Register Graph Client Service ---
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-app.UseExceptionHandler();
-
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nucleus API Service V1");
+        options.RoutePrefix = string.Empty; // Serve UI at app root
+    });
 }
+
+app.UseExceptionHandler();
+
+app.UseHttpsRedirection();
+
+app.MapDefaultEndpoints();
+
+// Map API controllers
+app.MapControllers();
+
+// The Bot Framework endpoint is typically hosted at /api/messages
+// Ensure the Bot Framework adapter is configured to handle requests here.
+// Note: app.MapControllers() might already handle this if the BotController inherits correctly,
+// but explicit mapping or configuration within AddBot/AddBotFrameworkAdapter is safer.
+// Check Bot Framework docs for the latest best practice on endpoint mapping in Minimal API.
+// For now, we rely on the services registered above and assume MapControllers() picks it up.
+// If issues arise, investigate explicit mapping: `app.MapPost("/api/messages", ...)`
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 
@@ -91,11 +143,6 @@ app.MapGet("/weatherforecast", () =>
     return forecast;
 })
 .WithName("GetWeatherForecast");
-
-app.MapDefaultEndpoints();
-
-// Map attribute-routed controllers like QueryController
-app.MapControllers();
 
 app.Run();
 
