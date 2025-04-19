@@ -1,10 +1,9 @@
 using Aspire.Hosting; // Add this using for AddDashboard extension
-using Aspire.Dashboard; // Explicitly add this to check for namespace issue
 
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Explicitly add the Aspire Dashboard
-builder.AddDashboard(); // Reverted to standard extension method syntax
+//builder.AddDashboard(); // Temporarily commented out due to persistent build errors
 
 // Reference the API service project. We'll refer to it as "nucleusapi" for service discovery.
 var apiService = builder.AddProject<Projects.Nucleus_ApiService>("nucleusapi"); // Corrected Project Name, Set Service Name
