@@ -25,18 +25,23 @@ It strategically employs Large Language Models (LLMs) with extensive context win
 
 ## 3. High-Level Flow (Per User Request/Session)
 
-1.  **Artifact Identification:** Based on user request context (e.g., shared file URI, query keywords), identify potentially relevant source artifacts. This may involve querying `ArtifactMetadata` in Cosmos DB for previously seen sources.
-2.  **Fetch Fresh Source:** Use the appropriate `Client Adapter` to retrieve the *current version* of the identified source artifact(s).
-3.  **Initial Dispatch:** Send the fresh source artifact to the main ingestion dispatcher.
-4.  **Processor Chain (Ephemeral):**
-    *   The dispatcher routes the artifact through the relevant processors (e.g., FileCollection -> Multimedia -> Plaintext; or PDF Processor -> Plaintext).
+1.  **Artifact Identification:** Based on user interaction context (e.g., shared file URI, message content), the Platform Adapter identifies relevant source artifact details (Platform, User ID, Conversation ID, Artifact URI, etc.).
+2.  **Prepare Ingestion Request:** The Adapter constructs a [`NucleusIngestionRequest`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs:10:0-49:1) object containing all necessary context and artifact pointers.
+3.  **Publish Ingestion Request:** The Adapter uses the [`IMessageQueuePublisher<NucleusIngestionRequest>`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IMessageQueuePublisher.cs:18:0-30:1) to send the request message to the configured Azure Service Bus Queue (e.g., `nucleus-ingestion-requests`).
+4.  **Consume Request:** The [`ServiceBusQueueConsumerService`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs:24:0-174:1) (running as a background service in `Nucleus.ApiService`) receives the message from the queue.
+5.  **Initiate Orchestration:** The Consumer Service invokes the [`IOrchestrationService.ProcessIngestionRequestAsync`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IOrchestrationService.cs:24:4-25:93) method, passing the deserialized `NucleusIngestionRequest`.
+6.  **Orchestration & Processing (Ephemeral):**
+    *   The `OrchestrationService` manages the subsequent flow (session handling, persona selection, etc.).
+    *   It uses the appropriate `IPlatformAttachmentFetcher` (resolved via DI based on the request's `PlatformType`) to retrieve the *current version* of the source artifact(s) using details from the request.
+    *   The artifact is routed through the relevant processors (e.g., FileCollection -> Multimedia -> Plaintext; or PDF Processor -> Plaintext).
     *   Each processor performs its task, generating intermediate outputs (e.g., extracted components, descriptions, synthesized Markdown) that exist **ephemerally** (in memory or temporary local files).
     *   The final **ephemeral Markdown** representation is produced by the Plaintext processor.
-5.  **Persona Analysis:** The ephemeral Markdown is passed to the relevant `Persona` processor(s).
-6.  **Knowledge Extraction & Persistence:** Personas analyze the Markdown, extract structured data, identify salient snippets, generate vector embeddings *for those snippets/data*, and store/update `PersonaKnowledgeEntry` records in Cosmos DB.
-7.  **Update Metadata:** Update the `ArtifactMetadata` record in Cosmos DB for the source artifact, indicating processing status per persona.
-8.  **Cleanup:** Ephemeral representations (like the full Markdown) are discarded at the end of the session/request processing.
-9.  **(Query Phase):** Retrieval mechanisms query `PersonaKnowledgeEntry` in Cosmos DB for relevant snippets/structured data to synthesize a response.
+7.  **Persona Analysis:** The ephemeral Markdown is passed to the relevant `Persona` processor(s).
+8.  **Knowledge Extraction & Persistence:** Personas analyze the Markdown, extract structured data, identify salient snippets, generate vector embeddings *for those snippets/data*, and store/update `PersonaKnowledgeEntry` records in Cosmos DB.
+9.  **Update Metadata:** Update the `ArtifactMetadata` record in Cosmos DB for the source artifact, indicating processing status per persona.
+10. **(Response Handling):** If the initial interaction requires a response, the `OrchestrationService` uses the appropriate `IPlatformNotifier` to send status updates or results back to the user via the originating platform.
+11. **Cleanup:** Ephemeral representations (like the full Markdown) are discarded at the end of the request processing scope.
+12. **(Query Phase):** Subsequent retrieval mechanisms query `PersonaKnowledgeEntry` in Cosmos DB for relevant snippets/structured data to synthesize responses.
 
 ## 4. Performance, Cost, and Caching
 

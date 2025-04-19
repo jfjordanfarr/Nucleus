@@ -1,14 +1,14 @@
 ---
 title: Nucleus OmniRAG Security Architecture & Data Governance
 description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus OmniRAG platform.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-19
 ---
 
 # Nucleus OmniRAG: Security Architecture & Data Governance
 
-**Version:** 1.1
-**Date:** 2025-04-13
+**Version:** 1.2
+**Date:** 2025-04-19
 
 ## 1. Introduction
 

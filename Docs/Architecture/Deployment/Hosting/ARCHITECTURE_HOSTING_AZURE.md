@@ -31,9 +31,11 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
 
 2.  **Asynchronous Messaging Queue:**
     *   **Service:** **Azure Service Bus (Standard Tier or higher)**
-    *   **Rationale:** Reliable enterprise messaging with features like topics/subscriptions (future flexibility), dead-lettering, and ordering guarantees if needed. Integrates well with ACA (e.g., via KEDA scaler or Dapr pub/sub).
-    *   **Usage:** Primarily for decoupling the ingestion pipeline stages ([Architecture - Processing](../01_ARCHITECTURE_PROCESSING.md)).
-    *   **Alternative:** Azure Storage Queues - Simpler and cheaper, but fewer features.
+    *   **Entity Type:** **Queue**
+    *   **Rationale:** Reliable enterprise messaging with features like dead-lettering, competing consumers, and good integration with Azure Functions/Container Apps via triggers or KEDA scalers. Suitable for point-to-point delivery of ingestion requests.
+    *   **Usage:** Decoupling Platform Adapters (like Teams) from the core API Service. Adapters publish [`NucleusIngestionRequest`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs:10:0-49:1) messages to a dedicated queue (e.g., `nucleus-ingestion-requests`).
+    *   **Consumer:** The [`ServiceBusQueueConsumerService`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs:24:0-174:1), hosted within the `Nucleus.ApiService` container app instance(s), listens to this queue and processes messages.
+    *   **Alternative:** Azure Storage Queues - Simpler and cheaper, but fewer features (e.g., no built-in dead-lettering without extra logic). Azure Service Bus Topics - More suitable for pub/sub scenarios where multiple independent services need to react to the same event; potentially useful in the future but overkill for the current ingestion flow.
 
 3.  **Document & Vector Database:**
     *   **Service:** **Azure Cosmos DB (NoSQL API)**

@@ -1,19 +1,19 @@
 ---
-title: Architecture - Orchestration Routing & Salience (v1.1)
-description: Details the mechanism for routing incoming messages to relevant active Persona sessions via Persona Managers.
-version: 1.1
-date: 2025-04-16
+title: Architecture - Orchestration Routing & Salience (v1.2)
+description: Details the mechanism for routing incoming messages to relevant active Persona sessions via Persona Managers, considering platform context and multi-platform concepts.
+version: 1.2
+date: 2025-04-19
 
 ---
 
 # Nucleus OmniRAG: Orchestration Routing & Salience
 
-**Version:** 1.1
-**Date:** 2025-04-16
+**Version:** 1.2
+**Date:** 2025-04-19
 
 ## 1. Introduction
 
-This document details how an incoming user message is assessed for **salience** against potentially relevant, active Persona interaction contexts ("sessions") managed within the Nucleus system. It focuses on routing the message to an *existing* session if appropriate.
+This document details how an incoming user message, **identified by its source `PlatformType` and platform-specific identifiers**, is assessed for **salience** against potentially relevant, active Persona interaction contexts ("sessions") managed within the Nucleus system. It focuses on routing the message to an *existing* session if appropriate.
 
 This process relies on **decentralized session management**, where dedicated `PersonaManager` components handle the state and salience checks for the specific Persona types they are responsible for.
 
@@ -29,57 +29,67 @@ The primary goals are:
 
 ## 2. Core Components
 
-*   **`InteractionRouter`:** A central orchestration service (or logic block) triggered by incoming messages (e.g., from Pub/Sub). Responsible for hydrating the message and broadcasting it for salience checks and potential new session initiation.
+*   **`InteractionRouter`:** A central orchestration service (or logic block) triggered by incoming messages (e.g., from `NucleusIngestionRequest`). Responsible for hydrating the message (**including `PlatformType`, identifiers, `ContentSourceUri`**), potentially resolving the canonical Persona ID via `IPersonaResolver`, and coordinating salience checks.
 *   **`PersonaManager` (Multiple Instances):**
-    *   A component responsible for managing the lifecycle and interactions for **a specific type of Persona** (e.g., `BootstrapperPersonaManager`, `EduFlowPersonaManager`).
-    *   Each `PersonaManager` maintains the state of *its own* active `PersonaInteractionContext` sessions (e.g., in an in-memory collection holding session IDs and references to their `EphemeralMarkdownScratchpad`).
-    *   It listens for broadcasted messages from the `InteractionRouter`.
-    *   It performs the salience check for incoming messages against the active sessions it manages.
-*   **`EphemeralMarkdownScratchpad`:** A temporary file (or in-memory structure) per active session holding its conversation history, current state, draft responses, and metadata. Managed indirectly via the `PersonaManager` and `PersonaInteractionContext`.
-*   **`InternalEventBus`:** An in-process or distributed mechanism (like MediatR or a lightweight Pub/Sub) used by the `InteractionRouter` to broadcast the hydrated message to all registered `PersonaManager` instances.
+    *   A component responsible for managing the lifecycle and interactions for **a specific type of Persona across all its supported platforms**.
+    *   Each `PersonaManager` maintains the state of *its own* active `PersonaInteractionContext` sessions (e.g., in an in-memory collection mapped by `SessionId`, potentially referencing `PlatformType` and canonical Persona ID associated with the session).
+    *   It listens for requests from the `InteractionRouter` containing the hydrated message **and platform context**.
+    *   It performs the salience check for incoming messages against the active sessions **associated with the relevant canonical Persona ID (if resolved) and potentially matching the `PlatformType`**. 
+*   **`IPersonaResolver` (Service):** Used by the `InteractionRouter` to map incoming platform-specific user/conversation identifiers to a canonical Nucleus Persona ID, based on stored Persona Profiles.
+*   **`EphemeralMarkdownScratchpad`:** A temporary file (or in-memory structure) per active session holding its conversation history, current state, draft responses, and metadata (**including `PlatformType`, platform IDs, and canonical Persona ID**). Managed indirectly via the `PersonaManager` and `PersonaInteractionContext`.
+*   **`InternalEventBus` / Request-Response:** Mechanism for the `InteractionRouter` to communicate with `PersonaManager` instances (broadcast or targeted requests).
 
 ## 3. Proposed Routing Flow (Salience Check for Existing Sessions)
 
 ```mermaid
 graph TD
-    A[InteractionRouter Receives and Hydrates Message] --> B[Rule-Based Filtering]
+    A[InteractionRouter Receives NucleusIngestionRequest] --> Hydrate[Hydrate Context (PlatformType, IDs, ContentUri)]
+    Hydrate --> Resolve[Invoke IPersonaResolver (Optional Early)]
+    Resolve --> B[Rule-Based Filtering]
     B -- Filtered --> X[Discard]
-    B -- Not Filtered --> E[Broadcast Hydrated Message Event]
-    E --> PM1_Rcv[Receive Event]
-    PM1_Rcv --> PM1_Chk[Check Salience vs Own Active Sessions]
-    PM1_Chk -- Salient --> PM1_Sig[Signal Salience, Update Scratchpad]
-    PM1_Sig --> PM1_Trig[Trigger Persona Processing]
-    PM1_Chk -- Not Salient --> PM1_Disc[Discard or Timeout]
-    E --> PMN_Rcv[Receive Event]
-    PMN_Rcv --> PMN_Chk[Check Salience vs Own Active Sessions]
-    PMN_Chk -- Salient --> PMN_Sig[Signal Salience, Update Scratchpad]
-    PMN_Sig --> PMN_Trig[Trigger Persona Processing]
-    PMN_Chk -- Not Salient --> PMN_Disc[Discard or Timeout]
-    PM1_Sig --> Wait[Wait]
+    B -- Not Filtered --> E[Request Salience Check from Relevant PersonaManagers]
+    subgraph PersonaManager 1 (e.g., Professional)
+      E --> PM1_Rcv[Receive Request (Msg, PlatformCtx, CanonicalId?)]
+      PM1_Rcv --> PM1_Chk[Check Salience vs Own Active Sessions (Match CanonicalId? Match Platform?)]
+      PM1_Chk -- Salient --> PM1_Sig[Signal Salience, Update Scratchpad]
+      PM1_Sig --> PM1_Trig[Trigger Persona Processing]
+      PM1_Chk -- Not Salient --> PM1_Disc[Signal Not Claimed]
+    end
+    subgraph PersonaManager N (e.g., Educator)
+        E --> PMN_Rcv[Receive Request (Msg, PlatformCtx, CanonicalId?)]
+        PMN_Rcv --> PMN_Chk[Check Salience vs Own Active Sessions (Match CanonicalId? Match Platform?)]
+        PMN_Chk -- Salient --> PMN_Sig[Signal Salience, Update Scratchpad]
+        PMN_Sig --> PMN_Trig[Trigger Persona Processing]
+        PMN_Chk -- Not Salient --> PMN_Disc[Signal Not Claimed]
+    end
+    PM1_Sig --> Wait[Gather Responses]
     PMN_Sig --> Wait
     PM1_Disc --> Wait
     PMN_Disc --> Wait
     Wait --> Q[Did any Manager signal salience?]
-    Q -- Yes --> R[Message Claimed by Existing Session]
-    Q -- No --> S[Proceed to New Session Initiation Logic]
+    Q -- Yes --> Existing[Route to Claiming Manager/Session]
+    Q -- No --> NewSession[Proceed to New Session Initiation Flow]
 ```
 
 **Flow Description:**
 
-1.  **Receive & Hydrate:** The `InteractionRouter` receives the trigger (e.g., Pub/Sub message) and hydrates it with necessary context (user ID, channel ID, message content, etc.) potentially interacting with the relevant Client Adapter.
-2.  **Rule-Based Filtering (Optional):** Apply quick, deterministic filters (e.g., message length, ignore bot mentions) to potentially discard trivial messages early.
-3.  **Broadcast Event:** If not filtered, the `InteractionRouter` publishes the hydrated message and metadata via the `InternalEventBus`.
-4.  **Manager Receives:** Each registered `PersonaManager` receives the event.
-5.  **Manager-Level Salience Check:** Each `PersonaManager` iterates through the active sessions *it currently manages* for its specific Persona type. For each active session, it performs a salience check (e.g., comparing message context to the session's `EphemeralMarkdownScratchpad`). This check might involve simple heuristics or potentially a lightweight LLM call comparing the new message to the scratchpad summary/history.
-6.  **Signal Salience & Process:** If a `PersonaManager` determines the message is salient for one of its sessions:
-    *   It signals back to the `InteractionRouter` (or a coordinator) that the message has been claimed (potentially including the Session ID).
-    *   It updates the corresponding `EphemeralMarkdownScratchpad`.
-    *   It triggers the actual `IPersona` processing logic for that session context.
-    *   **(Assumption):** A single message is typically claimed by at most one session across all managers. Logic might be needed to handle rare edge cases if multiple sessions *could* claim it.
-7.  **Timeout/Discard (If Not Salient):** If a `PersonaManager` checks all its active sessions and finds no salient match, it signals back "not claimed" or simply times out.
-8.  **New Session Decision Point:** The `InteractionRouter` waits for a defined period or until all `PersonaManagers` have responded/timed out.
-    *   If **any** `PersonaManager` signaled salience (Step 6), the message is considered handled by an existing session.
-    *   If **no** `PersonaManager` signaled salience, the `InteractionRouter` proceeds to the logic defined in [Session Initiation](./ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md) to attempt initiation of a new session (which likely involves broadcasting again to the managers).
+1.  **Receive & Hydrate:** The `InteractionRouter` receives the `NucleusIngestionRequest` (containing `PlatformType`, identifiers, `ContentSourceUri`).
+2.  **Resolve Persona (Optional Early):** The `InteractionRouter` *may* invoke the `IPersonaResolver` immediately to get the canonical Persona ID. This can help target the salience check request more effectively (e.g., only query the `PersonaManager` for the resolved Persona).
+3.  **Rule-Based Filtering (Optional):** Apply quick, deterministic filters.
+4.  **Request Salience Check:** The `InteractionRouter` sends a request (e.g., via `InternalEventBus` or direct calls) to relevant `PersonaManager` instances. This request includes the message content, `PlatformType`, platform identifiers, and potentially the resolved canonical Persona ID.
+5.  **Manager Salience Check:** Each notified `PersonaManager` checks the incoming message against its active sessions:
+    *   It filters sessions based on the canonical Persona ID (if provided/resolved).
+    *   It applies its salience logic (LLM check, keyword match, etc.) against the filtered sessions, considering the message content and conversation history (from the session's scratchpad).
+    *   The salience check might also consider if the incoming `PlatformType` matches the session's original platform, although a Persona session might span multiple platforms conceptually.
+6.  **Signal Salience (If Matched):** If a `PersonaManager` finds a salient session:
+    *   It signals back to the `InteractionRouter` that the message has been claimed (including the `SessionId`).
+    *   It updates the corresponding `EphemeralMarkdownScratchpad` **with the new message and potentially updated metadata (e.g., `LastUpdateTime`, `CurrentPlatformContext` = incoming `PlatformType`)**.
+    *   It triggers the actual `IPersona` processing logic for that session context (as detailed in [Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)).
+    *   **(Assumption):** A single message is typically claimed by at most one session. Conflict resolution might be needed if multiple claim.
+7.  **Signal Not Claimed:** If a `PersonaManager` checks all its relevant active sessions and finds no salient match, it signals back "not claimed".
+8.  **New Session Decision Point:** The `InteractionRouter` waits for responses.
+    *   If **any** `PersonaManager` signaled salience, the message is routed to that existing session.
+    *   If **no** `PersonaManager` signaled salience, proceed to [Session Initiation](./ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md).
 
 ## 4. Ephemeral Markdown Scratchpad Structure
 
@@ -88,32 +98,18 @@ This temporary file acts as the short-term memory for an active session. Its str
 ```markdown
 ---
 SessionId: unique-session-guid
-UserId: user-platform-id
-ConversationId: platform-convo-id
-PersonaTypeId: persona-type-id # e.g., Bootstrapper_v1
+CanonicalPersonaId: professional-colleague # Resolved Persona ID
+UserId: "platform-specific-user-id" # Platform ID of the user who started session
+PlatformUserIdMap: # Map of user's ID across platforms involved in this session
+  teams: "user-id-on-teams"
+  email: "user@example.com"
+ConversationId: "platform-specific-convo-id"
+OriginPlatformType: "Teams" # Platform where session originated
+CurrentPlatformContext: "Email" # Platform of the *last* message processed
+PersonaTypeId: Professional_v1 # Concrete implementation type
 CurrentProcessingTaskId: task-guid-for-last-message # Tracks ongoing work
 LastUpdateTime: timestamp
 ---
-
-## Interaction Goal/Summary
-(Optional: LLM-generated summary of the micro-conversation's objective)
-
-## Conversation History (Recent & Token-Limited)
-User (Timestamp): Previous relevant message...
-Persona (Timestamp): Previous relevant response...
-...
-
-## Current User Message (Timestamp)
-(Populated when a message is deemed salient by this session's manager)
-The full text of the message being processed.
-
-## Persona Draft / Analysis State
-(The Persona reads from and writes to this section during processing)
-
-## Retrieved Knowledge Snippets
-(Populated by RAG process during Persona execution)
-- Snippet 1 Source: [doc_id]
-- Snippet 1 Content: ...
 ```
 
 ## 5. Handling Corrections & Updates
@@ -134,5 +130,5 @@ Managing subsequent messages that modify a request already in progress:
 
 ## 7. Trade-offs
 
-*   **Pros:** Single hydration, highly decoupled salience logic (each manager only knows its own sessions), aligns with ephemeral principles, event-driven scalability, removes need for complex central session registry synchronization.
-*   **Cons:** Increased application complexity (multiple managers, event bus), potential overhead of broadcasting to all managers (though likely negligible), requires robust mechanism for managers to register/discover themselves with the `InteractionRouter`. Coordination for claiming messages (ensuring only one session processes it) needs careful implementation.
+*   **Pros:** Single hydration, highly decoupled salience logic, aligns with ephemeral principles, event-driven/request-response scalability, **incorporates platform context and canonical identity**. 
+*   **Cons:** Increased complexity (managers, resolver, platform context handling), potential overhead if resolver is slow or broadcasting is inefficient, requires robust manager registration/discovery. Coordination for claiming messages needs careful implementation.

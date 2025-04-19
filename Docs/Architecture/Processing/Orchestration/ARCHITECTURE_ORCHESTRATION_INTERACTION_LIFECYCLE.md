@@ -1,14 +1,14 @@
 ---
 title: Architecture - Interaction Processing Lifecycle
-description: Details the runtime process for handling a single user interaction, from Pub/Sub subscription trigger to response generation, including the use of the ephemeral scratchpad.
-version: 1.0
-date: 2025-04-13
+description: Details the runtime process for handling a single user interaction, using platform context to resolve services and manage the ephemeral scratchpad.
+version: 1.1
+date: 2025-04-19
 ---
 
 # Nucleus OmniRAG: Interaction Processing Lifecycle
 
-**Version:** 1.0
-**Date:** 2025-04-13
+**Version:** 1.1
+**Date:** 2025-04-19
 
 ## 1. Introduction
 
@@ -22,53 +22,52 @@ The key goals of this lifecycle are:
 
 ## 2. Trigger and Initiation
 
-The interaction lifecycle begins when a processing component (running within the compute runtime) receives a message *identifier* from its configured asynchronous messaging **subscription** (defined in [Deployment Abstractions](../Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md#2-asynchronous-messaging-pubsub)).
+The interaction lifecycle begins when a processing component (e.g., the `OrchestrationService` or a dedicated `PersonaManager`) receives a trigger, typically containing identifiers from a `NucleusIngestionRequest` originating from an asynchronous messaging **subscription**.
 
 *   **Message Content:** Crucially, the message received typically contains only essential identifiers (e.g., `InteractionId`, `UserId`, source platform message ID, conversation ID) and **not** the potentially sensitive raw message content itself. This aligns with [Security Principles](../06_ARCHITECTURE_SECURITY.md#5-data-minimization).
-*   **Adapter Identification:** The processing component uses metadata associated with the message or subscription (e.g., topic name, message properties) to determine which specific `IClientAdapter` implementation is responsible for handling this interaction based on its origin platform (e.g., Teams, Console).
+*   **Adapter Resolution:** The orchestrator uses the `PlatformType` from the `NucleusIngestionRequest` (or the session's context) to resolve the correct `IPlatformAdapter` implementation via Dependency Injection (e.g., using keyed services or a factory).
 
 ## 3. Context Hydration via Adapter
 
-Using the identifiers received in the message, the orchestrator invokes methods on the corresponding `IClientAdapter` instance to "hydrate" the `IPersonaInteractionContext`. This involves retrieving the actual data needed for processing:
+Using the identifiers (**including `PlatformType`**) and the resolved `IPlatformAdapter`, the orchestrator hydrates the `IPersonaInteractionContext`:
 
-*   **Fetch Message Content:** Calling a method like `adapter.GetMessageContentAsync(platformMessageId, context)` to retrieve the user's actual message text.
-*   **Retrieve Conversation History:** Calling `adapter.GetConversationHistoryAsync(conversationId, context)` to get recent relevant messages.
-*   **Access Artifacts:** If the user message references files or other artifacts (e.g., via URIs in `SourceArtifactUris` from `IMessageContext`), calling methods like `adapter.GetArtifactStreamAsync(artifactUri, context)` to retrieve their content.
-
-The adapter implementation translates these calls into platform-specific API requests (e.g., Microsoft Graph API calls for Teams, local file system access for the Console Adapter). All operations occur within the security context provided by the adapter/platform.
+*   **Fetch Message Content:** Calling `adapter.GetMessageContentAsync(...)`.
+*   **Retrieve Conversation History:** Calling `adapter.GetConversationHistoryAsync(...)`.
+*   **Access Artifacts:** If `SourceArtifactUris` are present, **and if the Persona logic requires the original artifact content during processing (not for initial analysis)**, the orchestrator uses the `PlatformType` and `ContentSourceUri` from the *original request* to resolve the specific `IPlatformAttachmentFetcher` and invoke it.
 
 ## 4. Ephemeral Markdown Scratchpad
 
-Once the initial context is successfully gathered, the orchestrator creates a temporary markdown file.
+Once the initial context is hydrated, the orchestrator (or `PersonaManager`) ensures the `EphemeralMarkdownScratchpad` exists for the session.
 
-*   **Location:** This file resides in the container's ephemeral local storage (e.g., mapped to `/tmp/` or a similar non-persistent directory). Its filename is typically derived from the unique `IPersonaInteractionContext.InteractionId` (e.g., `/tmp/{InteractionId}.md`).
-*   **Purpose:** Acts as a short-term "working memory" or scratchpad exclusively for the current interaction. It aggregates the *salient*, *processed* information required for the LLM prompt, structured for clarity.
-*   **Content:** Contains concise, structured text snippets relevant to the request. This might include:
-    *   Key phrases or summaries from recent conversation history.
-    *   Extracted text chunks or summaries from retrieved documents/artifacts.
-    *   Relevant results from internal vector searches against the [Knowledge Base](../04_ARCHITECTURE_DATABASE.md).
-    *   **Important:** It holds *processed derivatives*, not the raw, potentially large source data.
-*   **Lifecycle & Security:**
-    *   The scratchpad is strictly ephemeral, intended to exist only for the duration of the interaction processing (typically 5-60 minutes).
-    *   It lives in **non-persistent storage**. If the container instance restarts or crashes, the file is lost, which is the desired behavior for security ([Security Principles](../06_ARCHITECTURE_SECURITY.md#3-least-privilege--ephemeral-processing)).
-    *   It **must** be explicitly deleted by the orchestrator upon successful completion or terminal failure of the interaction handling.
+*   **Location:** Ephemeral local storage (e.g., `/tmp/{SessionId}.md`).
+*   **Purpose:** Short-term working memory for the current interaction and session.
+*   **Content:** Contains structured snippets and metadata including:
+    *   Session ID, Canonical Persona ID, Platform User ID Map, Conversation ID, Origin Platform, Current Platform Context, etc. (See [Routing Doc](./ARCHITECTURE_ORCHESTRATION_ROUTING.md#4-ephemeral-markdown-scratchpad-structure)).
+    *   Key phrases/summaries from history.
+    *   Extracted text/summaries from artifacts **fetched via `IPlatformAttachmentFetcher` if needed by the Persona**.
+    *   Relevant results from internal vector searches.
+    *   The current user message being processed.
+    *   Persona's draft response/analysis state.
 
 ## 5. LLM Prompt Assembly & Invocation
 
-The orchestrator constructs the final prompt destined for the AI Service (e.g., Google Gemini, specified in [Hosting Strategies](../Deployment/Hosting/)). This prompt typically includes:
+The orchestrator constructs the final prompt for the AI Service, including:
 
-*   The user's direct request (obtained via the adapter).
-*   System instructions (defining the Persona's role, capabilities, tone).
-*   Relevant context synthesized from the ephemeral markdown scratchpad.
+*   User request.
+*   System instructions.
+*   Relevant context synthesized from the **up-to-date** ephemeral markdown scratchpad.
 
-The orchestrator then invokes the AI service API with the assembled prompt.
+The orchestrator invokes the AI service API.
 
 ## 6. Response Delivery & Cleanup
 
 Upon receiving the generated response from the LLM:
 
-1.  **Deliver Response:** The orchestrator calls the appropriate method on the `IClientAdapter` (e.g., `adapter.SendResponseAsync(responseContent, context)`) to deliver the result back to the user on the originating platform.
-2.  **Delete Scratchpad:** The orchestrator **explicitly deletes** the temporary markdown file (`/tmp/{InteractionId}.md`) from the ephemeral storage. This cleanup is critical.
-3.  **Dispose Context:** The `IPersonaInteractionContext` may be disposed of, releasing any resources held by the adapter or orchestrator related to this specific interaction.
+1.  **Resolve Notifier:** The orchestrator determines the target `PlatformType` (usually the `CurrentPlatformContext` from the scratchpad, or explicitly specified for persona-to-persona messages). It uses this `PlatformType` to resolve the correct `IPlatformNotifier` implementation via DI.
+2.  **Get Target Details:** It retrieves the necessary platform-specific target identifiers (e.g., user ID, channel ID, email address) from the scratchpad's `PlatformUserIdMap` or the session context.
+3.  **Deliver Response:** The orchestrator calls `notifier.SendNotificationAsync(responseContent, targetDetails)` on the resolved notifier.
+4.  **(Potentially Update Scratchpad):** Record the outgoing message in the scratchpad's history.
+5.  **Cleanup (Session End):** When the interaction session is deemed complete (e.g., after a period of inactivity managed by the `PersonaManager`), the `EphemeralMarkdownScratchpad` **must** be explicitly deleted. This cleanup is critical.
+6.  **Dispose Context:** Related resources are released.
 
 This completes the lifecycle for processing a single user interaction, ensuring context is gathered, processed ephemerally, used for generation, and cleaned up securely. This flow is central to the overall [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md).

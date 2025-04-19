@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>YOUR_USER_SECRETS_ID_HERE</UserSecretsId> <!-- GENERATE A GUID and replace -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Corrected Path -->
+    <ProjectReference Include="..\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" /> 
+    <ProjectReference Include="..\..\Abstractions\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Personas\Nucleus.Personas.Core\Nucleus.Personas.Core.csproj" />
+    <ProjectReference Include="..\..\Domain\Nucleus.Domain.Processing\Nucleus.Processing.csproj" />
+    <ProjectReference Include="..\..\Adapters\Nucleus.Adapters.Teams\Nucleus.Adapters.Teams.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0-preview.3.24172.13" /> 
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.25207.5" />
+    <PackageReference Include="Microsoft.Extensions.Azure" Version="1.11.0" /> <!-- Added for AddAzureClients, latest stable -->
+    <PackageReference Include="Microsoft.Identity.Web" Version="2.19.1" /> 
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.1" />
+    <PackageReference Include="Azure.Identity" Version="1.13.1" /> <!-- Updated from 1.12.0 to satisfy Microsoft.Extensions.Azure -->
+    <PackageReference Include="Microsoft.Bot.Builder" Version="4.22.7" /> <!-- Updated from 4.22.2 to match resolved Integration pkg -->
+    <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.22.7" /> <!-- Updated from 4.22.5 as it wasn't found; 4.22.7 was resolved -->
+    <PackageReference Include="Microsoft.Graph" Version="5.54.0" />
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.0" /> <!-- Updated to match ServiceDefaults -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.0" /> 
+  </ItemGroup>
+
+</Project>

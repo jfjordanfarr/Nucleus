@@ -1,8 +1,8 @@
 ---
 title: Persona - Bootstrapper
 description: Describes the basic Bootstrapper persona for Nucleus OmniRAG, serving as a foundation or fallback.
-version: 0.1
-date: 2025-05-17
+version: 1.1
+date: 2025-04-19
 ---
 
 # Persona: Bootstrapper
@@ -13,7 +13,7 @@ The Bootstrapper persona represents the most fundamental level of interaction wi
 
 *   **Initial Setup/Testing:** Provides a basic interaction layer for verifying core system functionality (ingestion, storage, basic retrieval) without complex domain logic.
 *   **Fallback Behavior:** Could act as a default persona if a more specialized one is not specified or applicable.
-*   **Foundation:** Represents the core `IPersona` implementation from which more complex personas can inherit or delegate.
+*   **Foundation:** Represents the core [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs) implementation from which more complex personas can inherit or delegate.
 
 It typically involves minimal analysis during ingestion and focuses on direct retrieval or simple query handling.
 
@@ -45,5 +45,5 @@ sequenceDiagram
 
 *   **Simplicity:** Minimal domain logic and analysis.
 *   **Directness:** Focuses on basic retrieval and interaction.
-*   **Foundation:** Implements the core `IPersona` contract.
+*   **Foundation:** Implements the core [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs) contract.
 *   **Low Overhead:** Requires minimal configuration and processing resources compared to specialized personas.

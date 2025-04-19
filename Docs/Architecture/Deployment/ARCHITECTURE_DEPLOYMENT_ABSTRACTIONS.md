@@ -25,23 +25,24 @@ The Nucleus system fundamentally requires the following types of infrastructure 
     *   **Key Needs:** Scalability (manual or automatic), reliable execution, integration with networking and other services.
     *   **Examples:** Azure Container Apps, Azure Kubernetes Service, AWS ECS/EKS, Google Cloud Run/GKE, Cloudflare Workers (via Workers for Platforms or similar container support), Self-hosted Kubernetes/Docker.
 
-2.  **Asynchronous Messaging (Pub/Sub):**
-    *   **Purpose:** To decouple components, enable asynchronous processing, and reliably broadcast triggers (like new user interactions) to potentially multiple processing instances.
-    *   **Abstraction:** A Publish/Subscribe messaging system consisting of:
-        *   **Topics:** Named channels where messages (typically containing identifiers or minimal data) are published.
-        *   **Subscriptions:** Each processing service instance (or logical group) creates its own subscription to relevant topics. The messaging system delivers a copy of each message published to the topic to every active subscription.
+2.  **Asynchronous Messaging (Queue/Topic):**
+    *   **Purpose:** To decouple components (e.g., adapters from the core API service), enable asynchronous processing, and reliably deliver requests or events between services.
+    *   **Abstraction:** A message queuing or topic-based system.
+        *   **Queues:** Point-to-point delivery, where one consumer processes a message.
+        *   **Topics (Pub/Sub):** Broadcast delivery, where multiple subscribers can receive copies of a message.
+        *   **Nucleus Abstraction:** The [`IMessageQueuePublisher<T>`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IMessageQueuePublisher.cs:18:0-30:1) interface defines the contract for publishing messages. This allows different implementations based on the chosen provider.
     *   **Key Capabilities:**
-        *   Guaranteed delivery (at-least-once) per subscription.
-        *   Message filtering capabilities (optional).
-        *   Decoupling of publishers and subscribers.
-        *   Support for competing consumers *within* a single subscription if needed for scaling internal processing.
+        *   Guaranteed delivery (at-least-once).
+        *   Decoupling of publishers and consumers/subscribers.
+        *   Support for competing consumers (for scaling queue processing).
     *   **Examples:**
-        *   Azure Service Bus Topics & Subscriptions
+        *   Azure Service Bus Queues & Topics (Current implementation uses a Queue via [`AzureServiceBusPublisher<T>`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/AzureServiceBusPublisher.cs:23:0-99:1))
         *   Google Cloud Pub/Sub
-        *   RabbitMQ (using Topic exchanges)
-        *   NATS
-        *   AWS SNS/SQS combination
-    *   **Selection Criteria:** Reliability, scalability, cost, integration with the chosen compute runtime, latency requirements.
+        *   RabbitMQ (using Direct or Topic exchanges)
+        *   NATS / NATS JetStream
+        *   AWS SQS / SNS
+        *   Cloudflare Queues
+    *   **Selection Criteria:** Reliability, scalability, ordering requirements (if any), cost, integration with the chosen compute runtime, latency requirements.
 
 3.  **Document & Vector Database:**
     *   **Requirement:** A database solution capable of storing both structured/semi-structured metadata (`ArtifactMetadata`) and the derived knowledge (`PersonaKnowledgeEntry`), including vector embeddings for semantic search.

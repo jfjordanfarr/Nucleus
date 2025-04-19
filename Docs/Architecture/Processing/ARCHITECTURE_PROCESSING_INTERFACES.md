@@ -46,8 +46,42 @@ public record ContentExtractionResult(
     string ExtractedText,
     Dictionary<string, object>? AdditionalMetadata = null // e.g., page numbers, structural info
 );
-```
+
+## 2. `IOrchestrationService`
+
+This interface defines the central coordinating service for processing incoming requests. It's responsible for managing the overall flow, including potentially fetching source data (via `IPlatformAttachmentFetcher`), invoking specific processors, handling session state, and ensuring responses are sent back (via `IPlatformNotifier`).
+
+*   **Code:** [`Nucleus.Abstractions/IOrchestrationService.cs`](cci:7://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IOrchestrationService.cs:0:0-0:0)
+*   **Related Architecture:**
+    *   [ARCHITECTURE_PROCESSING_INGESTION.md](./ARCHITECTURE_PROCESSING_INGESTION.md)
+    *   [ARCHITECTURE_PROCESSING_ORCHESTRATION.md](./ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
+
+```csharp
+using Nucleus.Abstractions.Models;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace Nucleus.Abstractions;
+
+/// <summary>
+/// Defines the contract for the central service responsible for orchestrating
+/// the processing of incoming ingestion requests.
+/// This includes session management, persona selection, routing, and invoking specific processing steps.
+/// See: ../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md
+/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
+/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md
+/// </summary>
+public interface IOrchestrationService
+{
+    /// <summary>
+    /// Processes a standardized ingestion request received from a platform adapter
+    /// (typically via the ServiceBusQueueConsumerService).
+    /// </summary>
+    /// <param name="request">The details of the ingestion request.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous processing operation.</returns>
+    Task ProcessIngestionRequestAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default);
+}
 
 ---
-
 **(More interfaces may be added here as the processing pipeline evolves)**

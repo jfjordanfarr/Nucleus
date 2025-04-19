@@ -1,14 +1,14 @@
 ---
 title: Nucleus OmniRAG Deployment Architecture Overview
 description: Provides an overview of deployment strategies and links to detailed architectures for Azure, Cloudflare, and Self-Hosting.
-version: 2.2
-date: 2025-04-13
+version: 2.3
+date: 2025-04-19
 ---
 
 # Nucleus OmniRAG: Deployment Architecture Overview
 
-**Version:** 2.2
-**Date:** 2025-04-13
+**Version:** 2.3
+**Date:** 2025-04-19
 
 This document provides a high-level overview of the deployment architecture for the Nucleus OmniRAG system, complementing the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It establishes the core principles and links to detailed strategies for specific deployment targets.
 

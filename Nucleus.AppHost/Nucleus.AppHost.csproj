@@ -12,12 +12,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Nucleus.ApiService\Nucleus.ApiService.csproj" />
-    <ProjectReference Include="..\Nucleus.Console\Nucleus.Console.csproj" />
+    <ProjectReference Include="..\src\Services\Nucleus.Services.Api\Nucleus.ApiService.csproj" />
+    <ProjectReference Include="..\src\Adapters\Nucleus.Adapters.Console\Nucleus.Console.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.2.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="9.2.0" />
   </ItemGroup>
 
 </Project>

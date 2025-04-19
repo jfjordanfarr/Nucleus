@@ -1,19 +1,19 @@
 ---
-title: Architecture - Orchestration Session Initiation (v1.2)
-description: Details the logic for Persona Managers determining when to initiate a new Persona Interaction Context (session) and preventing duplicate creation via Cosmos DB atomic operations.
-version: 1.2
-date: 2025-04-16
+title: Architecture - Orchestration Session Initiation (v1.3)
+description: Details the logic for Persona Managers determining when to initiate a new Persona Interaction Context (session) based on platform context, and preventing duplicate creation via Cosmos DB atomic operations.
+version: 1.3
+date: 2025-04-19
 
 ---
 
 # Nucleus OmniRAG: Orchestration Session Initiation
 
-**Version:** 1.2
-**Date:** 2025-04-16
+**Version:** 1.3
+**Date:** 2025-04-19
 
 ## 1. Introduction
 
-This document outlines the process for initiating a *new* `PersonaInteractionContext` (session) when an incoming message is not claimed by any existing active session. This responsibility is **decentralized to the individual `PersonaManager` components**, coordinated by the central `InteractionRouter`, and utilizes Cosmos DB atomic operations to ensure consistency and prevent duplicate session creation.
+This document outlines the process for initiating a *new* `PersonaInteractionContext` (session) when an incoming message is not claimed by any existing active session. This responsibility is **decentralized to the individual `PersonaManager` components**, coordinated by the central `InteractionRouter`, **considers the incoming message's platform context**, and utilizes Cosmos DB atomic operations to ensure consistency and prevent duplicate session creation.
 
 This process follows the initial message hydration and the check for salience against *existing* sessions described in [Routing & Salience](./ARCHITECTURE_ORCHESTRATION_ROUTING.md), and is part of the overall [Processing Orchestration Overview](../ARCHITECTURE_PROCESSING_ORCHESTRATION.md).
 
@@ -27,11 +27,12 @@ Key Goals:
 
 As detailed in [Routing & Salience](./ARCHITECTURE_ORCHESTRATION_ROUTING.md):
 
-1.  The `InteractionRouter` hydrates the incoming message.
-2.  Optional rule-based pre-filtering occurs.
-3.  The `InteractionRouter` broadcasts the hydrated message via the `InternalEventBus` to all registered `PersonaManagers`.
-4.  Each `PersonaManager` checks the message's salience against the **active sessions it currently manages**.
-5.  If any `PersonaManager` claims the message for an existing session, that manager handles the processing, and the new session initiation flow described below is **skipped** for this message.
+1.  The `InteractionRouter` hydrates the incoming message (`PlatformType`, identifiers, etc.).
+2.  The `InteractionRouter` may resolve the canonical Persona ID using `IPersonaResolver`.
+3.  Optional rule-based pre-filtering occurs.
+4.  The `InteractionRouter` requests salience checks from relevant `PersonaManagers`, providing the hydrated message and platform context.
+5.  Each `PersonaManager` checks the message's salience against the **active sessions it currently manages** (considering platform context and canonical ID).
+6.  If any `PersonaManager` claims the message for an existing session, that manager handles the processing, and the new session initiation flow described below is **skipped**.
 
 ## 3. Decision Point for New Session Creation
 
@@ -45,24 +46,28 @@ If no existing session claims the message, the `InteractionRouter` coordinates t
 
 ```mermaid
 graph TD
-    A[InteractionRouter Receives and Hydrates Message] --> B[Broadcast to Managers: Check Salience vs Existing Sessions]
-    B --> C[Wait for Salience Signals or Timeout]
-    C -- Message Claimed by Existing Session --> D[Route to Claiming Manager or Session]
-    C -- No Salience Claim --> E[Broadcast to Managers: Evaluate for New Session]
-    E --> PM1_Eval[Receive Eval Request]
-    PM1_Eval --> PM1_Decide[Decide: Should Bootstrapper Handle New Session?]
-    PM1_Decide -- Yes --> PM1_Cosmos[Attempt Cosmos DB Placeholder Create]
-    PM1_Decide -- No --> PM1_Abort[Abort Initiation]
-    PM1_Cosmos -- Success --> PM1_Create[Create Scratchpad, Register Session]
-    PM1_Create --> PM1_Trig[Trigger Initial Persona Processing]
-    PM1_Cosmos -- Conflict --> PM1_Abort
-    E --> PMN_Eval[Receive Eval Request]
-    PMN_Eval --> PMN_Decide[Decide: Should EduFlow Handle New Session?]
-    PMN_Decide -- Yes --> PMN_Cosmos[Attempt Cosmos DB Placeholder Create]
-    PMN_Decide -- No --> PMN_Abort[Abort Initiation]
-    PMN_Cosmos -- Success --> PMN_Create[Create Scratchpad, Register Session]
-    PMN_Create --> PMN_Trig[Trigger Initial Persona Processing]
-    PMN_Cosmos -- Conflict --> PMN_Abort
+    A[InteractionRouter Receives Msg + PlatformCtx] --> Resolve[Invoke IPersonaResolver (If not done earlier)]
+    Resolve --> B[Check Salience vs Existing Sessions (Routing Flow)]
+    B -- Message Claimed by Existing Session --> D[Route to Claiming Manager or Session]
+    B -- No Salience Claim --> E[Broadcast to Managers: Evaluate for New Session (Msg, PlatformCtx, CanonicalId?)]
+    subgraph PersonaManager 1 (e.g., Professional)
+        E --> PM1_Eval[Receive Eval Request]
+        PM1_Eval --> PM1_Decide[Decide: Should I Handle New Session? (Based on Msg, PlatformCtx, Activation Rules)]
+        PM1_Decide -- Yes --> PM1_Cosmos[Attempt Cosmos DB Placeholder Create (Use Platform-Specific Key)]
+        PM1_Decide -- No --> PM1_Abort[Abort Initiation]
+        PM1_Cosmos -- Success --> PM1_Create[Create Scratchpad (Incl PlatformCtx), Register Session]
+        PM1_Create --> PM1_Trig[Trigger Initial Persona Processing]
+        PM1_Cosmos -- Conflict --> PM1_Abort
+    end
+    subgraph PersonaManager N (e.g., Educator)
+        E --> PMN_Eval[Receive Eval Request]
+        PMN_Eval --> PMN_Decide[Decide: Should I Handle New Session? (Based on Msg, PlatformCtx, Activation Rules)]
+        PMN_Decide -- Yes --> PMN_Cosmos[Attempt Cosmos DB Placeholder Create (Use Platform-Specific Key)]
+        PMN_Decide -- No --> PMN_Abort[Abort Initiation]
+        PMN_Cosmos -- Success --> PMN_Create[Create Scratchpad (Incl PlatformCtx), Register Session]
+        PMN_Create --> PMN_Trig[Trigger Initial Persona Processing]
+        PMN_Cosmos -- Conflict --> PMN_Abort
+    end
     D --> Z[End Flow]
     PM1_Trig --> Z
     PMN_Trig --> Z
@@ -72,37 +77,39 @@ graph TD
 
 **Detailed Steps:**
 
-1.  **Initiation Broadcast:** The `InteractionRouter` broadcasts the hydrated message again via the `InternalEventBus`, this time signaling a request for `PersonaManagers` to evaluate it for *new session initiation*.
-2.  **Manager Evaluation:** Each `PersonaManager` receives the request and applies its own logic to determine if the message content, user context, channel, etc., warrants creating a new session for the specific Persona type it manages. (e.g., Does it look like a request for the Bootstrapper? Does it mention keywords relevant to EduFlow?).
-3.  **Attempt Atomic Claim (by Manager):** If a `PersonaManager` decides "Yes", it proceeds to attempt the atomic claim:
-    *   **Derive Unique Placeholder ID:** Generate the deterministic, unique document ID based on the incoming message context (e.g., `placeholder:msg:<platform>:<channel_id>:<message_id>`). This must be identical across all managers attempting to claim the same message.
-    *   **Attempt Cosmos DB Conditional Create:** The `PersonaManager` executes `CreateItemAsync` in the designated Cosmos DB container, attempting to create the placeholder document with the derived ID.
-4.  **Create Succeeded (e.g., HTTP 201 - Claimed by this Manager):**
-    *   This specific `PersonaManager` has successfully claimed responsibility for the new session.
+1.  **Resolve Persona (If Needed):** If not done during the routing phase, the `InteractionRouter` invokes `IPersonaResolver` to get the canonical Persona ID based on the incoming platform identifiers.
+2.  **Initiation Broadcast:** The `InteractionRouter` broadcasts a request (containing the hydrated message, `PlatformType`, platform IDs, and potentially the canonical Persona ID) for `PersonaManagers` to evaluate it for *new session initiation*.
+3.  **Manager Evaluation:** Each `PersonaManager` receives the request and applies its logic to determine if the message content, **platform context (`PlatformType`, user ID), resolved canonical ID (if applicable)**, and its own activation rules warrant creating a new session for its Persona type.
+4.  **Attempt Atomic Claim (by Manager):** If a `PersonaManager` decides "Yes":
+    *   **Derive Unique Placeholder ID:** Generate the deterministic, unique document ID incorporating the platform context (e.g., `placeholder:msg:{PlatformType}:{channel_id}:{message_id}`). This ensures uniqueness across platforms for the same message trigger.
+    *   **Attempt Cosmos DB Conditional Create:** The `PersonaManager` executes `CreateItemAsync` to create the placeholder document with the derived, platform-specific ID.
+5.  **Create Succeeded (e.g., HTTP 201 - Claimed by this Manager):**
+    *   This `PersonaManager` has claimed responsibility.
     *   **Create Session Resources:**
         *   Generate a new unique `SessionId`.
-        *   Create the `EphemeralMarkdownScratchpad` file/structure for the new session.
-        *   Register the new `SessionId` and its metadata/pointers **within its own internal state management** (e.g., its in-memory dictionary of active sessions).
-    *   **Trigger Initial Processing:** Initiate the first processing step by invoking the relevant `IPersona` implementation associated with this manager, passing the new context.
-    *   **(Optional):** Update the placeholder document with the actual `SessionId` or processing status.
-5.  **Create Failed (e.g., HTTP 409 Conflict - Claimed by Another):**
-    *   Another `PersonaManager` (or potentially another instance of the same manager type in a scaled-out scenario) successfully created the placeholder first.
+        *   Create the `EphemeralMarkdownScratchpad`, **populating initial metadata including `PlatformType`, platform IDs, and resolved `CanonicalPersonaId`**. 
+        *   Register the new `SessionId` and its metadata/pointers within its own internal state.
+    *   **Trigger Initial Processing:** Initiate the first processing step by invoking the relevant `IPersona` implementation, passing the new context.
+6.  **Create Failed (e.g., HTTP 409 Conflict - Claimed by Another):**
+    *   Another manager claimed the placeholder first.
     *   This `PersonaManager` aborts its new session creation process.
 
 ## 5. Placeholder Document
 
-The placeholder document remains simple, but adding the initiating Persona type could be useful for traceability:
+The placeholder document ID now includes the platform type for uniqueness:
 
 ```json
 {
-  "id": "placeholder:msg:teams:channel123:messageABC",
-  "pk": "placeholder:msg:teams:channel123", // Example partition key
+  "id": "placeholder:msg:Teams:channel123:messageABC", // Platform specific ID
+  "pk": "placeholder:msg:Teams:channel123", // Example partition key
   "messageTimestamp": "2025-04-13T20:55:33Z",
-  "status": "claimed", // Indicates a manager succeeded in creating it
-  "claimingInstanceId": "aca-instance-xyz", // Instance where the successful manager ran
-  "initiatingPersonaTypeId": "Bootstrapper_v1", // Which type of manager claimed it
-  "createdSessionId": null, // Could be updated later by the manager
-  "ttl": 3600 // Optional: Auto-delete after 1 hour
+  "canonicalPersonaId": "professional-colleague", // Resolved ID if available
+  "platformUserId": "teams-user-guid", // Platform specific ID
+  "status": "claimed", 
+  "claimingInstanceId": "aca-instance-xyz", 
+  "initiatingPersonaTypeId": "Professional_v1", 
+  "createdSessionId": null,
+  "ttl": 3600
 }
 ```
 
@@ -113,5 +120,5 @@ The placeholder document remains simple, but adding the initiating Persona type 
 
 ## 7. Trade-offs
 
-*   **Pros:** Decentralizes initiation logic to the components (Managers) that understand the Personas best; avoids central bottleneck for deciding *which* Persona should handle a new interaction; maintains atomicity via DB.
-*   **Cons:** Requires a second broadcast round; multiple managers might perform evaluation logic unnecessarily if one claims quickly; relies on managers implementing the Cosmos DB check correctly; slightly more complex coordination flow than a fully centralized model.
+*   **Pros:** Decentralizes initiation logic; **incorporates platform context into decisions**; avoids central bottleneck; maintains atomicity via DB.
+*   **Cons:** Requires second broadcast/request round; multiple managers evaluate; relies on managers implementing DB check correctly; slightly more complex coordination.

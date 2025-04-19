@@ -1,14 +1,14 @@
 ---
 title: Architecture - Client Applications & Adapters
 description: Outlines the architecture for clients (MVP Console App) and future platform adapters interacting with the Nucleus API.
-version: 3.0
-date: 2025-04-11
+version: 3.1
+date: 2025-04-19
 ---
 
 # Nucleus OmniRAG: Client Architecture
 
-**Version:** 3.0
-**Date:** 2025-04-11
+**Version:** 3.1
+**Date:** 2025-04-19
 
 This document outlines the architecture for client applications interacting with the Nucleus OmniRAG backend API, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It details the primary interaction mechanism for the Minimum Viable Product (MVP) – a command-line interface (CLI) application – and outlines future plans for integrating with collaboration platforms.
 
@@ -21,7 +21,7 @@ This document outlines the architecture for client applications interacting with
 
 ## 2. MVP Client: Nucleus Console Application (`Nucleus.Console`)
 
-The primary client interface for the Nucleus OmniRAG MVP is a .NET Console Application. This approach provides a direct, scriptable, and efficient way to interact with the backend API, facilitating development, testing, and agent-driven operations.
+The primary client interface for the Nucleus OmniRAG MVP is a .NET Console Application, implemented in the [`Nucleus.Console`](../../../Nucleus.Console/) project. This approach provides a direct, scriptable, and efficient way to interact with the backend API, facilitating development, testing, and agent-driven operations.
 
 **Key Goals:**
 *   Provide a command-line interface for core Nucleus operations ([ingestion](./01_ARCHITECTURE_PROCESSING.md), [querying](./02_ARCHITECTURE_PERSONAS.md), [status checks](./01_ARCHITECTURE_PROCESSING.md)).
@@ -121,14 +121,14 @@ While implementations will vary based on the target platform, adapters should ge
 
 ## 6. Next Steps
 
-1.  **Initialize `Nucleus.Console` Project:** Set up the basic project structure with required NuGet packages (`System.CommandLine`, `Microsoft.Extensions.Http`).
+1.  **Initialize `Nucleus.Console` Project:** Set up the basic project structure ([`Nucleus.Console`](../../../Nucleus.Console/)) with required NuGet packages (`System.CommandLine`, `Microsoft.Extensions.Http`).
 2.  **Configure `HttpClient`:** Use `IServiceCollection` and `IHttpClientFactory` to configure the client for accessing the [`Nucleus.Api`](./07_ARCHITECTURE_DEPLOYMENT.md) (base address, default headers if needed).
 3.  **Implement Initial Commands:** Start with basic commands:
     *   `nucleus status ping`: A simple command to verify API connectivity.
     *   `nucleus ingest --path <filepath>`: Implement the file [ingestion](./01_ARCHITECTURE_PROCESSING.md) workflow.
     *   `nucleus query --persona <name> "<prompt>"`: Implement the basic [query](./02_ARCHITECTURE_PERSONAS.md) workflow.
-4.  **Define API DTOs:** Ensure necessary Data Transfer Objects (DTOs) shared between the API and Console client are defined (likely in `Nucleus.Abstractions`).
-5.  **Develop Command Handlers:** Write the logic within the console app to parse arguments, call the API, and display results.
+4.  **Define API DTOs:** Ensure necessary Data Transfer Objects (DTOs) shared between the API and Console client are defined (planned for [`Nucleus.Abstractions`](../../../Nucleus.Abstractions/)).
+5.  **Develop Command Handlers:** Write the logic within the console app ([`Nucleus.Console`](../../../Nucleus.Console/)) to parse arguments, call the API, and display results.
 6.  **(Ongoing)** Refine command structure and output formatting as API capabilities expand.
 
 ---
