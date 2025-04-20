@@ -1,12 +1,14 @@
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.BotFramework;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Http;
-using Microsoft.Extensions.ServiceDiscovery; // Added for GetServiceConnectionString
+using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.ServiceDiscovery; 
 using Microsoft.Graph;
 using Microsoft.Identity.Web;
 using Nucleus.Abstractions;
@@ -14,8 +16,15 @@ using Nucleus.Abstractions.Models;
 using Nucleus.Adapters.Teams;
 using Nucleus.ApiService.Diagnostics;
 using Nucleus.ApiService.Infrastructure.Messaging;
+using Nucleus.Services.Api.Infrastructure.Messaging; 
 using Nucleus.ApiService;
 using Nucleus.Domain.Processing;
+
+// *** Obtain logger early for setup logging ***
+using var loggerFactory = LoggerFactory.Create(loggingBuilder => loggingBuilder
+    .SetMinimumLevel(LogLevel.Information)
+    .AddConsole());
+var _logger = loggerFactory.CreateLogger("Program");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,19 +40,36 @@ builder.Services.ConfigureHttpClientDefaults(http =>
 });
 // --- End Service Discovery Block ---
 
-// --- Azure Service Bus Configuration ---
-builder.Services.AddAzureClients(clientBuilder =>
+// Retrieve Service Bus connection string
+var serviceBusConnectionString = builder.Configuration.GetConnectionString("servicebus");
+
+// Conditionally register Azure Service Bus or Null publisher
+if (!string.IsNullOrEmpty(serviceBusConnectionString))
 {
-    // Use standard GetConnectionString, expecting Aspire to inject it via WithReference
-    clientBuilder.AddServiceBusClientWithNamespace(builder.Configuration.GetConnectionString("servicebus"))
-        .WithCredential(new DefaultAzureCredential());
-});
+    _logger.LogInformation("Azure Service Bus connection string found. Configuring Azure Service Bus.");
+    // Configure Azure Service Bus Client
+    builder.Services.AddAzureClients(clientBuilder =>
+    {
+        // Use standard GetConnectionString, expecting Aspire to inject it via WithReference
+        clientBuilder.AddServiceBusClientWithNamespace(serviceBusConnectionString) // Use the retrieved connection string
+            .WithCredential(new DefaultAzureCredential());
+    });
 
-// Register our generic publisher implementation
-builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
+    // Register the Azure Service Bus Publisher
+    builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
+    _logger.LogInformation("Azure Service Bus Publisher registered.");
 
-// --- Register Service Bus Consumer Hosted Service ---
-builder.Services.AddHostedService<ServiceBusQueueConsumerService>();
+    // --- Register Service Bus Consumer Hosted Service --- 
+    // Only add the consumer if we actually have a connection string
+    _logger.LogInformation("Registering Azure Service Bus Consumer Hosted Service.");
+    builder.Services.AddHostedService<ServiceBusQueueConsumerService>();
+}
+else
+{
+    // Register the Null Publisher if Service Bus is not configured
+    _logger.LogWarning("Azure Service Bus connection string not found. Registered NullMessageQueuePublisher. Messaging will be disabled.");
+    builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>));
+}
 // --- End Service Bus Configuration & Consumer Registration ---
 
 // Add services to the container.
@@ -51,6 +77,7 @@ builder.Services.AddHostedService<ServiceBusQueueConsumerService>();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
 
 // Add authentication
 // builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -61,25 +88,43 @@ builder.Services.AddSwaggerGen();
 
 // Add Nucleus specific services (using extension methods for organization)
 builder.Services.AddNucleusServices(builder.Configuration);
-builder.Services.AddNucleusProcessing(builder.Configuration); 
+builder.Services.AddProcessingServices();
+
+// Add services for MVC Controllers (needed for Bot Framework endpoint)
+builder.Services.AddControllers();
+
+// Remove obsolete/incorrect Teams adapter registration call
+// builder.Services.AddTeamsCloudAdapter(builder.Configuration.GetSection("BotFramework"));
 
 // --- Register Bot Framework specific services ---
 builder.Services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
-builder.Services.AddSingleton<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
+// Register CloudAdapter as the IBotFrameworkHttpAdapter
+builder.Services.AddSingleton<IBotFrameworkHttpAdapter>(sp =>
+{
+    var auth = sp.GetRequiredService<BotFrameworkAuthentication>();
+    var logger = sp.GetRequiredService<ILogger<CloudAdapter>>(); // Get logger specifically for CloudAdapter
+    return new CloudAdapter(auth, logger);
+});
+// Keep TeamsAdapterConfiguration for potential use by GraphClientService or other components
 builder.Services.Configure<TeamsAdapterConfiguration>(builder.Configuration.GetSection("TeamsAdapter"));
 builder.Services.AddTransient<IBot, TeamsAdapterBot>();
+
+// Register the GraphClientService needed by TeamsGraphFileFetcher
+builder.Services.AddSingleton<GraphClientService>(); 
 
 // --- Platform Abstraction Implementations (Specific to Teams in this ApiService context) ---
 builder.Services.AddSingleton<IPlatformAttachmentFetcher, TeamsGraphFileFetcher>();
 builder.Services.AddSingleton<IPlatformNotifier, TeamsNotifier>();
 
-// --- Registration for OrchestrationService moved to NucleusProcessingServiceExtensions below ---
-
 // --- Development Only Diagnostics ---
 if (builder.Environment.IsDevelopment())
 {
     // Add development-specific services here
-    builder.Services.AddHostedService<ServiceBusSmokeTestService>(); // Register the smoke test service
+    // Conditionally register the smoke test service only if Service Bus is configured
+    if (!string.IsNullOrEmpty(serviceBusConnectionString))
+    {
+        builder.Services.AddHostedService<ServiceBusSmokeTestService>(); 
+    }
 }
 // --- End Development Only Diagnostics ---
 
@@ -135,27 +180,6 @@ public static class NucleusServiceExtensions
         // Register other Nucleus core services here that AREN'T processing specific
         // e.g., configuration models, utility services
         
-        return services;
-    }
-}
-
-// Extension method for registering Nucleus Processing services
-public static class NucleusProcessingServiceExtensions
-{
-    public static IServiceCollection AddNucleusProcessing(this IServiceCollection services, IConfiguration configuration)
-    {
-        // Register the Core Orchestration Service
-        services.AddScoped<IOrchestrationService, OrchestrationService>(); 
-        
-        // Register other processing related services based on Architecture Docs
-        // e.g., services.AddScoped<ISessionManager, SessionManager>();
-        // e.g., services.AddSingleton<IPersonaRepository, PersonaRepository>();
-        // e.g., services.AddScoped<IProcessorRouter, ProcessorRouter>();
-        // e.g., services.AddScoped<IContentExtractor, DefaultContentExtractor>();
-        
-        // Configure options if needed
-        // services.Configure<ProcessingOptions>(configuration.GetSection("Processing"));
-
         return services;
     }
 }

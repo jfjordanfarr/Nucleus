@@ -130,6 +130,7 @@ Nucleus/
 ├── .vs/
 ├── .vscode/
 │   └── launch.json
+├── _LocalData/            # **Purpose:** Stores local development data, such as logs, temporary files, and other ephemeral data.
 ├── AgentOps/              # **Purpose:** Contains files specifically supporting the AI Agent (Cascade) development workflow.
 │   ├── Archive/           # **Purpose:** Stores historical documents from previous agent development sessions.
 │   │   ├── STORY_01_NavigatingEvolvingAILibraries.md

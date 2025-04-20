@@ -367,3 +367,6 @@ Nucleus.ApiService/TempData/
 Nucleus.ApiService/LocalTeamDirectory/
 
 .CodebaseDump.md
+
+# Project-specific untracked data folder
+/_LocalData/

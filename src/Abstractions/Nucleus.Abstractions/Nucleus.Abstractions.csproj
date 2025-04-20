@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -10,5 +10,8 @@
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.4" />
   </ItemGroup>
+
+  <!-- Orchestration Abstractions -->
+  <!-- Removed explicit ItemGroup for Compile Include - rely on SDK implicit includes -->
 
 </Project>

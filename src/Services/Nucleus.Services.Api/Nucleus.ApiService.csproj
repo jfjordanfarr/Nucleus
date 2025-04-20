@@ -22,12 +22,15 @@
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.25207.5" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.11.0" /> <!-- Added for AddAzureClients, latest stable -->
     <PackageReference Include="Microsoft.Identity.Web" Version="2.19.1" /> 
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2"/> 
     <PackageReference Include="Azure.Identity" Version="1.13.1" /> <!-- Updated from 1.12.0 to satisfy Microsoft.Extensions.Azure -->
     <PackageReference Include="Microsoft.Bot.Builder" Version="4.22.7" /> <!-- Updated from 4.22.2 to match resolved Integration pkg -->
     <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.22.7" /> <!-- Updated from 4.22.5 as it wasn't found; 4.22.7 was resolved -->
     <PackageReference Include="Microsoft.Graph" Version="5.54.0" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.0" /> <!-- Updated to match ServiceDefaults -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.2.0" /> <!-- Added version, aligned with ServiceDefaults -->
+    <PackageReference Include="Microsoft.TeamsFx" Version="2.5.0" /> <!-- Corrected package -->
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" /> <!-- Added version -->
   </ItemGroup>
 
   <ItemGroup>
