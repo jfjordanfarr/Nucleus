@@ -2,9 +2,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Microsoft.Extensions.Logging;
-using Nucleus.Abstractions;
-using Nucleus.Abstractions.Models;
+using Microsoft.Extensions.DependencyInjection; // Added for IServiceProvider and GetKeyedService
+using Nucleus.Abstractions.Models; // Used for AdapterRequest, NucleusIngestionRequest, InteractionContext etc.
 using Nucleus.Abstractions.Orchestration;
+using Nucleus.Abstractions.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,16 +28,16 @@ public class OrchestrationService : IOrchestrationService
 {
     private readonly ILogger<OrchestrationService> _logger;
     private readonly IPersonaResolver _personaResolver;
-    private readonly IEnumerable<IPersonaManager> _personaManagers;
+    private readonly IServiceProvider _serviceProvider;
 
     public OrchestrationService(
         ILogger<OrchestrationService> logger,
         IPersonaResolver personaResolver,
-        IEnumerable<IPersonaManager> personaManagers)
+        IServiceProvider serviceProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _personaResolver = personaResolver ?? throw new ArgumentNullException(nameof(personaResolver));
-        _personaManagers = personaManagers ?? throw new ArgumentNullException(nameof(personaManagers));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
     /// <inheritdoc />
@@ -48,16 +49,16 @@ public class OrchestrationService : IOrchestrationService
             request.CorrelationId, request.PlatformType, request.OriginatingUserId, request.OriginatingConversationId);
 
         // Construct AdapterRequest from NucleusIngestionRequest
-        // TODO: Map AttachmentReferences and AdditionalPlatformContext appropriately
+        /// <summary>
+        /// Creates an AdapterRequest instance for processing.
+        /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
+        /// </summary>
         var adapterRequest = new AdapterRequest(
-            PlatformType: request.PlatformType,
-            ConversationId: request.OriginatingConversationId,
-            UserId: request.OriginatingUserId,
-            QueryText: request.TriggeringText ?? string.Empty, // Use TriggeringText for QueryText
-            MessageId: request.OriginatingMessageId,
-            ReplyToMessageId: null, // Not available in NucleusIngestionRequest
-            ArtifactReferences: null, // TODO: Map from request.AttachmentReferences
-            Metadata: request.AdditionalPlatformContext // Direct mapping for now
+            request.CorrelationId,
+            request.OriginatingUserId,
+            request.OriginatingConversationId,
+            request.OriginatingMessageId,
+            request.TriggeringText // or null if not present
         );
 
         try
@@ -65,82 +66,69 @@ public class OrchestrationService : IOrchestrationService
             // Use properties from the constructed adapterRequest for logging
             _logger.LogInformation("Processing ingestion request for conversation {ConversationId}, user {UserId}", adapterRequest.ConversationId, adapterRequest.UserId);
 
-            // 1. Resolve Persona ID
-            // Use the constructed adapterRequest
-            string? resolvedPersonaId = await _personaResolver.ResolvePersonaAsync(adapterRequest, cancellationToken);
-            var interactionContext = new InteractionContext(adapterRequest, resolvedPersonaId); // Use adapterRequest and provide resolvedPersonaId
-
-            // 2. Check Salience with Active Persona Managers
-            // TODO: Consider parallelizing calls to persona managers if performance becomes an issue.
-            string? salientSessionId = null; // Changed name for clarity
-            IPersonaManager? salientManager = null; // Track which manager claimed salience
-
-            foreach (var manager in _personaManagers)
+            // Parse the PlatformType string into the enum
+            if (!Enum.TryParse<PlatformType>(request.PlatformType, ignoreCase: true, out var platformTypeEnum))
             {
-                // Use ResolvedPersonaId (corrected name)
-                _logger.LogTrace("Checking salience with manager {ManagerType} for persona {PersonaId}", manager.GetType().Name, interactionContext.ResolvedPersonaId);
-                var salienceResult = await manager.CheckSalienceAsync(interactionContext, cancellationToken);
-
-                if (salienceResult.IsSalient)
-                {
-                    // Use ResolvedPersonaId (corrected name)
-                    _logger.LogInformation("Request deemed salient by manager {ManagerType} for session {SessionId} and persona {PersonaId}",
-                                       manager.GetType().Name, salienceResult.SessionId, interactionContext.ResolvedPersonaId);
-                    salientSessionId = salienceResult.SessionId;
-                    salientManager = manager;
-                    break; // Assuming first salient manager handles the request
-                }
+                _logger.LogWarning("Invalid PlatformType string '{PlatformTypeString}' received in ingestion request. CorrelationID: {CorrelationId}. Cannot route interaction.", request.PlatformType, request.CorrelationId);
+                return; // Cannot proceed without a valid platform type
             }
 
-            // 3. Process based on Salience
-            if (salientManager != null && !string.IsNullOrEmpty(salientSessionId))
+            // 1. Resolve Persona ID
+            // Pass the parsed PlatformType enum and the constructed AdapterRequest to the resolver
+            string? resolvedPersonaId = await _personaResolver.ResolvePersonaIdAsync(platformTypeEnum, adapterRequest, cancellationToken);
+
+            _logger.LogInformation("[Orchestration] Attempting to resolve IPersonaManager with key: '{ResolvedKey}'. CorrelationID: {CorrelationId}", resolvedPersonaId ?? "(null)", request.CorrelationId);
+
+            // Construct InteractionContext using the original request, parsed platform type enum, and resolved persona ID
+            var interactionContext = new InteractionContext(adapterRequest, platformTypeEnum, resolvedPersonaId);
+
+            // If no persona could be resolved, we cannot proceed.
+            if (string.IsNullOrEmpty(resolvedPersonaId))
             {
-                // TODO: 3a. Request is Salient - Route to the existing session via the salient manager
-                _logger.LogInformation("Routing salient request to existing session {SessionId} managed by {ManagerType}", salientSessionId, salientManager.GetType().Name);
-                // Placeholder: Actual routing logic would involve calling a method on salientManager
-                // await salientManager.ProcessSalientInteractionAsync(interactionContext, salientSessionId, cancellationToken);
-                // For now, just return a placeholder success
+                _logger.LogWarning("No persona resolved for request. CorrelationID: {CorrelationId}. Cannot route interaction.", request.CorrelationId);
+                return; // Or handle as appropriate (e.g., send default non-committal response)
+            }
+
+            // 2. Resolve the specific Persona Manager using the resolved ID as the key
+            var personaManager = _serviceProvider.GetKeyedService<IPersonaManager>(resolvedPersonaId);
+
+            if (personaManager == null)
+            {
+                _logger.LogWarning("No IPersonaManager registered for resolved key: {ResolvedPersonaId}. CorrelationID: {CorrelationId}. Cannot route interaction.", resolvedPersonaId, request.CorrelationId);
+                return; // Or handle as appropriate
+            }
+
+            _logger.LogInformation("Resolved Persona Manager '{ManagerType}' for key '{ResolvedPersonaId}'.", personaManager.GetType().Name, resolvedPersonaId);
+
+            // 3. Check Salience with the resolved Persona Manager
+            var salienceResult = await personaManager.CheckSalienceAsync(interactionContext, cancellationToken);
+
+            // 4. Process based on Salience
+            if (salienceResult.IsSalient)
+            {
+                // 4a. Request is Salient - Route to the existing session via the resolved manager
+                _logger.LogInformation("Routing salient request to existing session {SessionId} managed by {ManagerType}", salienceResult.SessionId, personaManager.GetType().Name);
+                await personaManager.ProcessSalientInteractionAsync(interactionContext, salienceResult.SessionId!, cancellationToken); // SessionId is non-null if IsSalient
                 return;
             }
             else
             {
-                // 4. Not Salient - Evaluate for New Session Initiation
-                _logger.LogInformation("Request not salient to existing sessions. Evaluating for new session initiation.");
-                IPersonaManager? initiatingManager = null;
-                NewSessionEvaluationResult? initiationResult = null;
+                // 5. Not Salient - Evaluate for New Session Initiation with the resolved manager
+                _logger.LogInformation("Request not salient. Evaluating for new session initiation with manager {ManagerType} for persona {PersonaId}", personaManager.GetType().Name, interactionContext.ResolvedPersonaId);
+                var evaluationResult = await personaManager.EvaluateForNewSessionAsync(interactionContext, cancellationToken);
 
-                foreach (var manager in _personaManagers)
+                // 6. Initiate New Session or Reject
+                if (evaluationResult.ShouldInitiate)
                 {
-                    // Use ResolvedPersonaId (corrected name)
-                    _logger.LogTrace("Evaluating new session initiation with manager {ManagerType} for persona {PersonaId}", manager.GetType().Name, interactionContext.ResolvedPersonaId);
-                    var evaluationResult = await manager.EvaluateForNewSessionAsync(interactionContext, cancellationToken);
-
-                    // Use ShouldInitiate (corrected name)
-                    if (evaluationResult.ShouldInitiate)
-                    {
-                        // Use ResolvedPersonaId (corrected name)
-                        _logger.LogInformation("Manager {ManagerType} indicates new session should be initiated for persona {PersonaId}", manager.GetType().Name, interactionContext.ResolvedPersonaId);
-                        initiatingManager = manager;
-                        initiationResult = evaluationResult;
-                        break; // Assuming first manager willing to initiate handles it
-                    }
-                }
-
-                // 5. Initiate New Session or Reject
-                if (initiatingManager != null && initiationResult != null)
-                {
-                    // TODO: 5a. Initiate New Session - Call manager's initiation logic
-                    // Use NewSessionId (corrected name)
-                    _logger.LogInformation("Initiating new session {NewSessionId} via manager {ManagerType}", initiationResult.NewSessionId ?? "(ID TBD)", initiatingManager.GetType().Name);
-                    // Placeholder: Actual initiation logic
-                    // var newSession = await initiatingManager.InitiateNewSessionAsync(interactionContext, cancellationToken);
-                    // For now, just return a placeholder success based on the evaluation
+                    // 6a. Initiate New Session - Call manager's initiation logic
+                    _logger.LogInformation("Initiating new session {NewSessionId} via manager {ManagerType}", evaluationResult.NewSessionId ?? "(ID TBD)", personaManager.GetType().Name);
+                    await personaManager.InitiateNewSessionAsync(interactionContext, cancellationToken);
                     return;
                 }
                 else
                 {
-                    // 5b. No manager wants to initiate - Reject
-                    _logger.LogInformation("No persona manager initiated a new session for this request.");
+                    // 6b. Manager decided not to initiate - Log
+                    _logger.LogInformation("Persona manager {ManagerType} did not initiate a new session for this request.", personaManager.GetType().Name);
                     return;
                 }
             }

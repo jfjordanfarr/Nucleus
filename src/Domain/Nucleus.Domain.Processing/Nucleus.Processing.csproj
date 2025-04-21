@@ -13,8 +13,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0-preview.3.25171.5" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-preview.3.25171.5" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
+    <!-- Removed Microsoft.Extensions.AI.Core -->
+    <!-- Added Microsoft.Extensions.AI -->
+    <!-- <PackageReference Include="Microsoft.Extensions.AI" Version="9.3.0-preview.1.25114.11" /> --> <!-- Downgraded from 9.4.0-preview --> <!-- REMOVED -->
+    <!-- <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.3.0-preview.1.25114.11" /> --> <!-- Added explicit reference --> <!-- REMOVED -->
+    <PackageReference Include="Google.Cloud.AIPlatform.V1" Version="2.22.0" /> <!-- Added for Vertex AI -->
+    <PackageReference Include="Google.Protobuf" Version="3.25.0" /> <!-- Updated explicit reference to satisfy transitive dependency -->
   </ItemGroup>
 
   <ItemGroup>

@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Standardized request payload sent from any client adapter (e.g., Teams, Console, Slack)

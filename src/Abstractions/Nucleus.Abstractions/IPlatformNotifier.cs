@@ -3,6 +3,7 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Nucleus.Abstractions.Models; // For NucleusIngestionRequest XML comment reference
 
 namespace Nucleus.Abstractions;
 

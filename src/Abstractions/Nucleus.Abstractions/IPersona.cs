@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration; // Added for IConfigurationSection
+using Nucleus.Abstractions.Models; // Added for ArtifactMetadata
 
 namespace Nucleus.Abstractions;
 
@@ -11,10 +12,6 @@ namespace Nucleus.Abstractions;
 /// Reference: Docs/Architecture/03_ARCHITECTURE_STORAGE.md
 /// Reference: Docs/Architecture/04_ARCHITECTURE_DATABASE.md
 /// </summary>
-public record ArtifactMetadata(
-    string SourceIdentifier // Unique ID for the original source (e.g., file path, URL, message ID)
-    // TODO: Add other relevant metadata (e.g., OriginalFileName, MimeType, Owner, LastModified)
-);
 
 /// <summary>
 /// Represents the input for persona analysis, containing the standardized content.

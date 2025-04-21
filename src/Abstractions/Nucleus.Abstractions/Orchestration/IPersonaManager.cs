@@ -31,4 +31,23 @@ public interface IPersonaManager
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A result indicating whether a new session should be initiated.</returns>
     Task<NewSessionEvaluationResult> EvaluateForNewSessionAsync(InteractionContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Processes an interaction that has been determined to be salient to an existing session.
+    /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
+    /// </summary>
+    /// <param name="context">The context of the interaction.</param>
+    /// <param name="sessionId">The ID of the existing session the interaction belongs to.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous processing operation.</returns>
+    Task ProcessSalientInteractionAsync(InteractionContext context, string sessionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Initiates a new session based on the interaction context and performs initial processing.
+    /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md
+    /// </summary>
+    /// <param name="context">The context of the interaction triggering session initiation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous session initiation and processing operation. May contain information about the newly created session if applicable.</returns>
+    Task InitiateNewSessionAsync(InteractionContext context, CancellationToken cancellationToken = default);
 }

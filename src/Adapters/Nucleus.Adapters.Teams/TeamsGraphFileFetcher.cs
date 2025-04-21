@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
+using Nucleus.Abstractions.Models;
 using System;
 using System.IO;
 using System.Threading;

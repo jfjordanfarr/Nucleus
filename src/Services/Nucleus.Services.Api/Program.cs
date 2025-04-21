@@ -19,6 +19,13 @@ using Nucleus.ApiService.Infrastructure.Messaging;
 using Nucleus.Services.Api.Infrastructure.Messaging; 
 using Nucleus.ApiService;
 using Nucleus.Domain.Processing;
+using Nucleus.ApiService; // For NucleusServiceExtensions
+using Nucleus.Domain.Processing; // For AddProcessingServices
+// Added for AI and Artifact Provider registration
+using Microsoft.Extensions.AI.Abstractions;
+using Nucleus.Abstractions;
+using Nucleus.Adapters.Console.Services;
+using Nucleus.Domain.Processing.Infrastructure; // Added for Adapter
 
 // *** Obtain logger early for setup logging ***
 using var loggerFactory = LoggerFactory.Create(loggingBuilder => loggingBuilder
@@ -88,7 +95,49 @@ builder.Services.AddProblemDetails();
 
 // Add Nucleus specific services (using extension methods for organization)
 builder.Services.AddNucleusServices(builder.Configuration);
-builder.Services.AddProcessingServices();
+builder.Services.AddProcessingServices(); 
+
+_logger.LogInformation("Registering Core AI and Artifact Services...");
+
+// --- Core AI and Artifact Services --- 
+
+// --- Configure Vertex AI / Gemini --- 
+// Add configuration for VertexAiOptions
+builder.Services.Configure<VertexAiOptions>(builder.Configuration.GetSection(VertexAiOptions.SectionName));
+_logger.LogInformation("Vertex AI Options configured from section: {SectionName}", VertexAiOptions.SectionName);
+
+// Register the official PredictionServiceClient (assuming AddVertexAI or similar was called previously/elsewhere, e.g. AddProcessingServices)
+// If build fails due to missing PredictionServiceClient, add explicit registration here, e.g.:
+// builder.Services.AddPredictionServiceClient(options => { 
+//     options.Endpoint = ... // Configure endpoint if needed, often handled by library defaults + GOOGLE_APPLICATION_CREDENTIALS
+// });
+
+// Register our custom adapter implementing IChatClient using the Vertex AI client
+builder.Services.AddSingleton<IChatClient, VertexAiChatClientAdapter>();
+_logger.LogInformation("Registered VertexAiChatClientAdapter as IChatClient implementation.");
+
+// --- Configure Console Artifact Provider ---
+var localArtifactPath = builder.Configuration.GetValue<string>("Artifacts:Local:BasePath");
+if (string.IsNullOrEmpty(localArtifactPath))
+{
+    _logger.LogWarning("Local artifact base path ('Artifacts:Local:BasePath') not configured. ConsoleArtifactProvider may not function correctly.");
+    // Optionally set a default path if configuration is missing
+    // localArtifactPath = "./_LocalData"; // Example default if needed
+}
+else
+{
+    _logger.LogInformation("Registering ConsoleArtifactProvider with Base Path: {Path}", localArtifactPath);
+}
+
+builder.Services.AddSingleton<IArtifactProvider>(sp => 
+    new ConsoleArtifactProvider(
+        sp.GetRequiredService<ILogger<ConsoleArtifactProvider>>(),
+        localArtifactPath ?? string.Empty // Pass potentially null path
+    )
+);
+
+_logger.LogInformation("Core AI and Artifact Services registered.");
+// --- End Core AI and Artifact Services --- 
 
 // Add services for MVC Controllers (needed for Bot Framework endpoint)
 builder.Services.AddControllers();

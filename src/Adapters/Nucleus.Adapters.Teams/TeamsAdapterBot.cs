@@ -16,6 +16,7 @@ using Nucleus.Abstractions;
 using System; // For DateTimeOffset
 using Newtonsoft.Json.Linq; // For parsing attachment content
 using Microsoft.Extensions.Configuration; // Added
+using Nucleus.Abstractions.Models; // Added for NucleusIngestionRequest, PlatformAttachmentReference
 
 namespace Nucleus.Adapters.Teams
 {

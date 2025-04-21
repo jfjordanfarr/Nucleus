@@ -3,7 +3,7 @@ using System.Net.Http.Json; // Requires Microsoft.Extensions.Http
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Nucleus.Abstractions; // Use Abstractions
+using Nucleus.Abstractions.Models; // Added for AdapterRequest/Response
 
 namespace Nucleus.Console.Services;
 

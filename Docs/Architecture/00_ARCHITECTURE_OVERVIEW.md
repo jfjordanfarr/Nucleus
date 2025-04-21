@@ -112,8 +112,6 @@ graph LR
         DB
         SourceStore[Source Content Store]
     end
-
-    style User fill:#lightblue,stroke:#333,stroke-width:2px
 ```
 
 **Key Components:**

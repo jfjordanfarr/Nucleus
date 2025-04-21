@@ -1,4 +1,4 @@
-using Nucleus.Abstractions.Models; // Assuming PersonaKnowledgeEntry will be in Models
+using Nucleus.Abstractions.Models; // Kept for potential future use or if needed by generics implicitly.
 using System.Collections.Generic;
 using System.Threading.Tasks;
 

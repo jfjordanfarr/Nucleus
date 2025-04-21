@@ -19,6 +19,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.ServiceDiscovery; 
 using Microsoft.Extensions.ServiceDiscovery.Http; 
+using System.Text.RegularExpressions; // Added for regex parsing
 
 public class Program
 {
@@ -50,6 +51,17 @@ public class Program
         // Build the parser from the configured builder
         var parser = commandLineBuilder.Build();
 
+        // --- MODIFICATION: Default to interactive mode if no args --- 
+        if (args.Length == 0)
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("No command specified, starting interactive mode.");
+            var apiAgent = serviceProvider.GetRequiredService<NucleusApiServiceAgent>();
+            await HandleInteractiveAsync(logger, apiAgent);
+            return 0; // Exit cleanly after interactive mode finishes
+        }
+        // --- END MODIFICATION ---
+
         // Invoke the command line application via the parser
         // Note: The host lifecycle isn't automatically managed by System.CommandLine now.
         // We might need to start/stop the host explicitly if needed, but for simple DI resolution it might not be necessary.
@@ -68,8 +80,8 @@ public class Program
         services.AddHttpClient<NucleusApiServiceAgent>(client =>
         {
             // Set the BaseAddress to the service name URI scheme
-            // Service discovery will resolve 'nucleusapi', trying HTTP first
-            client.BaseAddress = new Uri("http://nucleusapi"); 
+            // Service discovery will resolve 'nucleusapi', trying HTTPS first then HTTP.
+            client.BaseAddress = new Uri("https+http://nucleusapi"); 
         })
         .AddServiceDiscovery(); // Add service discovery capabilities
 
@@ -114,7 +126,8 @@ public class Program
         // --- Query Command --- 
         var queryArgument = new Argument<string>("query", "The query text to send.") { Arity = ArgumentArity.ExactlyOne }; 
         var contextOption = new Option<string?>(new[] { "--context", "-c" }, "Optional context identifier (e.g., file path, message ID)."); 
-        var queryCommand = new Command("query", "Send a query to the Nucleus engine.") { queryArgument, contextOption };
+        var filesOption = new Option<FileInfo[]>(new[] { "--files", "-f" }, "Optional files to attach to the query."); 
+        var queryCommand = new Command("query", "Send a query to the Nucleus engine.") { queryArgument, contextOption, filesOption };
 
         // Revert to basic SetHandler with manual resolution inside
         queryCommand.SetHandler(async (InvocationContext context) =>
@@ -122,6 +135,7 @@ public class Program
             // Manually get services and arguments/options
             var queryText = context.ParseResult.GetValueForArgument(queryArgument)!;
             var contextId = context.ParseResult.GetValueForOption(contextOption);
+            var files = context.ParseResult.GetValueForOption(filesOption);
             
             // Resolve services using the passed-in provider
             using var scope = serviceProvider.CreateScope(); // Optional: Use scope if services are scoped
@@ -134,12 +148,30 @@ public class Program
             var artifactProvider = provider.GetRequiredService<IArtifactProvider>();
 
             // Call the static handler method, passing the resolved dependencies
-            await HandleQueryAsync(queryText, contextId, logger, apiAgent, artifactProvider);
+            await HandleQueryAsync(context, logger, apiAgent, artifactProvider, queryText, files);
 
             // Potentially set ExitCode based on handler outcome if needed
             // context.ExitCode = ...;
         });
         rootCommand.AddCommand(queryCommand);
+
+        // --- Interactive Command --- 
+        var interactiveCommand = new Command("interactive", "Start an interactive query session with the Nucleus engine.");
+        interactiveCommand.SetHandler(async (InvocationContext context) =>
+        {
+            // Resolve services using the passed-in provider
+            using var scope = serviceProvider.CreateScope(); // Optional: Use scope if services are scoped
+            var provider = scope.ServiceProvider; // Use scoped provider if scope is created
+            // var provider = serviceProvider; // Use direct provider if services are singleton/transient
+
+            var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
+            var logger = loggerFactory.CreateLogger<Program>(); // Create the specific logger
+            var apiAgent = provider.GetRequiredService<NucleusApiServiceAgent>();
+
+            // Call the static handler method, passing the resolved dependencies
+            await HandleInteractiveAsync(logger, apiAgent);
+        });
+        rootCommand.AddCommand(interactiveCommand);
 
         return rootCommand;
     }
@@ -192,34 +224,44 @@ public class Program
         }
     }
 
-    private static async Task HandleQueryAsync(string queryText, string? contextId, ILogger<Program> logger, NucleusApiServiceAgent apiAgent, IArtifactProvider artifactProvider)
+    private static async Task HandleQueryAsync(InvocationContext context, ILogger<Program> logger, NucleusApiServiceAgent apiAgent, IArtifactProvider artifactProvider, string query, FileInfo[]? files)
     {
-        var sessionId = Guid.NewGuid().ToString();
-        logger.LogInformation("Executing 'query' command. Query: '{QueryText}', ContextId: '{ContextId}', SessionId: {SessionId}", 
-                           queryText, contextId ?? "<none>", sessionId);
+        logger.LogInformation("Handling query: '{Query}'", query);
 
+        // Prepare Artifact References if files are provided
         List<ArtifactReference>? artifactList = null;
-        // If contextId is provided and it's a valid file path, treat it as an artifact
-        if (!string.IsNullOrEmpty(contextId) && File.Exists(contextId))
+        if (files != null && files.Length > 0)
         {
-            if (artifactProvider is ConsoleArtifactProvider consoleProvider) // Keep check for type safety
+            logger.LogInformation("Found {FileCount} file(s) attached to query.", files.Length);
+            artifactList = new List<ArtifactReference>(); // Initialize the list
+            foreach (var file in files)
             {
-                var artifactReference = new ArtifactReference(PlatformType: "Console", ArtifactId: contextId);
-                artifactList = new List<ArtifactReference> { artifactReference };
-                logger.LogInformation("Context ID identified as file path, creating ArtifactReference.");
-            }
-            else
-            {
-                logger.LogWarning("Context ID looks like a file path, but artifact provider is not ConsoleArtifactProvider. Cannot create reference.");
+                if (file.Exists)
+                {
+                    logger.LogDebug("Creating artifact reference for: {FilePath}", file.FullName);
+                    artifactList.Add(new ArtifactReference(
+                        PlatformType: PlatformType.Console, // Corrected: Use enum value
+                        ArtifactId: file.FullName // Corrected: Use full absolute path
+                    ));
+                }
+                else
+                {
+                    logger.LogWarning("Provided file path does not exist, skipping: {FilePath}", file.FullName);
+                }
             }
         }
+
+        // Create Request
+        var sessionId = Guid.NewGuid().ToString();
+        logger.LogInformation("Executing 'query' command. Query: '{QueryText}', SessionId: {SessionId}", 
+                           query, sessionId);
 
         // Prepare AdapterRequest
         var request = new AdapterRequest(
             PlatformType: "Console",
             ConversationId: sessionId, 
             UserId: Environment.UserName,
-            QueryText: queryText,
+            QueryText: query,
             ArtifactReferences: artifactList 
             // ReplyToMessageId could potentially be linked to contextId if it represents a previous message
         );
@@ -231,8 +273,8 @@ public class Program
         // Handle response
         if (response?.Success == true)
         {
-            logger.LogInformation("Query successful. Response: {ResponseMessage}", response.ResponseMessage);
-            Console.WriteLine($"Response: {response.ResponseMessage}");
+            logger.LogInformation("API request acknowledged. Response: {ResponseMessage}", response.ResponseMessage);
+            Console.WriteLine($"API: {response.ResponseMessage}");
 
             // Handle generated artifact if present
             if (response.GeneratedArtifactReference != null && artifactProvider is ConsoleArtifactProvider consoleProvider)
@@ -256,5 +298,132 @@ public class Program
             Console.Error.WriteLine($"Error executing query: {response?.ErrorMessage ?? "Unknown error"}");
             // Environment.ExitCode = 1;
         }
+    }
+
+    private static async Task HandleInteractiveAsync(ILogger<Program> logger, NucleusApiServiceAgent apiAgent)
+    {
+        logger.LogInformation("Nucleus Console Adapter started. Type 'exit' to quit.");
+        logger.LogInformation("You can include local file paths in quotes (e.g., analyze \"C:\\path\\file.txt\")");
+
+        // --- Interactive Loop ---
+        string? sessionId = null; // Keep track of the session across multiple queries
+        // Regex to find quoted strings, handling potential escaped quotes inside
+        var quotedPathRegex = new Regex(@"""([^""\]*(?:\.[^""\]*)*)""", RegexOptions.Compiled);
+
+        while (true)
+        {
+            Console.Write("> ");
+            string? userInput = Console.ReadLine();
+
+            if (string.IsNullOrWhiteSpace(userInput))
+            {
+                continue;
+            }
+
+            if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+            {
+                break;
+            }
+
+            // Use existing session ID or create a new one for the first query
+            sessionId ??= Guid.NewGuid().ToString();
+
+            // --- Parse Input for Query and Files ---
+            string queryText = userInput;
+            List<ArtifactReference>? artifactList = null;
+
+            var matches = quotedPathRegex.Matches(userInput);
+            if (matches.Count > 0)
+            {
+                artifactList = new List<ArtifactReference>();
+                var processedPaths = new HashSet<string>(); // Avoid duplicates if path mentioned twice
+                foreach (Match match in matches.Cast<Match>()) // Use Cast<Match> for type safety
+                {
+                    // Group 1 captures the content inside the quotes
+                    string potentialPath = match.Groups[1].Value;
+                    // Basic check if it looks like a path (optional, could be more robust)
+                    if (!string.IsNullOrWhiteSpace(potentialPath))
+                    {
+                        // Resolve to absolute path
+                        string absolutePath;
+                        try
+                        {
+                            absolutePath = Path.GetFullPath(potentialPath);
+                        }
+                        catch (ArgumentException ex) // Handle invalid path characters
+                        {
+                            logger.LogWarning("Invalid characters in potential path '{Path}', skipping: {Error}", potentialPath, ex.Message);
+                            continue;
+                        }
+                        catch (PathTooLongException ex)
+                        {
+                            logger.LogWarning("Potential path '{Path}' is too long, skipping: {Error}", potentialPath, ex.Message);
+                            continue;
+                        }
+
+                        if (File.Exists(absolutePath) && processedPaths.Add(absolutePath)) // Check existence and avoid duplicates
+                        {
+                            logger.LogDebug("Found file reference in input: {FilePath}", absolutePath);
+                            artifactList.Add(new ArtifactReference(
+                                PlatformType: PlatformType.Console, // Updated from LocalFileSystem
+                                ArtifactId: absolutePath
+                            ));
+                            // Remove the matched quoted string (including quotes) from the query text
+                            queryText = queryText.Replace(match.Value, string.Empty, StringComparison.Ordinal); 
+                        }
+                        else if (!processedPaths.Contains(absolutePath))
+                        {
+                            logger.LogWarning("Quoted text '{Path}' resolved to '{AbsolutePath}' does not exist or is a duplicate, ignoring as file path.", potentialPath, absolutePath);
+                        }
+                    }
+                }
+                // Clean up extra whitespace in query text after removing paths
+                queryText = queryText.Trim(); 
+                if (artifactList.Count == 0) artifactList = null; // Set back to null if no valid files found
+            }
+            // --- End Parsing Logic ---
+
+            try
+            {
+                // Ensure there's still some query text left after removing paths
+                if (string.IsNullOrWhiteSpace(queryText) && (artifactList == null || artifactList.Count == 0))
+                {
+                    logger.LogWarning("Input resulted in empty query after processing file paths. Please provide query text.");
+                    Console.WriteLine("Error: No query text provided after removing file paths.");
+                    continue; 
+                }
+                
+                logger.LogInformation("Sending query: '{Query}' with {ArtifactCount} artifacts.", queryText, artifactList?.Count ?? 0);
+                
+                var request = new AdapterRequest(
+                    PlatformType: "Console",
+                    ConversationId: sessionId,
+                    UserId: Environment.UserName, // Use current user
+                    QueryText: queryText, 
+                    ArtifactReferences: artifactList 
+                );
+
+                var response = await apiAgent.SendInteractionAsync(request);
+
+                if (response != null && response.Success)
+                {
+                    logger.LogInformation("API request acknowledged. Response: {ResponseMessage}", response.ResponseMessage);
+                    Console.WriteLine($"API: {response.ResponseMessage}"); // Show acknowledgement to user
+                }
+                else
+                {
+                    string errorMessage = response?.ErrorMessage ?? "Unknown error from API.";
+                    logger.LogError("API call failed: {ErrorMessage}", errorMessage);
+                    Console.WriteLine($"Error: {errorMessage}");
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "An error occurred while processing input.");
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        }
+
+        logger.LogInformation("Nucleus Console Adapter stopped.");
     }
 }

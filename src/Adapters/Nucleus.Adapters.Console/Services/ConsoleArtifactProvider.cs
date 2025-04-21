@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Microsoft.Extensions.Logging;
+using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions;
 using System;
 using System.IO;

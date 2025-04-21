@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Nucleus.Abstractions.Models; // For NucleusIngestionRequest
 // Removed using Nucleus.Domain.Processing; as it's not needed here.
-using Nucleus.Abstractions; // Added for IOrchestrationService
+using Nucleus.Abstractions.Orchestration; // Corrected namespace for IOrchestrationService
 using System;
 using System.Text.Json;
 using System.Threading;

@@ -10,7 +10,8 @@ var builder = DistributedApplication.CreateBuilder(args);
 //builder.AddDashboard(); // Temporarily commented out due to persistent build errors
 
 // Reference the API service project. We'll refer to it as "nucleusapi" for service discovery.
-var apiService = builder.AddProject<Projects.Nucleus_ApiService>("nucleusapi"); // Corrected Project Name, Set Service Name
+var apiService = builder.AddProject<Projects.Nucleus_ApiService>("nucleusapi") // Corrected Project Name, Set Service Name
+       .WithEndpoint(port: 19110, scheme: "https", name: "httpsExternal", isExternal: true); // Expose a specific HTTPS endpoint
        //.WithReference(serviceBus); // Temporarily remove reference to Service Bus
 
 // Add the console adapter reference

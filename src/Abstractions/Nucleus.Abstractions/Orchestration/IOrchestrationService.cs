@@ -5,7 +5,7 @@ using Nucleus.Abstractions.Models;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Orchestration;
 
 /// <summary>
 /// Defines the contract for the central service responsible for orchestrating

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Represents a response sent from the Nucleus API Service back to a Client Adapter.

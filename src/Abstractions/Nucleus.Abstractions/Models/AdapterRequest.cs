@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Represents a request sent from a Client Adapter to the Nucleus API Service,
