@@ -58,6 +58,7 @@ namespace Nucleus.Adapters.Teams
 
         protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
         {
+            ArgumentNullException.ThrowIfNull(turnContext);
             var activity = turnContext.Activity;
             _logger.LogInformation("Message received (ActivityId: {ActivityId}, ConversationId: {ConversationId}): {Text}", activity.Id, activity.Conversation.Id, activity.Text);
 
@@ -163,7 +164,6 @@ namespace Nucleus.Adapters.Teams
                         }
 
                         // Attempt to parse DriveId from ETag (this is fragile and based on observed patterns)
-                        string? driveId = null;
                         if (!string.IsNullOrWhiteSpace(etag))
                         {
                             // Example ETag: "{GUID},1" for list item, or potentially containing Drive info
@@ -176,25 +176,20 @@ namespace Nucleus.Adapters.Teams
                         }
 
                         var context = new Dictionary<string, string>();
-                        if (!string.IsNullOrWhiteSpace(driveId))
-                        {
-                            context.Add("DriveId", driveId);
-                        }
-                        else
-                        {
-                            // Log if DriveId couldn't be determined - the fetcher will need it.
-                            logger.LogWarning("DriveId could not be determined for attachment {AttachmentName} (DriveItemId: {DriveItemId}). The TeamsGraphFileFetcher might fail unless it can resolve the DriveId from configuration or other context.", attachment.Name, uniqueId);
-                        }
+                        logger.LogWarning("DriveId could not be determined for attachment {AttachmentName} (DriveItemId: {DriveItemId}). The TeamsGraphFileFetcher might fail unless it can resolve the DriveId from configuration or other context.", attachment.Name, uniqueId);
+
+                        // Attempt to create a Uri from the downloadUrl string
+                        Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri? downloadUri);
 
                         references.Add(new PlatformAttachmentReference(
                             PlatformSpecificId: uniqueId, // DriveItem ID
                             FileName: attachment.Name,
                             ContentType: null, // ContentType in main attachment might be misleading, Graph will know.
                             SizeBytes: null, // Not easily available here
-                            DownloadUrlHint: downloadUrl,
+                            DownloadUrlHint: downloadUri, // Pass the Uri object (or null)
                             PlatformContext: context.Any() ? context : null
                         ));
-                        logger.LogInformation("Successfully parsed attachment reference: Name='{Name}', DriveItemId='{DriveItemId}', DriveId='{DriveId}'", attachment.Name, uniqueId, driveId ?? "<Not Found>");
+                        logger.LogInformation("Successfully parsed attachment reference: Name='{Name}', DriveItemId='{DriveItemId}', DriveId='<Not Found>'", attachment.Name, uniqueId);
                     }
                     catch (Exception ex)
                     {
@@ -213,6 +208,9 @@ namespace Nucleus.Adapters.Teams
 
         protected override async Task OnMembersAddedAsync(IList<ChannelAccount> membersAdded, ITurnContext<IConversationUpdateActivity> turnContext, CancellationToken cancellationToken)
         {
+            ArgumentNullException.ThrowIfNull(membersAdded);
+            ArgumentNullException.ThrowIfNull(turnContext);
+
             var welcomeText = "Hello and welcome to the Nucleus OmniRAG Teams Adapter Prototype!";
             foreach (var member in membersAdded)
             {

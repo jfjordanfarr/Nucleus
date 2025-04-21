@@ -103,7 +103,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>
     /// <summary>
     /// Vector embedding of the AnalysisSummary.
     /// </summary>
-    public float[]? AnalysisSummaryEmbedding { get; init; }
+    public IReadOnlyList<float>? AnalysisSummaryEmbedding { get; init; }
 
     /// <summary>
     /// The model used to generate the AnalysisSummaryEmbedding.
@@ -132,7 +132,7 @@ public record RelevantSnippet
     /// <summary>
     /// Vector embedding of the text snippet.
     /// </summary>
-    public required float[] Embedding { get; init; }
+    public required IReadOnlyList<float> Embedding { get; init; }
 
     /// <summary>
     /// The model used to generate the embedding.

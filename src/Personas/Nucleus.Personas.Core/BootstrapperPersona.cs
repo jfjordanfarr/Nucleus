@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging; // For ILogger
 using Microsoft.Extensions.Caching.Memory; // Added for IMemoryCache
 using Nucleus.Abstractions; // For IPersona, UserQuery, PersonaQueryResult
 using Nucleus.Personas.Core; // Added correct namespace for EmptyAnalysisData
-using Nucleus.Domain.Processing.Infrastructure; // Added for VertexAiChatClientAdapter
+using Nucleus.Domain.Processing.Infrastructure; // Added for GoogleAiChatClientAdapter
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,12 +16,12 @@ namespace Nucleus.Personas.Core;
 
 /// <summary>
 /// A simple persona used during application startup or for basic interactions.
-/// It demonstrates direct interaction with the configured AI model via VertexAiChatClientAdapter.
+/// It demonstrates direct interaction with the configured AI model via GoogleAiChatClientAdapter.
 /// It does not perform complex analysis or maintain long-term state beyond the current query context.
 /// </summary>
 public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 {
-    private readonly VertexAiChatClientAdapter _vertexAiAdapter;
+    private readonly GoogleAiChatClientAdapter _googleAiAdapter;
     private readonly ILogger<BootstrapperPersona> _logger;
     private readonly IMemoryCache _memoryCache;
 
@@ -37,12 +37,12 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     /// <summary>
     /// Initializes a new instance of the <see cref="BootstrapperPersona"/> class.
     /// </summary>
-    /// <param name="vertexAiAdapter">The Vertex AI adapter for interacting with the AI model.</param>
+    /// <param name="googleAiAdapter">The Google AI adapter for interacting with the AI model.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="memoryCache">In-memory cache for temporary data storage.</param>
-    public BootstrapperPersona(VertexAiChatClientAdapter vertexAiAdapter, ILogger<BootstrapperPersona> logger, IMemoryCache memoryCache)
+    public BootstrapperPersona(GoogleAiChatClientAdapter googleAiAdapter, ILogger<BootstrapperPersona> logger, IMemoryCache memoryCache)
     {
-        _vertexAiAdapter = vertexAiAdapter ?? throw new ArgumentNullException(nameof(vertexAiAdapter));
+        _googleAiAdapter = googleAiAdapter ?? throw new ArgumentNullException(nameof(googleAiAdapter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
@@ -50,11 +50,13 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     /// <inheritdoc />
     /// <remarks>
     /// This implementation uses the provided <paramref name="contextContent"/> as system context
-    /// before sending the user's query to the AI model via VertexAiChatClientAdapter.
+    /// before sending the user's query to the AI model via GoogleAiChatClientAdapter.
     /// </remarks>
     /// <seealso cref="PersonaQueryResult"/>
     public async Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, string? contextContent, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(query);
+
         _logger.LogInformation("Handling query for user {UserId} via {PersonaId}: '{QueryText}' (Context Provided: {ContextProvided})",
             query.UserId, PersonaId, query.QueryText, !string.IsNullOrEmpty(contextContent));
 
@@ -72,16 +74,16 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
                 _logger.LogDebug("No context provided.");
             }
 
-            _logger.LogDebug("Sending prompt to Vertex AI service. Prompt length: {PromptLength}.", prompt.Length);
-            string aiResponse = await _vertexAiAdapter.GetCompletionAsync(prompt, cancellationToken);
+            _logger.LogDebug("Sending prompt to Google AI service. Prompt length: {PromptLength}.", prompt.Length);
+            string aiResponse = await _googleAiAdapter.GetCompletionAsync(prompt, cancellationToken);
 
-            _logger.LogInformation("Received response from Vertex AI. Length: {ResponseLength}.", aiResponse.Length);
-            return new PersonaQueryResult(aiResponse);
+            _logger.LogInformation("Received response from Google AI. Length: {ResponseLength}.", aiResponse.Length);
+            return new PersonaQueryResult(aiResponse, new List<string>());
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error handling query in BootstrapperPersona.");
-            return new PersonaQueryResult($"Error: {ex.Message}");
+            return new PersonaQueryResult($"Error: {ex.Message}", new List<string>());
         }
     }
 
@@ -98,7 +100,7 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 
     /// <inheritdoc />
     /// <remarks>BootstrapperPersona does not perform analysis.</remarks>
-    public Task<EmptyAnalysisData?> AnalyzeInputAsync(UserQuery query, string? contextContent, CancellationToken cancellationToken = default)
+    public static Task<EmptyAnalysisData?> AnalyzeInputAsync(UserQuery query, string? contextContent, CancellationToken cancellationToken = default)
     {
         // This persona doesn't perform analysis, returns null.
         return Task.FromResult<EmptyAnalysisData?>(null);
@@ -106,7 +108,7 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 
     /// <inheritdoc />
     /// <remarks>BootstrapperPersona does not generate distinct plans.</remarks>
-    public Task<string?> GeneratePlanAsync(UserQuery query, EmptyAnalysisData? analysisData, string? contextContent, CancellationToken cancellationToken = default)
+    public static Task<string?> GeneratePlanAsync(UserQuery query, EmptyAnalysisData? analysisData, string? contextContent, CancellationToken cancellationToken = default)
     {
         // This persona doesn't generate plans, returns null.
         return Task.FromResult<string?>(null);

@@ -63,7 +63,10 @@ The primary target deployment uses Azure Container Apps and supporting Azure ser
 
 See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md#5-high-level-codebase-structure-conceptual) for the conceptual codebase structure.
 
-### Directory Structure With Justification for Each File or Directory
+
+## - Project Structure & File Census
+
+This section provides a comprehensive listing of the files and directories within the Nucleus project, derived from the `tree_gitignore.py` script output. It serves as a persistent context for the AI, detailing the purpose of each significant file and project component.
 
 *   **Root Directory:** `Nucleus/` (D:\Projects\Nucleus)
 
@@ -188,26 +191,26 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
     *   `Nucleus.AppHost.csproj`: C# project file for the Aspire AppHost.
     *   `Program.cs`: Main entry point for the Aspire AppHost, defines service orchestration.
 
-### 6.2 - Source Code (`src/`)
+### Source Code (`src/`)
 
 *   `src/`: Root directory for all primary source code.
     *   `Abstractions/`: Projects defining interfaces, DTOs, and core models.
         *   `Nucleus.Abstractions/`: Main abstractions project.
             *   `Models/`: Data Transfer Objects (DTOs) and simple models.
+                *   `Configuration/`: Configuration model classes.
+                    *   `GoogleAiOptions.cs`: Configuration options for the Google AI (Gemini) client.
                 *   `AdapterRequest.cs`: Represents an incoming request from a client adapter.
                 *   `AdapterResponse.cs`: Represents a response sent back to a client adapter.
                 *   `ArtifactMetadata.cs`: Metadata associated with an ingested artifact.
-                *   `ArtifactReference.cs`: Reference to an artifact (e.g., a file attachment).
-                *   `IOrchestrationService.cs`: Interface for the main orchestration service.
                 *   `NucleusIngestionRequest.cs`: Represents a request to ingest data.
                 *   `PlatformAttachmentReference.cs`: Platform-specific reference to an attachment.
                 *   `PlatformType.cs`: Enum defining supported client platforms.
             *   `Orchestration/`: Interfaces related to request processing and orchestration.
                 *   `InteractionContext.cs`: Holds context during interaction processing.
+                *   `IOrchestrationService.cs`: Interface for the main orchestration service.
                 *   `IPersonaManager.cs`: Interface for managing personas.
                 *   `IPersonaResolver.cs`: Interface for resolving which persona to use.
                 *   `NewSessionEvaluationResult.cs`: Result of evaluating if a new session is needed.
-                *   `SalienceCheckResult.cs`: Result of checking message salience.
             *   `Repositories/`: Interfaces defining data access patterns.
                 *   `IArtifactMetadataRepository.cs`: Repository for artifact metadata.
                 *   `IPersonaKnowledgeRepository.cs`: Repository for persona-specific knowledge.
@@ -235,6 +238,8 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
     *   `DataAccess/`: (Currently Empty) Parent directory for data persistence logic projects.
     *   `Domain/`: Projects containing core business logic.
         *   `Nucleus.Domain.Processing/`: Central domain services project.
+            *   `Infrastructure/`: Infrastructure-specific implementations used by the domain.
+                *   `GoogleAiChatClientAdapter.cs`: Adapter for interacting with the Google AI Chat service (Mscc.GenerativeAI).
             *   `Resources/`: Embedded resource files.
                 *   `Dataviz/`: Resources for the Dataviz HTML builder.
                     *   `dataviz_plotly_script.py`: Python script (likely for Plotly generation, used by builder).
@@ -242,11 +247,8 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
                     *   `dataviz_styles.css`: CSS styles for the dataviz HTML output.
                     *   `dataviz_template.html`: HTML template file used by `DatavizHtmlBuilder`.
                     *   `dataviz_worker.js`: Web worker script for dataviz processing.
-            *   `Services/`: Domain-specific services.
-                *   `DatavizHtmlBuilder.cs`: Service to generate HTML data visualizations.
-            *   `DefaultPersonaManager.cs`: Default implementation of `IPersonaManager`.
             *   `DefaultPersonaResolver.cs`: Default implementation of `IPersonaResolver`.
-            *   `Nucleus.Processing.csproj`: C# project file for Domain Processing. (Consider renaming to Nucleus.Domain.Processing.csproj for consistency).
+            *   `Nucleus.Processing.csproj`: C# project file for Domain Processing.
             *   `OrchestrationService.cs`: Implements `IOrchestrationService`, coordinating request processing.
             *   `ServiceCollectionExtensions.cs`: Extension methods for dependency injection registration.
     *   `Features/`: (Currently Empty) Parent directory for potential feature-specific modules.
@@ -261,7 +263,6 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
             *   `Nucleus.ServiceDefaults.csproj`: C# project file for Service Defaults.
         *   `Nucleus.Services.Api/`: The main backend API service project.
             *   `Configuration/`: Configuration-related classes.
-                *   `GeminiOptions.cs`: Options class for configuring Google Gemini settings.
             *   `Controllers/`: API controllers handling incoming HTTP requests.
                 *   `InteractionController.cs`: Controller handling core user interactions.
             *   `Diagnostics/`: Services related to diagnostics and health checks.
@@ -271,6 +272,7 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
                     *   `AzureServiceBusPublisher.cs`: Implements `IMessageQueuePublisher` using Azure Service Bus.
                     *   `NullMessageQueuePublisher.cs`: No-op implementation of `IMessageQueuePublisher`.
                     *   `ServiceBusQueueConsumerService.cs`: Background service for consuming messages from Azure Service Bus.
+                *   `NullArtifactProvider.cs`: No-op implementation of `IArtifactProvider` for API service context.
             *   `Properties/`: Project properties.
                 *   `launchSettings.json`: Debug launch profiles for the API service.
             *   `AdapterWithErrorHandler.cs`: Bot Framework adapter wrapper with error handling.
@@ -279,7 +281,7 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
             *   `Nucleus.ApiService.csproj`: C# project file for the API Service.
             *   `Program.cs`: Main entry point for the API service, configures ASP.NET Core host.
 
-### 6.3 - Testing (`tests/`)
+### Testing (`tests/`)
 
 *   `tests/`: Root directory for all test projects.
     *   `Adapters/`: Test projects for client adapters.
@@ -289,7 +291,7 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
             *   `test_ingest_agent_api.ps1`: PowerShell script likely used for integration/e2e testing of ingestion via console.
             *   `test_query_agent_api.ps1`: PowerShell script likely used for integration/e2e testing of queries via console.
 
-### 6.4 - Root Files
+### Root Files
 
 *   `.editorconfig`: Defines coding styles enforced by editors.
 *   `.gitattributes`: Defines attributes for paths in Git.

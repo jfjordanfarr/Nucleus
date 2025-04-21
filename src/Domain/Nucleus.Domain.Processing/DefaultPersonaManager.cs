@@ -25,7 +25,7 @@ public class DefaultPersonaManager : IPersonaManager
 
     private readonly ILogger<DefaultPersonaManager> _logger;
     private readonly IServiceProvider _serviceProvider;
-    private readonly VertexAiChatClientAdapter _vertexAiAdapter;
+    private readonly GoogleAiChatClientAdapter _googleAiAdapter;
     private readonly IArtifactProvider _artifactProvider;
 
     // TODO: Replace this placeholder with a meaningful type ID for a concrete persona.
@@ -34,18 +34,20 @@ public class DefaultPersonaManager : IPersonaManager
     public DefaultPersonaManager(
         ILogger<DefaultPersonaManager> logger,
         IServiceProvider serviceProvider,
-        VertexAiChatClientAdapter vertexAiAdapter,
+        GoogleAiChatClientAdapter googleAiAdapter,
         IArtifactProvider artifactProvider)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        _vertexAiAdapter = vertexAiAdapter ?? throw new ArgumentNullException(nameof(vertexAiAdapter));
+        _googleAiAdapter = googleAiAdapter ?? throw new ArgumentNullException(nameof(googleAiAdapter));
         _artifactProvider = artifactProvider ?? throw new ArgumentNullException(nameof(artifactProvider));
     }
 
     /// <inheritdoc />
     public Task<SalienceCheckResult> CheckSalienceAsync(InteractionContext context, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         _logger.LogDebug("DefaultPersonaManager ({ManagedPersonaTypeId}) checking salience for request {MessageId}. Returning NotSalient.", ManagedPersonaTypeId, context.OriginalRequest.MessageId ?? "N/A");
         // TODO: Implement actual logic to check salience against active sessions managed by this instance.
         // This would involve checking internal session state (e.g., in-memory dictionary) and potentially LLM checks.
@@ -55,6 +57,8 @@ public class DefaultPersonaManager : IPersonaManager
     /// <inheritdoc />
     public Task<NewSessionEvaluationResult> EvaluateForNewSessionAsync(InteractionContext context, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(context);
+
         var newSessionId = Guid.NewGuid().ToString();
         _logger.LogInformation("DefaultPersonaManager ({ManagedPersonaTypeId}) deciding to initiate new session {NewSessionId} for request {MessageId}.", ManagedPersonaTypeId, newSessionId, context.OriginalRequest.MessageId ?? "N/A");
         // TODO: Implement logic to determine if a new session *should* be initiated based on context.
@@ -75,7 +79,9 @@ public class DefaultPersonaManager : IPersonaManager
     /// <inheritdoc />
     public async Task InitiateNewSessionAsync(InteractionContext context, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Initiating new session for request ID: {RequestId}", context.OriginalRequest.MessageId);
+        ArgumentNullException.ThrowIfNull(context);
+
+        _logger.LogInformation("Initiating NEW session for request ID: {RequestId}", context.OriginalRequest.MessageId);
 
         // --- 1. Extract Initial Prompt/Query --- 
         // TODO: Refine how the initial prompt is determined (e.g., from specific properties or parsing content)
@@ -92,7 +98,7 @@ public class DefaultPersonaManager : IPersonaManager
         string artifactContent = string.Empty;
 
         // Fetch Artifact Content (if references exist)
-        if (artifactReferences != null && artifactReferences.Any())
+        if (artifactReferences.Any()) 
         {
             // TODO: Handle multiple artifacts? For now, take the first.
             var firstRef = artifactReferences.First();
@@ -136,13 +142,13 @@ public class DefaultPersonaManager : IPersonaManager
         var combinedPrompt = promptBuilder.ToString();
         _logger.LogDebug("Constructed LLM Prompt:\n{Prompt}", combinedPrompt);
 
-        // --- 3. Call LLM via VertexAiChatClientAdapter --- 
+        // --- 3. Call LLM via GoogleAiChatClientAdapter --- 
         try
         {
-            _logger.LogInformation("Sending request to Vertex AI Adapter...");
-            // Use the injected VertexAiChatClientAdapter
-            string responseText = await _vertexAiAdapter.GetCompletionAsync(combinedPrompt, cancellationToken);
-            _logger.LogInformation("Received response from Vertex AI Adapter ({Length} chars).", responseText.Length);
+            _logger.LogInformation("Sending request to Google AI Adapter...");
+            // Use the injected GoogleAiChatClientAdapter
+            string responseText = await _googleAiAdapter.GetCompletionAsync(combinedPrompt, cancellationToken);
+            _logger.LogInformation("Received response from Google AI Adapter ({Length} chars).", responseText.Length);
             
             // --- 4. Process Response (TODO) ---
             // Handle the response, potentially update context, notify user, etc.

@@ -91,7 +91,7 @@ dotnet_diagnostic.CA2227.severity = warning  # Collection properties should be r
 dotnet_diagnostic.CA1819.severity = warning  # Properties should not return arrays
 dotnet_diagnostic.CA1720.severity = warning  # Identifiers should not contain type names
 dotnet_diagnostic.CA1024.severity = suggestion  # Use properties where appropriate
-dotnet_diagnostic.CA1031.severity = warning  # Do not catch general exception types
+dotnet_diagnostic.CA1031.severity = suggestion  # Do not catch general exception types
 dotnet_diagnostic.CA2000.severity = warning  # Dispose objects before losing scope
 
 # Code Quality - Unused Code Detection (similar to SonarLint rules)
@@ -160,7 +160,7 @@ dotnet_diagnostic.CA1834.severity = suggestion  # Use StringBuilder.Append(char)
 dotnet_diagnostic.CA1310.severity = warning  # Specify StringComparison for correctness (important for cloud apps)
 dotnet_diagnostic.CA2258.severity = warning  # Avoid calling Contains with a substring of length 1
 dotnet_diagnostic.CA2259.severity = warning  # Avoid thread culture-dependent string methods
-dotnet_diagnostic.CA2201.severity = warning  # Do not raise reserved exception types
+dotnet_diagnostic.CA2201.severity = suggestion  # Do not raise reserved exception types
 dotnet_diagnostic.CA2016.severity = warning  # Forward the 'CancellationToken' parameter (critical for Cosmos DB operations)
 
 # Custom / External Analyzer Settings

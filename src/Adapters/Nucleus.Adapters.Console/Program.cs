@@ -52,6 +52,7 @@ public class Program
         var parser = commandLineBuilder.Build();
 
         // --- MODIFICATION: Default to interactive mode if no args --- 
+        ArgumentNullException.ThrowIfNull(args); // Add null check here
         if (args.Length == 0)
         {
             var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
@@ -79,11 +80,9 @@ public class Program
 
         services.AddHttpClient<NucleusApiServiceAgent>(client =>
         {
-            // Set the BaseAddress to the service name URI scheme
-            // Service discovery will resolve 'nucleusapi', trying HTTPS first then HTTP.
-            client.BaseAddress = new Uri("https+http://nucleusapi"); 
-        })
-        .AddServiceDiscovery(); // Add service discovery capabilities
+            // Set the BaseAddress to the direct URL of the API service
+            client.BaseAddress = new Uri("https://localhost:19110"); 
+        });
 
         services.AddSingleton<IArtifactProvider, ConsoleArtifactProvider>();
     }
@@ -240,7 +239,7 @@ public class Program
                 {
                     logger.LogDebug("Creating artifact reference for: {FilePath}", file.FullName);
                     artifactList.Add(new ArtifactReference(
-                        PlatformType: PlatformType.Console, // Corrected: Use enum value
+                        PlatformType: PlatformType.Console.ToString(), // Corrected: Use enum value string representation
                         ArtifactId: file.FullName // Corrected: Use full absolute path
                     ));
                 }
@@ -308,7 +307,8 @@ public class Program
         // --- Interactive Loop ---
         string? sessionId = null; // Keep track of the session across multiple queries
         // Regex to find quoted strings, handling potential escaped quotes inside
-        var quotedPathRegex = new Regex(@"""([^""\]*(?:\.[^""\]*)*)""", RegexOptions.Compiled);
+        // Corrected pattern: Escaped the backslash inside the character class []
+        var quotedPathRegex = new Regex(@"""([^""\\]*(?:\\.[^""\\]*)*)""", RegexOptions.Compiled);
 
         while (true)
         {
@@ -365,7 +365,7 @@ public class Program
                         {
                             logger.LogDebug("Found file reference in input: {FilePath}", absolutePath);
                             artifactList.Add(new ArtifactReference(
-                                PlatformType: PlatformType.Console, // Updated from LocalFileSystem
+                                PlatformType: PlatformType.Console.ToString(), // Updated from LocalFileSystem & added .ToString()
                                 ArtifactId: absolutePath
                             ));
                             // Remove the matched quoted string (including quotes) from the query text

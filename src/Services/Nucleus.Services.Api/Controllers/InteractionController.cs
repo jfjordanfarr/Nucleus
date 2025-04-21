@@ -38,13 +38,14 @@ public class InteractionController : ControllerBase
     [HttpPost("process")]
     public async Task<IActionResult> ProcessInteraction([FromBody] AdapterRequest request)
     {
-        _logger.LogInformation("Received interaction request for Platform: {PlatformType}, Conversation: {ConversationId}", 
-            request.PlatformType, request.ConversationId);
-
+        // Null check must happen before accessing request properties
         if (request == null)
         {
-            return BadRequest("Request body cannot be null.");
+            throw new ArgumentNullException(nameof(request));
         }
+        
+        _logger.LogInformation("Received interaction request for Platform: {PlatformType}, Conversation: {ConversationId}", 
+            request.PlatformType, request.ConversationId);
 
         try
         {

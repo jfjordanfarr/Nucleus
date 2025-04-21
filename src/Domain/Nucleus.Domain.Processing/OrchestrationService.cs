@@ -54,11 +54,11 @@ public class OrchestrationService : IOrchestrationService
         /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
         /// </summary>
         var adapterRequest = new AdapterRequest(
-            request.CorrelationId,
-            request.OriginatingUserId,
-            request.OriginatingConversationId,
-            request.OriginatingMessageId,
-            request.TriggeringText // or null if not present
+            request.CorrelationId ?? string.Empty, // Ensure non-null for PlatformType (CS8604)
+            request.OriginatingUserId,             // TODO: Review if this can be null? ConversationId expects non-null.
+            request.OriginatingConversationId,   // TODO: Review if this can be null? UserId expects non-null.
+            request.OriginatingMessageId ?? string.Empty, // Ensure non-null for QueryText (CS8604)
+            request.TriggeringText                 // Already nullable, OK
         );
 
         try

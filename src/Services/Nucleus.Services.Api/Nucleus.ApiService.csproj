@@ -36,7 +36,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Google_GenerativeAI" Version="2.1.4" /> 
+    <!-- Replaced official Google package with Mscc.GenerativeAI -->
+    <PackageReference Include="Mscc.GenerativeAI" Version="2.5.0" /> 
   </ItemGroup>
 
 </Project>

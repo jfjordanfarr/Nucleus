@@ -39,7 +39,7 @@ public record ArtifactMetadata
     /// This might be temporary or change over time (e.g., SharePoint versioned links).
     /// </summary>
     [JsonPropertyName("sourceUri")]
-    public required string SourceUri { get; init; }
+    public required System.Uri SourceUri { get; init; }
 
     /// <summary>
     /// The ID of the tenant owning or associated with this artifact.
@@ -138,13 +138,13 @@ public record ArtifactMetadata
     /// Used to link to PersonaKnowledgeEntry records.
     /// </summary>
     [JsonPropertyName("analyzedByPersonaIds")]
-    public List<string> AnalyzedByPersonaIds { get; set; } = [];
+    public IList<string> AnalyzedByPersonaIds { get; init; } = [];
 
     /// <summary>
     /// Vector embedding of the artifact's summary or title for similarity searches.
     /// </summary>
     [JsonPropertyName("summaryEmbedding")]
-    public float[]? SummaryEmbedding { get; set; }
+    public IReadOnlyList<float>? SummaryEmbedding { get; set; }
 
     /// <summary>
     /// The model used to generate the summaryEmbedding.

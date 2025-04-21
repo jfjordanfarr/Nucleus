@@ -31,6 +31,7 @@ namespace Nucleus.Adapters.Teams
 
         public GraphClientService(IOptions<TeamsAdapterConfiguration> configOptions, ILogger<GraphClientService> logger)
         {
+            ArgumentNullException.ThrowIfNull(configOptions);
             _logger = logger;
             _config = configOptions.Value;
 
@@ -45,7 +46,8 @@ namespace Nucleus.Adapters.Teams
         }
 
         // Renamed for clarity - initializes and returns the client
-        private async Task<GraphServiceClient> EnsureGraphClientInitializedAsync()
+        // Made synchronous as no await calls were present (CS1998)
+        private GraphServiceClient EnsureGraphClientInitialized()
         {
             if (_graphClient != null) return _graphClient;
 
@@ -85,7 +87,7 @@ namespace Nucleus.Adapters.Teams
         {
             try
             {
-                var client = await EnsureGraphClientInitializedAsync(); // Use updated init method name
+                var client = EnsureGraphClientInitialized(); // Remove await, use updated method name
                 _logger.LogInformation("Attempting to list files for Team ID: {TeamId}. Path: '{Path}'", _config.TargetTeamId, _config.TargetSharePointLibraryPath);
 
                 // 1. Get the Drive associated with the Team (Group)
@@ -207,7 +209,7 @@ namespace Nucleus.Adapters.Teams
 
             try
             {
-                var client = await EnsureGraphClientInitializedAsync();
+                var client = EnsureGraphClientInitialized(); // Remove await, use updated method name
                 _logger.LogInformation("Attempting to download content for DriveItem ID: {DriveItemId} in Drive ID: {DriveId}", driveItemId, driveId);
 
                 // 1. Get DriveItem metadata first to retrieve filename and content type

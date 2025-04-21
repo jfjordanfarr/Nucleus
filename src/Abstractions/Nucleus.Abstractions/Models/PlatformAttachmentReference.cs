@@ -40,7 +40,7 @@ public record PlatformAttachmentReference(
     /// This might be used by the fetcher as an optimization but shouldn't be solely relied upon.
     /// Examples: Discord CDN URL, Graph `@microsoft.graph.downloadUrl`.
     /// </summary>
-    string? DownloadUrlHint,
+    System.Uri? DownloadUrlHint,
 
     /// <summary>
     /// Optional: A dictionary containing any additional context required by the specific

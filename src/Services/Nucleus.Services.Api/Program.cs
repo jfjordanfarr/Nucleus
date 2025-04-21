@@ -6,26 +6,24 @@ using Microsoft.Bot.Builder.BotFramework;
 using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.DependencyInjection; // Added for AddGoogleAI extension method
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.ServiceDiscovery; 
 using Microsoft.Graph;
 using Microsoft.Identity.Web;
+using Mscc.GenerativeAI; // Added for AddGoogleAI extension method
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Adapters.Teams;
 using Nucleus.ApiService.Diagnostics;
 using Nucleus.ApiService.Infrastructure.Messaging;
 using Nucleus.Services.Api.Infrastructure.Messaging; 
-using Nucleus.ApiService;
-using Nucleus.Domain.Processing;
 using Nucleus.ApiService; // For NucleusServiceExtensions
 using Nucleus.Domain.Processing; // For AddProcessingServices
-// Added for AI and Artifact Provider registration
-using Microsoft.Extensions.AI.Abstractions;
-using Nucleus.Abstractions;
-using Nucleus.Adapters.Console.Services;
 using Nucleus.Domain.Processing.Infrastructure; // Added for Adapter
+using Nucleus.Services.Api.Infrastructure; // Added for NullArtifactProvider
 
 // *** Obtain logger early for setup logging ***
 using var loggerFactory = LoggerFactory.Create(loggingBuilder => loggingBuilder
@@ -99,44 +97,43 @@ builder.Services.AddProcessingServices();
 
 _logger.LogInformation("Registering Core AI and Artifact Services...");
 
+// Define a temporary class to hold Google AI configuration
+/* // REMOVED Local definition
+public class GoogleAiOptions
+{
+    public const string SectionName = "AI:GoogleAI";
+    public string ApiKey { get; set; } = string.Empty;
+    public string ModelId { get; set; } = string.Empty;
+}
+*/
+
+// -------------------- Google AI (Gemini via Mscc) Configuration -------------------- 
+
+// Attempt to bind configuration
+var googleAiOptions = new GoogleAiOptions();
+builder.Configuration.GetSection(GoogleAiOptions.SectionName).Bind(googleAiOptions);
+
+// Validate mandatory options
+if (string.IsNullOrWhiteSpace(googleAiOptions.ApiKey))
+{
+    _logger.LogError("Google AI (Gemini via Mscc) configuration is missing required ApiKey.");
+    throw new Exception("Google AI (Gemini via Mscc) configuration is missing required ApiKey.");
+}
+
 // --- Core AI and Artifact Services --- 
 
-// --- Configure Vertex AI / Gemini --- 
-// Add configuration for VertexAiOptions
-builder.Services.Configure<VertexAiOptions>(builder.Configuration.GetSection(VertexAiOptions.SectionName));
-_logger.LogInformation("Vertex AI Options configured from section: {SectionName}", VertexAiOptions.SectionName);
+// --- Configure Google AI (Gemini via Mscc.GenerativeAI) ---
+builder.Services.Configure<GoogleAiOptions>(builder.Configuration.GetSection(GoogleAiOptions.SectionName));
+_logger.LogInformation("Google AI (Mscc) Options configured from section: {SectionName}", GoogleAiOptions.SectionName);
 
-// Register the official PredictionServiceClient (assuming AddVertexAI or similar was called previously/elsewhere, e.g. AddProcessingServices)
-// If build fails due to missing PredictionServiceClient, add explicit registration here, e.g.:
-// builder.Services.AddPredictionServiceClient(options => { 
-//     options.Endpoint = ... // Configure endpoint if needed, often handled by library defaults + GOOGLE_APPLICATION_CREDENTIALS
-// });
+// Register our custom adapter 
+builder.Services.AddSingleton<GoogleAiChatClientAdapter>(); 
+_logger.LogInformation("Registered custom chat adapter GoogleAiChatClientAdapter.");
 
-// Register our custom adapter implementing IChatClient using the Vertex AI client
-builder.Services.AddSingleton<IChatClient, VertexAiChatClientAdapter>();
-_logger.LogInformation("Registered VertexAiChatClientAdapter as IChatClient implementation.");
+// Register a Null provider for the API service context
+builder.Services.AddSingleton<IArtifactProvider, NullArtifactProvider>();
+_logger.LogInformation("Registered NullArtifactProvider for API service context.");
 
-// --- Configure Console Artifact Provider ---
-var localArtifactPath = builder.Configuration.GetValue<string>("Artifacts:Local:BasePath");
-if (string.IsNullOrEmpty(localArtifactPath))
-{
-    _logger.LogWarning("Local artifact base path ('Artifacts:Local:BasePath') not configured. ConsoleArtifactProvider may not function correctly.");
-    // Optionally set a default path if configuration is missing
-    // localArtifactPath = "./_LocalData"; // Example default if needed
-}
-else
-{
-    _logger.LogInformation("Registering ConsoleArtifactProvider with Base Path: {Path}", localArtifactPath);
-}
-
-builder.Services.AddSingleton<IArtifactProvider>(sp => 
-    new ConsoleArtifactProvider(
-        sp.GetRequiredService<ILogger<ConsoleArtifactProvider>>(),
-        localArtifactPath ?? string.Empty // Pass potentially null path
-    )
-);
-
-_logger.LogInformation("Core AI and Artifact Services registered.");
 // --- End Core AI and Artifact Services --- 
 
 // Add services for MVC Controllers (needed for Bot Framework endpoint)
