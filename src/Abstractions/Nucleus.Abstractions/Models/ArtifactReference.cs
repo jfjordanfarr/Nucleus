@@ -3,7 +3,7 @@
 
 using System.Collections.Generic;
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Represents a reference to a unique piece of source content (artifact) within a specific platform.

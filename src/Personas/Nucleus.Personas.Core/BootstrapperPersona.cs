@@ -2,9 +2,10 @@ using Microsoft.Extensions.Configuration; // For IConfigurationSection
 using Microsoft.Extensions.DependencyInjection; // For IServiceProvider, IServiceScopeFactory
 using Microsoft.Extensions.Logging; // For ILogger
 using Microsoft.Extensions.Caching.Memory; // Added for IMemoryCache
+using Microsoft.Extensions.AI; // Added for IChatClient
+using Microsoft.Extensions.AI.Chat; // Added for ChatRequest, ChatMessage, etc.
 using Nucleus.Abstractions; // For IPersona, UserQuery, PersonaQueryResult
 using Nucleus.Personas.Core; // Added correct namespace for EmptyAnalysisData
-using Nucleus.Domain.Processing.Infrastructure; // Added for GoogleAiChatClientAdapter
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,12 +17,12 @@ namespace Nucleus.Personas.Core;
 
 /// <summary>
 /// A simple persona used during application startup or for basic interactions.
-/// It demonstrates direct interaction with the configured AI model via GoogleAiChatClientAdapter.
+/// It demonstrates direct interaction with the configured AI model via IChatClient.
 /// It does not perform complex analysis or maintain long-term state beyond the current query context.
 /// </summary>
 public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 {
-    private readonly GoogleAiChatClientAdapter _googleAiAdapter;
+    private readonly IChatClient _chatClient;
     private readonly ILogger<BootstrapperPersona> _logger;
     private readonly IMemoryCache _memoryCache;
 
@@ -37,12 +38,12 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     /// <summary>
     /// Initializes a new instance of the <see cref="BootstrapperPersona"/> class.
     /// </summary>
-    /// <param name="googleAiAdapter">The Google AI adapter for interacting with the AI model.</param>
+    /// <param name="chatClient">The chat client for interacting with the AI model.</param>
     /// <param name="logger">The logger instance.</param>
     /// <param name="memoryCache">In-memory cache for temporary data storage.</param>
-    public BootstrapperPersona(GoogleAiChatClientAdapter googleAiAdapter, ILogger<BootstrapperPersona> logger, IMemoryCache memoryCache)
+    public BootstrapperPersona(IChatClient chatClient, ILogger<BootstrapperPersona> logger, IMemoryCache memoryCache)
     {
-        _googleAiAdapter = googleAiAdapter ?? throw new ArgumentNullException(nameof(googleAiAdapter));
+        _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
@@ -50,7 +51,7 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     /// <inheritdoc />
     /// <remarks>
     /// This implementation uses the provided <paramref name="contextContent"/> as system context
-    /// before sending the user's query to the AI model via GoogleAiChatClientAdapter.
+    /// before sending the user's query to the AI model via the injected IChatClient.
     /// </remarks>
     /// <seealso cref="PersonaQueryResult"/>
     public async Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, string? contextContent, CancellationToken cancellationToken = default)
@@ -62,27 +63,46 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 
         try
         {
-            string prompt;
+            var messages = new List<ChatMessage>();
+
+            // Add system context if provided
             if (!string.IsNullOrWhiteSpace(contextContent))
             {
-                prompt = $"Use the following context to answer the query:\n\n---\nCONTEXT START\n---\n{contextContent}\n---\nCONTEXT END\n---\n\nUser Query: {query.QueryText}";
-                _logger.LogDebug("Added context to prompt ({ContextLength} chars).", contextContent.Length);
+                messages.Add(new ChatMessage(ChatRole.System, contextContent));
+                _logger.LogDebug("Added system context message ({ContextLength} chars).", contextContent.Length);
             }
             else
             {
-                prompt = query.QueryText;
                 _logger.LogDebug("No context provided.");
             }
 
-            _logger.LogDebug("Sending prompt to Google AI service. Prompt length: {PromptLength}.", prompt.Length);
-            string aiResponse = await _googleAiAdapter.GetCompletionAsync(prompt, cancellationToken);
+            // Add the user's query
+            messages.Add(new ChatMessage(ChatRole.User, query.QueryText));
 
-            _logger.LogInformation("Received response from Google AI. Length: {ResponseLength}.", aiResponse.Length);
+            // Create the request
+            var chatRequest = new ChatRequest(messages);
+
+            _logger.LogDebug("Sending ChatRequest to AI service via IChatClient. Request: {@ChatRequest}", chatRequest);
+            ChatCompletion completion = await _chatClient.CompleteAsync(chatRequest, cancellationToken);
+
+            // Extract the response content
+            string aiResponse = completion?.Message?.Content ?? string.Empty;
+
+            if (string.IsNullOrEmpty(aiResponse))
+            {
+                _logger.LogWarning("Received empty response content from AI service. Completion: {@Completion}", completion);
+                aiResponse = "Sorry, I received an empty response from the AI service."; // Provide a default user message
+            }
+            else
+            {
+                _logger.LogInformation("Received response from AI service via IChatClient. Length: {ResponseLength}.", aiResponse.Length);
+            }
+
             return new PersonaQueryResult(aiResponse, new List<string>());
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling query in BootstrapperPersona.");
+            _logger.LogError(ex, "Error handling query via {PersonaId} and IChatClient: {ErrorMessage}", PersonaId, ex.Message);
             return new PersonaQueryResult($"Error: {ex.Message}", new List<string>());
         }
     }

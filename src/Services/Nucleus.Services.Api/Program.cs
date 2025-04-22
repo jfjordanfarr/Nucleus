@@ -24,6 +24,7 @@ using Nucleus.ApiService; // For NucleusServiceExtensions
 using Nucleus.Domain.Processing; // For AddProcessingServices
 using Nucleus.Domain.Processing.Infrastructure; // Added for Adapter
 using Nucleus.Services.Api.Infrastructure; // Added for NullArtifactProvider
+using Microsoft.Extensions.AI; // Required for IChatClient
 
 // *** Obtain logger early for setup logging ***
 using var loggerFactory = LoggerFactory.Create(loggingBuilder => loggingBuilder
@@ -126,9 +127,22 @@ if (string.IsNullOrWhiteSpace(googleAiOptions.ApiKey))
 builder.Services.Configure<GoogleAiOptions>(builder.Configuration.GetSection(GoogleAiOptions.SectionName));
 _logger.LogInformation("Google AI (Mscc) Options configured from section: {SectionName}", GoogleAiOptions.SectionName);
 
-// Register our custom adapter 
-builder.Services.AddSingleton<GoogleAiChatClientAdapter>(); 
-_logger.LogInformation("Registered custom chat adapter GoogleAiChatClientAdapter.");
+// Register Google AI Chat Client using Mscc.GenerativeAI.Microsoft extension method
+var googleAiSettings = builder.Configuration.GetSection("AI:GoogleAI").Get<GoogleAISettings>();
+if (googleAiSettings != null && !string.IsNullOrEmpty(googleAiSettings.ApiKey))
+{
+    builder.Services.AddGeminiChat(options =>
+    {
+        options.ApiKey = googleAiSettings.ApiKey;
+        options.Model = googleAiSettings.Model ?? "gemini-2.0-flash"; // Default model if not specified
+    });
+}
+else
+{
+    _logger.LogWarning("Google AI API Key not configured. IChatClient registration skipped.");
+    // Optionally register a null/dummy client
+    // builder.Services.AddSingleton<IChatClient, NullChatClient>();
+}
 
 // Register a Null provider for the API service context
 builder.Services.AddSingleton<IArtifactProvider, NullArtifactProvider>();

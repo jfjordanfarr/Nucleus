@@ -36,9 +36,11 @@ public static class ServiceCollectionExtensions
         // Register Persona Managers using Keyed Services
         // The key should match the ManagedPersonaTypeId property of the implementation.
         // TODO: Consider a central registry or reflection-based approach for keys instead of hardcoding.
-        services.AddKeyedSingleton<IPersonaManager, DefaultPersonaManager>(DefaultPersonaManager.ManagedPersonaTypeIdConstant);
+        // Use the string literal corresponding to the value set in DefaultPersonaManager's constructor
+        services.AddKeyedSingleton<IPersonaManager, DefaultPersonaManager>("DefaultPersonaManager");
 
-        logger.LogInformation("Successfully registered IPersonaManager with key: {Key}", DefaultPersonaManager.ManagedPersonaTypeIdConstant);
+        // Use the string literal corresponding to the value set in DefaultPersonaManager's constructor
+        logger.LogInformation("Successfully registered IPersonaManager with key: {Key}", "DefaultPersonaManager");
 
         // Register other services from Nucleus.Processing here in the future...
 

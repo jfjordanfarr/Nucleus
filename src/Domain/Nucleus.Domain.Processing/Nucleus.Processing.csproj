@@ -23,7 +23,8 @@
     <!-- <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.3.0-preview.1.25114.11" /> --> <!-- Added explicit reference --> <!-- REMOVED -->
     <!-- <PackageReference Include="Google.Cloud.AIPlatform.V1" Version="2.22.0" /> --> <!-- Removed for Vertex AI -->
     <PackageReference Include="Mscc.GenerativeAI" Version="2.5.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.25.0" /> <!-- Updated explicit reference to satisfy transitive dependency -->
+    <PackageReference Include="Google.Protobuf" Version="3.25.0" />
+    <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.2" /> <!-- Updated explicit reference to satisfy transitive dependency -->
   </ItemGroup>
 
   <ItemGroup>

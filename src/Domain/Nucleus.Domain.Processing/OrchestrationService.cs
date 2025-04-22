@@ -48,30 +48,34 @@ public class OrchestrationService : IOrchestrationService
         _logger.LogInformation("[Orchestration] Processing request. CorrelationID: {CorrelationId}, Platform: {PlatformType}, User: {UserId}, Conversation: {ConversationId}",
             request.CorrelationId, request.PlatformType, request.OriginatingUserId, request.OriginatingConversationId);
 
-        // Construct AdapterRequest from NucleusIngestionRequest
-        /// <summary>
-        /// Creates an AdapterRequest instance for processing.
-        /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
-        /// </summary>
+        // Parse the PlatformType string into the enum
+        if (!Enum.TryParse<PlatformType>(request.PlatformType, ignoreCase: true, out var platformTypeEnum))
+        {
+            _logger.LogWarning("Invalid PlatformType string '{PlatformTypeString}' received in ingestion request. CorrelationID: {CorrelationId}. Cannot route interaction.", request.PlatformType, request.CorrelationId);
+            // If we can't parse the platform, we cannot determine the right persona or adapter logic.
+            // Handle this as a fundamental failure for this request.
+            return; // Stop processing this request.
+        }
+
+        // Extract artifact references (placeholder)
+        List<ArtifactReference>? artifactReferences = await ExtractArtifactReferencesAsync(request, cancellationToken);
+
+        // Construct AdapterRequest correctly using the parsed enum and other request properties
         var adapterRequest = new AdapterRequest(
-            request.CorrelationId ?? string.Empty, // Ensure non-null for PlatformType (CS8604)
-            request.OriginatingUserId,             // TODO: Review if this can be null? ConversationId expects non-null.
-            request.OriginatingConversationId,   // TODO: Review if this can be null? UserId expects non-null.
-            request.OriginatingMessageId ?? string.Empty, // Ensure non-null for QueryText (CS8604)
-            request.TriggeringText                 // Already nullable, OK
+            request.PlatformType,                 // PlatformType (string)
+            request.OriginatingConversationId,  // ConversationId (string)
+            request.OriginatingUserId,            // UserId (string)
+            request.TriggeringText ?? string.Empty, // QueryText (string) - Ensure non-null
+            request.OriginatingMessageId,       // MessageId (string?)
+            null,                               // ReplyToMessageId (string?) - No equivalent in NucleusIngestionRequest
+            artifactReferences                  // ArtifactReferences (List<...>?) 
+            // Metadata (Dictionary<string, string>?) - Defaulting to null
         );
 
         try
         {
             // Use properties from the constructed adapterRequest for logging
             _logger.LogInformation("Processing ingestion request for conversation {ConversationId}, user {UserId}", adapterRequest.ConversationId, adapterRequest.UserId);
-
-            // Parse the PlatformType string into the enum
-            if (!Enum.TryParse<PlatformType>(request.PlatformType, ignoreCase: true, out var platformTypeEnum))
-            {
-                _logger.LogWarning("Invalid PlatformType string '{PlatformTypeString}' received in ingestion request. CorrelationID: {CorrelationId}. Cannot route interaction.", request.PlatformType, request.CorrelationId);
-                return; // Cannot proceed without a valid platform type
-            }
 
             // 1. Resolve Persona ID
             // Pass the parsed PlatformType enum and the constructed AdapterRequest to the resolver
@@ -141,5 +145,18 @@ public class OrchestrationService : IOrchestrationService
             // If specific failure signaling is needed without exceptions, the interface/return type would need adjustment.
             return;
         }
+    }
+
+    // Placeholder method for extracting artifact references from the ingestion request.
+    // TODO: Implement logic to parse TriggeringText, MessageId, etc. to find potential references.
+    private async Task<List<ArtifactReference>?> ExtractArtifactReferencesAsync(NucleusIngestionRequest request, CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Placeholder: ExtractArtifactReferencesAsync called for CorrelationID {CorrelationId}. Currently returns null.", request.CorrelationId);
+        // In the future, this method could:
+        // 1. Analyze request.TriggeringText for file paths, URLs, etc.
+        // 2. Query a message store using request.OriginatingMessageId if applicable (e.g., for Teams attachments).
+        // 3. Construct ArtifactReference objects based on findings.
+        await Task.CompletedTask; // To make the method async without real async work yet.
+        return null; // Return null for now, as AdapterRequest constructor accepts nullable list.
     }
 }
