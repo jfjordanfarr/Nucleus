@@ -1,14 +1,9 @@
 ---
 title: Nucleus OmniRAG System Architecture Overview
 description: A high-level overview of the Nucleus OmniRAG platform architecture, components, deployment models, and codebase structure.
-version: 1.0
-date: 2025-04-07
 ---
 
 # Nucleus OmniRAG: System Architecture Overview
-
-**Version:** 1.0
-**Date:** 2025-04-07
 
 ## 1. Introduction & Vision
 
@@ -71,7 +66,7 @@ The core components are designed to function in both models, with configuration 
 
 ## 3. High-Level Component Architecture
 
-The system comprises several key interacting components, orchestrated primarily via a .NET Aspire AppHost in development/deployment. The **primary Minimum Viable Product (MVP) interaction mechanism** is a **Console Application (`Nucleus.Console`)**, providing a direct command-line interface for development, testing, and initial usage. Long-term interaction goals (**Planned for Phase 2+**, see [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)) focus on seamless integration into existing workflows via **Platform Bots and Adapters** (e.g., Teams, Slack, Email).
+The system comprises several key interacting components, orchestrated primarily via a .NET Aspire AppHost in development/deployment. The **primary Minimum Viable Product (MVP) interaction mechanism** is a **Console Application ([`Nucleus.Console`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/Nucleus.Adapters.Console.csproj:0:0-0:0))**, providing a direct command-line interface for development, testing, and initial usage. Long-term interaction goals (**Planned for Phase 2+**, see [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)) focus on seamless integration into existing workflows via **Platform Bots and Adapters** (e.g., Teams, Slack, Email).
 
 ```mermaid
 graph LR
@@ -117,7 +112,7 @@ graph LR
 **Key Components:**
 
 *   **User Interaction Channels:** Users interact via:
-    *   **Console Application (`Nucleus.Console`):** The primary MVP interface for commands.
+    *   **Console Application ([`Nucleus.Console`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/Nucleus.Adapters.Console.csproj:0:0-0:0)):** The primary MVP interface for commands.
     *   **Platform Bots/Adapters (Phase 2+):** Integration with Teams, Slack, Email, etc., providing a more user-friendly interface. (See [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md) and [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md))
     *   **Email Interface (Phase 2+):** Allows interaction via email triggers.
     *   **Platform Adapters (Phase 2+):** Bridge between platform-specific protocols (e.g., Teams Bot Framework) and the internal Nucleus API/Messaging system.
@@ -125,11 +120,11 @@ graph LR
 *   **Message Queue (MQ):** Handles asynchronous tasks like document ingestion and processing (e.g., Azure Service Bus - *Currently Emulated*).
 *   **Content Extractors:** Pluggable components responsible for getting text from various sources (email bodies, document types like PDF/DOCX, etc.). **Advanced Content Extractors (Phase 2+):** Utilize Azure AI Vision, Azure Document Intelligence for enhanced extraction capabilities.
 *   **Persona Logic:** Encapsulates the specialized knowledge, tools, and reasoning capabilities of individual AI assistants (e.g., EduFlow). Processes raw text directly to identify relevant sections (no generic pre-chunking). Interacts with the Database (to retrieve knowledge) and AI Services (to generate responses/analysis), processing queries received via the API or performing analysis triggered by the processing pipeline.
-*   **Embedding Generator:** Service (using `Microsoft.Extensions.AI.IEmbeddingGenerator`) that converts persona-identified relevant text snippets into vector embeddings for storage and later retrieval.
+*   **Embedding Generator:** Service (using [`Microsoft.Extensions.AI.IEmbeddingGenerator`](cci:2://file:///C:/Users/jorda/.nuget/packages/microsoft.extensions.ai.abstractions/0.1.0-preview.33/lib/net8.0/Microsoft.Extensions.AI.Abstractions.dll?symbol=Microsoft.Extensions.AI.Abstractions.IEmbeddingGenerator:0:0-0:0)) that converts persona-identified relevant text snippets into vector embeddings for storage and later retrieval.
 *   **Source Storage:** Where the actual content of source files/attachments is stored securely.
 *   **AI Services:** External or internal AI models providing core capabilities via standard interfaces:
-    *   **Embedding Model:** Used by the Embedding Generator (`Microsoft.Extensions.AI.IEmbeddingGenerator`).
-    *   **Chat/Completion Model (LLM):** Used by Personas for understanding queries/context, generating responses/analysis (`Microsoft.Extensions.AI.IChatClient`).
+    *   **Embedding Model:** Used by the Embedding Generator ([`Microsoft.Extensions.AI.IEmbeddingGenerator`](cci:2://file:///C:/Users/jorda/.nuget/packages/microsoft.extensions.ai.abstractions/0.1.0-preview.33/lib/net8.0/Microsoft.Extensions.AI.Abstractions.dll?symbol=Microsoft.Extensions.AI.Abstractions.IEmbeddingGenerator:0:0-0:0)).
+    *   **Chat/Completion Model (LLM):** Used by Personas for understanding queries/context, generating responses/analysis ([`Microsoft.Extensions.AI.IChatClient`](cci:2://file:///C:/Users/jorda/.nuget/packages/microsoft.extensions.ai.abstractions/0.1.0-preview.33/lib/net8.0/Microsoft.Extensions.AI.Abstractions.dll?symbol=Microsoft.Extensions.AI.Abstractions.IChatClient:0:0-0:0)).
 
 ## 4. Infrastructure Requirements (Conceptual)
 
@@ -145,34 +140,33 @@ graph LR
 | **Source Storage**            | Stores original uploaded artifacts and associated `ArtifactMetadata`.                                        | Configured object/file storage (e.g., Google Cloud Storage, Azure Blob, S3, File Share) |
 | **Knowledge Database (DB)**   | Stores processed `PersonaKnowledgeEntry` records (embeddings, analysis, metadata references).             | Azure Cosmos DB for NoSQL (or emulator)                            |
 
-## 5. High-Level Codebase Structure (Conceptual)
+## 5. High-Level Codebase Structure
 
 ```plaintext
-/src
-|-- Nucleus.Abstractions/     # Core interfaces, models (DTOs), enums, exceptions
-|-- Nucleus.Core/             # Core domain logic, shared services (non-infra specific)
-|-- Nucleus.Infrastructure/   # Concrete implementations for infra (DB access, Storage, MQ)
-|-- Nucleus.Processing/       # Logic for the async processing pipeline (Functions/Workers)
-|-- Nucleus.Adapters/         # Platform-specific adapter logic (Teams, Email, etc.)
-|   |-- Nucleus.Adapters.Teams/
-|   |-- Nucleus.Adapters.Email/
-|   `-- ... (other platforms)
-|-- Nucleus.Personas/         # Base classes and specific Persona implementations
-|   |-- Nucleus.Personas.Core/
-|   |-- Nucleus.Personas.FinanceExpert/  # Example Persona (Phase 2+)
-|   |-- Nucleus.Personas.HealthSpecialist/ # Example Persona (Phase 2+)
-|   `-- ... (other personas)
-|-- Nucleus.Api/              # ASP.NET Core API project (hosts Carter modules)
-|-- Nucleus.Console/          # .NET Console Application project (MVP Client)
-`-- Nucleus.MetadataServices/ # Services for managing ArtifactMetadata (CRUD, validation)
-/tests
-|-- ... (Unit & Integration tests mirroring /src structure)
-/aspire
-|-- Nucleus.AppHost/        # .NET Aspire orchestration project
-`-- Nucleus.ServiceDefaults/  # Shared Aspire service configurations
+/
+|-- Nucleus.AppHost/          # .NET Aspire orchestration project (at root)
+|-- AgentOps/                 # Agent development support files
+|-- Docs/                     # Project documentation (Architecture, Requirements, etc.)
+|-- src/
+|   |-- Abstractions/
+|   |   `-- Nucleus.Abstractions/ # Core interfaces, models (DTOs), enums
+|   |-- Adapters/
+|   |   |-- Nucleus.Adapters.Console/ # .NET Console Application project (MVP Client)
+|   |   `-- Nucleus.Adapters.Teams/   # Microsoft Teams Bot Framework Adapter
+|   |-- Domain/
+|   |   `-- Nucleus.Domain.Processing/ # Core domain logic, orchestration, processing pipeline
+|   |-- Personas/
+|   |   `-- Nucleus.Personas.Core/    # Base classes and specific Persona implementations
+|   `-- Services/
+|       |-- Nucleus.ServiceDefaults/ # Shared Aspire service configurations
+|       `-- Nucleus.Services.Api/    # ASP.NET Core API project (hosts controllers, infrastructure)
+|-- tests/
+|   `-- Adapters/
+|       `-- Nucleus.Adapters.Console.Tests/
+`-- Nucleus.sln                 # Visual Studio Solution File (defines projects)
 ```
 
-This structure promotes separation of concerns, testability, and modularity, allowing different components (like Personas or Infrastructure implementations) to be developed and potentially deployed independently.
+This structure promotes separation of concerns, testability, and modularity, allowing different components (like Personas or Adapters) to be developed and potentially deployed independently.
 
 ## 6. Key Architectural Principles
 
@@ -325,4 +319,3 @@ graph LR
     D -- "Formulate Response" --> C
     C --> B
     B -- "Deliver Response" --> A
-```

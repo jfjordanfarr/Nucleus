@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Discord
 description: Describes a client edapter which enables the interaction with Nucleus personas in Discord
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Client Adapter: Discord
@@ -81,9 +81,8 @@ Discord offers several ways to present information richly.
 *   **Buttons & Select Menus:** Interactive components can be added to messages for user actions (requires bot interaction logic).
 *   **Custom Apps/Bots & Visualizations:**
     *   While Nucleus acts as a bot, complex UIs might require dedicated Discord Apps.
-    *   Interactive data visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md:0:0-0:0)) are best presented by generating the viz, saving it as an image/HTML file, uploading it back to Discord, and providing a link/preview embed, rather than direct embedding.
+    *   Interactive data visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](../Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md)) are best presented by generating the viz, saving it as an image/HTML file, uploading it back to Discord, and providing a link/preview embed, rather than direct embedding.
 
-## Generated Artifact Handling
+## References
 
-*   **Conversations:** Discord stores message history persistently according to server/channel settings.
-*   **Generated Artifacts:** Personas can generate artifacts (files). The Discord Adapter **must** use the Discord API to upload these files back into the relevant channel/thread. Nucleus then creates `ArtifactMetadata` for the uploaded file using the `sourceIdentifier` and `sourceUri` provided by the Discord API upon successful upload. Local storage by Nucleus is avoided for generated content destined for Discord.
+*   For details on initial feasibility and design considerations across Slack, Email, and Discord adapters, see: [Slack, Email, and Discord Adapter Report](../../HelpfulMarkdownFiles/Slack-Email-Discord-Adapter-Report.md)

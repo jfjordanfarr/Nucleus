@@ -2,15 +2,13 @@
 title: Processing Architecture - Shared Interfaces
 description: Defines common C# interfaces used across various stages of the Nucleus OmniRAG processing pipeline.
 version: 1.0
-date: 2025-04-18
+date: 2025-04-22
+parent: ../05_ARCHITECTURE_PROCESSING.md
 ---
 
 # Processing Architecture: Shared Interfaces
 
-**Version:** 1.0
-**Date:** 2025-04-18
-
-This document defines common C# interfaces shared by different components within the Nucleus processing architecture, promoting consistency and modularity. It complements the main [Processing Architecture document](../01_ARCHITECTURE_PROCESSING.md).
+This document defines common C# interfaces shared by different components within the Nucleus processing architecture, promoting consistency and modularity. It complements the main [Processing Architecture document](../05_ARCHITECTURE_PROCESSING.md).
 
 ## 1. `IContentExtractor`
 
@@ -67,9 +65,8 @@ namespace Nucleus.Abstractions;
 /// Defines the contract for the central service responsible for orchestrating
 /// the processing of incoming ingestion requests.
 /// This includes session management, persona selection, routing, and invoking specific processing steps.
-/// See: ../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md
-/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
-/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md
+/// See: ../05_ARCHITECTURE_PROCESSING.md
+/// See: ./ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 /// </summary>
 public interface IOrchestrationService
 {

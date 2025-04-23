@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Teams
 description: Describes a Bot Framework SDK client adapter to bring Nucleus personas into Microsoft Teams.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Client Adapter: Teams
@@ -137,7 +137,7 @@ This mechanism allows the Teams Adapter to seamlessly present complex, interacti
 
 *   **Embedded Visualization Handling Summary:** Interactive visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](../Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md)) are primarily delivered as self-contained HTML files, stored in SharePoint, and rendered within **Task Modules** via a serving endpoint hosted by the Teams Adapter Bot. Simpler representations might involve static images (PNG) embedded in Adaptive Cards.
 
-## Processing Flow (Example - User @mentions Persona in Channel)
+## References
 
-1.  **User Message:** User posts `@NucleusPersona create report based on file X` in a Teams channel.
-{{ ... }}
+*   For a detailed report on the initial Teams adapter implementation and considerations, see: [Nucleus Teams Adapter Report](../../HelpfulMarkdownFiles/Nucleus Teams Adapter Report.md)
+*   For security considerations specific to deploying Bot Framework applications in Azure, refer to: [Secure Bot Framework Azure Deployment](../../HelpfulMarkdownFiles/Secure-Bot-Framework-Azure-Deployment.md)

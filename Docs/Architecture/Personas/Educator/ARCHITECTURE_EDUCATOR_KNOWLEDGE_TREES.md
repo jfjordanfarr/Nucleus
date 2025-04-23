@@ -2,7 +2,8 @@
 title: Educator Persona - Pedagogical and Tautological Knowledge Trees
 description: Overview of the dual knowledge tree framework (Pedagogical and Tautological) used by the Educator persona.
 version: 1.0
-date: 2025-04-13
+date: 2025-04-22
+parent: ../ARCHITECTURE_PERSONAS_EDUCATOR.md
 ---
 
 # Educator Persona Knowledge Trees
@@ -23,7 +24,7 @@ The Educator persona uses these trees to:
 *   **Map Progress:** Connect observed activities and achievements to specific nodes in both trees, providing a comprehensive view of development.
 *   **Identify Gaps:** Recognize areas where a learner might need more support or exposure.
 *   **Facilitate Reporting:** Translate authentic learning experiences (captured via the Pedagogical Tree) into the language of formal requirements (often reflected in the Tautological Tree), aiding in documentation for homeschooling portfolios or institutional reporting.
-*   **Generate Insights:** Potentially create visualizations or summaries (similar in concept to the [DATAVIZ Processor](../../Processors/ARCHITECTURE_DATAVIZ_TEMPLATE.md)) showing progress across different domains and processes over time.
+*   **Generate Insights:** Potentially create visualizations or summaries (similar in concept to the [DATAVIZ Template](../../Processing/Dataviz/ARCHITECTURE_DATAVIZ_TEMPLATE.md)) showing progress across different domains and processes over time.
 
 ## Age-Specific Breakdowns
 

@@ -1,6 +1,8 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+/// Architecture: See [ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md](../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md)
+
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
@@ -15,7 +17,6 @@ namespace Nucleus.Adapters.Teams;
 /// Implements <see cref="IPlatformAttachmentFetcher"/> for Microsoft Teams.
 /// Uses the <see cref="GraphClientService"/> to download files referenced by their Graph DriveItem ID.
 /// Assumes the necessary Graph permissions are granted and the <see cref="GraphClientService"/> is configured.
-/// See: ../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md (Assuming this doc exists or will be created)
 /// </summary>
 public class TeamsGraphFileFetcher : IPlatformAttachmentFetcher
 {

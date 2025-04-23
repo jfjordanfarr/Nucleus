@@ -1,25 +1,24 @@
 ---
 title: Architecture - Personas & Multi-Platform Interaction
 description: Details the architecture for Personas, including multi-platform identities, interaction patterns, and persona-to-persona communication.
-version: 1.4
-date: 2025-04-19
+version: 1.5
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Persona Architecture
 
-**Version:** 1.4
-**Date:** 2025-04-19
+**Version:** 1.5
+**Date:** 2025-04-22
 
 This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate across multiple communication platforms.
 
 *   **Related Architecture:**
     *   [Overall System Architecture](./00_ARCHITECTURE_OVERVIEW.md)
     *   [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)
-    *   [Platform Adapters](../ClientAdapters/ARCHITECTURE_ADAPTERS_OVERVIEW.md)
-    *   [Orchestration](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
+    *   [Client Architecture](./05_ARCHITECTURE_CLIENTS.md) (and specific adapters in `../ClientAdapters/`)
+    *   [Processing Orchestration](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
     *   [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)
     *   [Database](./04_ARCHITECTURE_DATABASE.md)
-    *   [Clients](./05_ARCHITECTURE_CLIENTS.md)
 
 ## 1. Core Concept: Personas as Specialized Agents
 
@@ -74,19 +73,18 @@ To bridge the gap between the abstract Persona and concrete platform accounts, e
 
 To promote modularity and separation of concerns, personas are implemented using a hybrid project structure:
 
-*   **`Nucleus.Personas` (Parent Project):**
+*   **`Nucleus.Personas.Core` (Parent Project):**
     *   Contains shared utilities, base classes, or common logic applicable across multiple personas.
-    *   May reference `Nucleus.Abstractions` and `Nucleus.Core`.
+    *   May reference `Nucleus.Abstractions` and `Nucleus.Domain.Processing`.
 *   **Individual Persona Projects (e.g., `Nucleus.Personas.EduFlow`, `Nucleus.Personas.BusinessAssistant`):**
     *   Each project implements a specific `IPersona`.
     *   Contains persona-specific models (e.g., `LearningEvidenceAnalysis`), prompts, configuration, and logic.
-    *   References the parent `Nucleus.Personas` project and potentially other core/infrastructure projects as needed.
 
 This structure allows new personas to be added relatively independently.
 
 ## 5. Initial & Planned Verticals/Personas
 
-Based on the [Project Mandate](./00_PROJECT_MANDATE.md) and existing project structure, the following are initial or planned persona categories:
+Based on the [Project Mandate](../Requirements/00_PROJECT_MANDATE.md) and existing project structure, the following are initial or planned persona categories:
 
 ### 5.1 Professional Colleague (Initial Vertical)
 

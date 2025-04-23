@@ -1,8 +1,8 @@
 ---
 title: Architecture - Common Client Adapter Interfaces
 description: Defines conceptual C# interfaces and base classes representing common patterns and abstractions expected across different Nucleus Client Adapters (e.g., Console, Teams).
-version: 1.0
-date: 2025-04-13
+version: 1.1
+date: 2025-04-22
 ---
 
 # Architecture: Common Client Adapter Interfaces

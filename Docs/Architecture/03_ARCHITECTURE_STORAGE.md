@@ -1,14 +1,14 @@
 ---
 title: Architecture - Storage & Metadata Management
 description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence.
-version: 1.9
-date: 2025-04-20
+version: 1.10
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Storage Architecture
 
-**Version:** 1.9
-**Date:** 2025-04-20
+**Version:** 1.10
+**Date:** 2025-04-22
 
 This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
@@ -117,7 +117,7 @@ When a source artifact represents a collection (e.g., a folder, an email with mu
 
 ## 8. Next Steps
 
-1.  **Implement `IArtifactMetadataRepository`:** Create a Cosmos DB implementation (planned for `Nucleus.Infrastructure`/`Persistence`) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) interface for CRUD operations on `ArtifactMetadata` documents.
+1.  **Implement `IArtifactMetadataRepository`:** Create a Cosmos DB implementation (likely within `Nucleus.Services.Api`) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) interface for CRUD operations on `ArtifactMetadata` documents.
 2.  **Finalize `sourceIdentifier` Strategy:** Define the precise algorithm for generating stable logical `sourceIdentifier`s for different `SourceSystemType`s, ensuring uniqueness and allowing correlation even if the `sourceUri` changes slightly (e.g., SharePoint version updates).
 3.  **Integrate with Processing Pipeline:** Ensure the pipeline correctly interacts with the `IArtifactMetadataRepository` and uses platform adapters to fetch content via `sourceUri`.
 4.  **Develop Platform Adapters:** Build out the necessary adapters in the Client Layer (`05_ARCHITECTURE_CLIENTS.md`) for key target source systems.

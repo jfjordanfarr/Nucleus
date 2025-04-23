@@ -1,26 +1,23 @@
 ---
 title: Architecture - Hosting Strategy: Cloudflare
 description: Outlines a potential strategy for deploying the Nucleus OmniRAG system using Cloudflare services.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Cloudflare Deployment Strategy
 
-**Version:** 1.1
-**Date:** 2025-04-13
-
 ## 1. Introduction
 
-This document explores a potential architecture for deploying the Nucleus OmniRAG system leveraging Cloudflare's developer platform. This strategy is particularly attractive for scenarios prioritizing cost-efficiency (generous free tiers), simplified security management, and global performance via Cloudflare's edge network.
+This document explores a potential architecture for deploying the Nucleus OmniRAG system leveraging Cloudflare's developer platform, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). This strategy is particularly attractive for scenarios prioritizing cost-efficiency (generous free tiers), simplified security management, and global performance via Cloudflare's edge network.
 
-It builds upon the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) and offers an alternative to the [Azure Deployment Strategy](./ARCHITECTURE_DEPLOYMENT_AZURE.md).
+It builds upon the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) and offers an alternative to the [Azure Deployment Strategy](./ARCHITECTURE_HOSTING_AZURE.md).
 
 **Goal:** Utilize Cloudflare's integrated platform for compute, storage, messaging, and vector search, potentially minimizing infrastructure costs and complexity, while using Google Gemini for core AI services.
 
 ## 2. Core Cloudflare Service Mapping
 
-Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the following Cloudflare services are proposed:
+Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the following Cloudflare services are proposed:
 
 1.  **Containerized Compute Runtime:**
     *   **Service:** **Cloudflare Workers** (Potentially using Workers for Platforms for container support, or refactoring core logic into Worker scripts)

@@ -1,14 +1,14 @@
 ---
 title: Architecture - Database (Azure Cosmos DB)
 description: Details the Azure Cosmos DB structure for storing ArtifactMetadata and PersonaKnowledgeEntry records.
-version: 2.0
-date: 2025-04-19
+version: 2.1
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Database Architecture (Azure Cosmos DB)
 
-**Version:** 2.0
-**Date:** 2025-04-19
+**Version:** 2.1
+**Date:** 2025-04-22
 
 This document details the architecture of the backend database used by Nucleus OmniRAG, utilizing Azure Cosmos DB for NoSQL, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). Cosmos DB serves as the central persistence layer for **all** Nucleus-managed metadata, including both the primary **`ArtifactMetadata`** records describing source artifacts (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)) and the **`PersonaKnowledgeEntry`** records containing persona-specific analysis (see [Persona Architecture](./02_ARCHITECTURE_PERSONAS.md)).
 
@@ -157,7 +157,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>(
 ## 7. Next Steps
 
 1.  **Implement C# Models:** Define concrete `TAnalysisData` types (e.g., `EduFlowAnalysis`, `ProfessionalAnalysis`) for each persona within the [`Nucleus.Abstractions`](../../../Nucleus.Abstractions/) project or a dedicated `Nucleus.Personas.Abstractions` project.
-2.  **Implement Repository Layer:** Develop concrete implementations (likely in a dedicated `Nucleus.Infrastructure` or `Nucleus.Persistence` project) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) and [`IPersonaKnowledgeRepository<TAnalysisData>`](../../../Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs) interfaces using the Cosmos DB .NET SDK. Ensure dynamic container handling for PKEs.
+2.  **Implement Repository Layer:** Develop concrete implementations (likely within `Nucleus.Services.Api`) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) and [`IPersonaKnowledgeRepository<TAnalysisData>`](../../../Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs) interfaces using the Cosmos DB .NET SDK. Ensure dynamic container handling for PKEs.
 3.  **Define Partition Key Strategy:** Finalize the partition key choices for both container types based on [deployment models](./07_ARCHITECTURE_DEPLOYMENT.md) and query patterns.
 4.  **Provision Cosmos DB:** Set up the Cosmos DB account, database, and define container creation/configuration strategy (part of [Deployment](./07_ARCHITECTURE_DEPLOYMENT.md)).
 5.  **Integrate with Processing Pipeline:** Update the [pipeline](./01_ARCHITECTURE_PROCESSING.md) to implement the flow described in Section 5.1.

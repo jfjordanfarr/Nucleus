@@ -2,7 +2,8 @@
 title: Ingestion Architecture - Multimedia Files
 description: Describes the conversion of multimedia files, grounded against substantial background context, into a canonical, faithful, and complete textual representation.
 version: 1.0
-date: 2025-04-13
+date: 2025-04-22
+parent: ../ARCHITECTURE_PROCESSING_INGESTION.md
 ---
 
 # Ingestion Architecture: Multimedia Files (Image, Audio, Video)
@@ -26,8 +27,8 @@ Instead of relying solely on traditional methods (e.g., basic OCR, simple transc
 2.  **Prepare LLM Prompt:** Constructs a prompt for the multimodal LLM, combining the grounding context (as text) with the multimedia data itself.
 3.  **LLM Invocation:** Calls the appropriate multimodal LLM API (e.g., Gemini) with the prepared prompt and multimedia data. Leverage API features like **Context Caching** where applicable for efficiency.
 4.  **Receive Textual Representation:** The LLM returns a generated text string (e.g., a detailed image description, a structured meeting summary from audio, a scene description from video).
-5.  **Dispatch to Downstream Processing:** If transcription is successful, pass the generated text downstream for further processing (e.g., by the Plaintext processor or directly to persona analysis if simple enough).
-6.  **Metadata Finalization:** Updates the `ArtifactMetadata` record, ensuring it includes:
+5.  **Dispatch to Downstream Processing:** If transcription is successful, pass the generated text downstream for further processing (e.g., by the [Plaintext processor](./ARCHITECTURE_INGESTION_PLAINTEXT.md) or directly to persona analysis if simple enough).
+6.  **Metadata Finalization:** Updates the [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record, ensuring it includes:
     *   Link/URI to the original multimedia file (which might be stored separately or discarded depending on policy).
     *   Metadata indicating the source type (image, audio, video) and that the text is a generated representation.
     *   Any relevant structured data extracted or inferred by the LLM during conversion.
@@ -43,6 +44,6 @@ Instead of relying solely on traditional methods (e.g., basic OCR, simple transc
 
 ## 5. Output
 
-The resulting text content is passed on, either as a standalone `ContentItem` or potentially aggregated by a later processor (like File Collections) if part of a larger artifact bundle.
+The resulting text content is passed on, either as a standalone [`ContentItem`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ContentItem.cs:0:0-0:0) or potentially aggregated by a later processor (like the [File Collections](./ARCHITECTURE_INGESTION_FILECOLLECTIONS.md) processor) if part of a larger artifact bundle.
 
 This approach ensures that valuable information within multimedia artifacts is transformed into a usable textual format, deeply integrated with the surrounding context, and ready for inclusion in Nucleus OmniRAG's knowledge base.

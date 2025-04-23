@@ -1,9 +1,11 @@
 ---
 title: Architecture - Processing Pipeline
 description: Details the architecture for artifact ingestion, content extraction, persona-driven analysis, knowledge storage, and retrieval within Nucleus OmniRAG.
-version: 1.5
-date: 2025-04-18
+version: 1.6
+date: 2025-04-22
 ---
+
+[<- System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md)
 
 # Nucleus OmniRAG: Processing Architecture
 
@@ -16,7 +18,7 @@ A central tenet of the Nucleus OmniRAG architecture is that interpreting meaning
 1.  **No One-Size-Fits-All Interpretation**: Different artifacts, domains, and user goals require different analytical perspectives.
 2.  **Persona-Centric Analysis**: Value is maximized when Personas analyze artifacts within their domain context, extracting relevant insights and summaries rather than relying on generic pre-chunking.
 3.  **Contextual Relevance**: Personas determine what constitutes a relevant snippet or summary based on the artifact content and the persona's purpose.
-4.  **Focus on Knowledge, Not Just Text**: The goal is to store structured knowledge (`PersonaKnowledgeEntry`) derived by personas, not just fragmented text.
+4.  **Focus on Knowledge, Not Just Text**: The goal is to store structured knowledge ([`PersonaKnowledgeEntry`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs?symbol=PersonaKnowledgeEntry:0:0-0:0)) derived by personas, not just fragmented text.
 5.  **Extensibility**: The architecture supports adding new personas and content extractors to handle evolving needs and artifact types.
 
 ## 2. Initial Artifact Content Extraction & Structuring
@@ -128,7 +130,7 @@ graph LR
     *   Retrieves the `IngestionRecord` from Cosmos DB using the `IngestionID`.
     *   Fetches the raw artifact data from ephemeral container storage.
     *   Accesses necessary configuration or *carefully managed* session context (if passed directly or accessible via a thread-safe in-memory store scoped to the instance/request).
-    *   **Crucially, `ArtifactMetadata` creation/initialization begins *here*.**
+    *   **Crucially, [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Models/ArtifactMetadata.cs?symbol=ArtifactMetadata:0:0-0:0) creation/initialization begins *here*.**
 *   **Content Extraction:**
     *   Selects appropriate `IContentExtractor`(s).
     *   Extracts content from the fetched raw data.
@@ -166,7 +168,7 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
 
 ### 6.2 Integration
 
-*   An implementation of `IEmbeddingGenerator<string, Embedding<float>>` (e.g., using Google Gemini, Azure OpenAI) is registered in the DI container (see `Nucleus.Infrastructure`).
+*   An implementation of `IEmbeddingGenerator<string, Embedding<float>>` (e.g., using Google Gemini, Azure OpenAI) is registered in the DI container (likely within [`Nucleus.Services.Api`](cci:2://file:///d:/Projects/Nucleus/src/Services/Nucleus.Services.Api/Nucleus.Services.Api.csproj:0:0-0:0) or [`Nucleus.AppHost`](cci:2://file:///d:/Projects/Nucleus/Nucleus.AppHost/Nucleus.AppHost.csproj:0:0-0:0)).
 *   This generator is used **by the Processing Pipeline** (not the persona) to create embeddings for:
     *   `PersonaKnowledgeEntry.relevantTextSnippetOrSummary` -> stored as `snippetEmbedding`.
     *   Optionally, a derived summary from `PersonaKnowledgeEntry.analysis` -> stored as `analysisSummaryEmbedding`.
@@ -174,24 +176,24 @@ public interface IEmbeddingGenerator<TData, TEmbedding>
 
 ## 7. Retrieval Flow
 
-Retrieval leverages the structured knowledge and embeddings derived from the **synthesized Markdown**, primarily stored as `PersonaKnowledgeEntry` documents in the [Database](./04_ARCHITECTURE_DATABASE.md):
+Retrieval leverages the structured knowledge and embeddings derived from the **synthesized Markdown**, primarily stored as [`PersonaKnowledgeEntry`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs?symbol=PersonaKnowledgeEntry:0:0-0:0) documents in the [Database](./04_ARCHITECTURE_DATABASE.md):
 
 1.  User submits a query relevant to a specific persona's domain (e.g., asking EduFlow about student progress - see [Persona Architecture](./02_ARCHITECTURE_PERSONAS.md)).
 2.  The application identifies the target persona (`personaName`).
 3.  The query text is processed by an `IRetrievalService` implementation.
 4.  The service calls the registered `IEmbeddingGenerator` to generate an embedding vector for the query.
-5.  The service uses the `IPersonaKnowledgeRepository<TAnalysisData>` for the target persona.
+5.  The service uses the [`IPersonaKnowledgeRepository<TAnalysisData>`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs?symbol=IPersonaKnowledgeRepository:0:0-0:0) for the target persona.
 6.  It performs a vector similarity search within the persona's specific Cosmos DB container (`{personaName}KnowledgeContainer`) against the `snippetEmbedding` (or `analysisSummaryEmbedding`, depending on the strategy). See [Database Architecture](./04_ARCHITECTURE_DATABASE.md) for container details.
-The search likely includes metadata filters (e.g., `userId`, `tags` from related `ArtifactMetadata`).
+The search likely includes metadata filters (e.g., `userId`, `tags` from related [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Models/ArtifactMetadata.cs?symbol=ArtifactMetadata:0:0-0:0)).
 7.  The repository returns ranked, relevant `PersonaKnowledgeEntry` documents.
-8.  These entries (containing the persona's analysis and the relevant snippet) are used as context for generating a final response via an AI chat client, potentially after fetching the full `ArtifactMetadata` using the `sourceIdentifier` for more context.
+8.  These entries (containing the persona's analysis and the relevant snippet) are used as context for generating a final response via an AI chat client, potentially after fetching the full [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Models/ArtifactMetadata.cs?symbol=ArtifactMetadata:0:0-0:0) using the `sourceIdentifier` for more context.
 
 ## 8. Configuration
 
 *   **Content Extractors:** Configuration might specify preferred extractors or settings for specific MIME types.
 *   **AI Providers:** Standard configuration for embedding generators and chat clients (API keys, endpoints, model IDs) via `appsettings.json`, environment variables, or a configuration provider like Azure App Configuration/Aspire.
 *   **Database:** Connection strings and database/container names for Cosmos DB.
-*   **Storage:** Configuration for accessing the storage mechanism where artifacts and `ArtifactMetadata` reside.
+*   **Storage:** Configuration for accessing the storage mechanism where artifacts and [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/Models/ArtifactMetadata.cs?symbol=ArtifactMetadata:0:0-0:0) reside.
 *   **Target Personas:** Configuration defining which personas should process which types of artifacts or based on user context.
 
 ## 9. Next Steps

@@ -1,20 +1,17 @@
 ---
 title: Architecture - Deployment Abstractions
 description: Defines the core abstract components required for deploying the Nucleus OmniRAG system, independent of specific cloud providers.
-version: 1.0
-date: 2025-04-13
+version: 1.1
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Deployment Abstractions
 
-**Version:** 1.0
-**Date:** 2025-04-13
-
 ## 1. Introduction
 
-This document outlines the fundamental, abstract components required to deploy and operate the Nucleus OmniRAG system. The goal is to define the necessary capabilities in a provider-agnostic way, allowing for flexibility in choosing deployment targets based on factors like cost, performance, existing infrastructure, or specific features.
+This document outlines the fundamental, abstract components required to deploy and operate the Nucleus OmniRAG system, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). The goal is to define the necessary capabilities in a provider-agnostic way, allowing for flexibility in choosing deployment targets based on factors like cost, performance, existing infrastructure, or specific features.
 
-While specific implementations will leverage provider-specific services (detailed in separate documents like [Azure Deployment](./ARCHITECTURE_DEPLOYMENT_AZURE.md) and [Cloudflare Deployment](./ARCHITECTURE_DEPLOYMENT_CLOUDFLARE.md)), understanding these core abstractions is crucial for maintaining architectural consistency and enabling potential portability.
+While specific implementations will leverage provider-specific services (detailed in separate documents like [Azure Deployment](./Hosting/ARCHITECTURE_HOSTING_AZURE.md) and [Cloudflare Deployment](./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md)), understanding these core abstractions is crucial for maintaining architectural consistency and enabling potential portability.
 
 ## 2. Core Deployment Units
 

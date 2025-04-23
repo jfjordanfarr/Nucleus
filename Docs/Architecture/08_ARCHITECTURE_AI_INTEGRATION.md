@@ -1,8 +1,8 @@
 ---
 title: "Architecture: AI Integration"
 description: "Overview of strategies and patterns for integrating external AI models and services into the Nucleus platform."
-version: 1.3
-date: 2025-04-21
+version: 1.4
+date: 2025-04-22
 ---
 
 # Architecture: AI Integration
@@ -32,41 +32,40 @@ Integration attempts revealed discrepancies between the documentation/intended u
 Due to the issues with the `Mscc.GenerativeAI.Microsoft` layer, the recommended and currently implemented pattern for **Gemini** relies directly on the base `Mscc.GenerativeAI` package:
 
 1.  **Dependency Injection:** Register the core `Mscc.GenerativeAI.IGenerativeAI` interface in the service container. The specific implementation (`Mscc.GenerativeAI.GoogleAI`) is instantiated with the necessary configuration (like API keys) retrieved primarily from environment variables (`GEMINI_API_KEY`), falling back to application settings (`appsettings.json`). Register `IMemoryCache` for ephemeral storage.
-    *   **Code Link:** [Nucleus.ApiService/Program.cs](../../../Nucleus.ApiService/Program.cs)
+    *   **Code Link:** [Nucleus.ApiService/Program.cs](../../../Services/Nucleus.Services.Api/Program.cs)
 2.  **Usage in Personas/Services:** Inject `IGenerativeAI` and `IMemoryCache` into consuming classes (like Personas).
 3.  **Chat Interaction:** To initiate a chat:
     *   Get a specific model instance using `IGenerativeAI.GenerativeModel()`.
     *   Start a chat session using `GenerativeModel.StartChat()`.
     *   Send messages using `ChatSession.SendMessageAsync(prompt)`. If ephemeral context is provided (see Section 2.3), it is prepended to the user's query within the prompt.
-    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Nucleus.Personas.Core/BootstrapperPersona.cs) (`HandleQueryAsync`)
-4.  **API Invocation:** The API layer (e.g., `QueryController`) receives client requests, validates them, and invokes the relevant persona method (`HandleQueryAsync`). The query request can optionally include a `ContextSourceIdentifier` to utilize cached ephemeral context (see Section 2.3).
-    *   **Code Link:** [Nucleus.ApiService/Controllers/QueryController.cs](../../../Nucleus.ApiService/Controllers/QueryController.cs)
-    *   **Code Link:** [Nucleus.ApiService/Contracts/QueryRequest.cs](../../../Nucleus.ApiService/Contracts/QueryRequest.cs)
+    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`HandleQueryAsync`)
+4.  **API Invocation:** The API layer (`InteractionController`) receives client requests (`AdapterRequest`) via the `POST /api/Interaction/process` endpoint. This single endpoint handles both direct queries and requests providing context artifacts. The controller maps the request to a `NucleusIngestionRequest` and invokes the `IOrchestrationService`.
+    *   **Code Link:** [Nucleus.ApiService/Controllers/InteractionController.cs](../../../Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
+    *   **Code Link:** [Nucleus.Abstractions/Models/AdapterRequest.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterRequest.cs)
+    *   **Code Link:** [Nucleus.Abstractions/Models/AdapterResponse.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterResponse.cs)
 
-This pattern aligns with the examples provided in the `Mscc.GenerativeAI` library's primary documentation and avoids the problematic dependencies of the Microsoft integration layer *for Gemini*. It serves as the blueprint for the initial MVP and has been successfully implemented and tested, enabling basic query interaction with the Gemini API via the `/api/query` endpoint, optionally using context provided via the ingestion endpoint described below.
+This pattern aligns with the examples provided in the `Mscc.GenerativeAI` library's primary documentation and avoids the problematic dependencies of the Microsoft integration layer *for Gemini*. It serves as the blueprint for the initial MVP and has been successfully implemented and tested, enabling basic query interaction with the Gemini API via the `/api/Interaction/process` endpoint, optionally using context provided via artifacts.
 
-### 2.3. Ephemeral Context via API (Local Files)
+### 2.3. Ephemeral Context via API
 
-To support providing context to the AI model without persisting user file content, an ephemeral caching mechanism has been implemented:
+To support providing context to the AI model without persisting user file content, an ephemeral caching mechanism is used in conjunction with the standard interaction flow:
 
-1.  **Ingestion Endpoint (`POST /api/ingestion/localfile`):**
-    *   Accepts a request containing the full path to a local file (`IngestLocalFileRequest`).
-    *   The `IngestionController` reads the content of the specified file (currently treating it as plaintext).
-    *   It passes the file content and the file path (as the `sourceIdentifier`) to the persona's `AnalyzeEphemeralContentAsync` method.
-    *   **Code Link:** [Nucleus.ApiService/Controllers/IngestionController.cs](../../../Nucleus.ApiService/Controllers/IngestionController.cs)
-    *   **Code Link:** [Nucleus.ApiService/Contracts/IngestLocalFileRequest.cs](../../../Nucleus.ApiService/Contracts/IngestLocalFileRequest.cs)
-2.  **Caching (`BootstrapperPersona.AnalyzeEphemeralContentAsync`):**
-    *   The persona uses the injected `IMemoryCache` service to store the provided content.
-    *   The `sourceIdentifier` (the file path in this case) is used as the cache key.
-    *   This caching is temporary and in-memory, aligning with the Nucleus principle of avoiding persistent storage for raw/intermediate user content.
-    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Nucleus.Personas.Core/BootstrapperPersona.cs) (`AnalyzeEphemeralContentAsync`)
-3.  **Contextual Query (`POST /api/query`):**
-    *   The `QueryRequest` model now includes an optional `ContextSourceIdentifier` field.
-    *   If this identifier is provided, the `QueryController` attempts to retrieve the corresponding content from the `IMemoryCache`.
-    *   If found, the cached content is passed to the persona's `HandleQueryAsync` method alongside the user's query text.
-    *   The persona then incorporates this context into the prompt sent to the AI model (as detailed in Section 2.2, Step 3).
+1.  **Interaction Request (`POST /api/Interaction/process`):**
+    *   The client sends an `AdapterRequest` to the endpoint.
+    *   To provide context, the client includes one or more `ArtifactReference` objects in the `AdapterRequest.ArtifactReferences` list.
+    *   Critically, the `ArtifactReference.OptionalContext` field should contain an identifier (e.g., a local file path for the Console Adapter) that the persona can use to look up pre-cached content.
+    *   **Code Link:** [Nucleus.Abstractions/Models/AdapterRequest.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterRequest.cs)
+    *   **Code Link:** [Nucleus.Abstractions/Models/ArtifactReference.cs](../../../Abstractions/Nucleus.Abstractions/Models/ArtifactReference.cs)
+2.  **Orchestration & Caching (`OrchestrationService` -> Persona `AnalyzeEphemeralContentAsync`):**
+    *   The `InteractionController` passes the request to the `IOrchestrationService`.
+    *   The orchestration service (or relevant persona logic triggered by it, like `BootstrapperPersona.AnalyzeEphemeralContentAsync`) uses the `ArtifactReference.OptionalContext` as a key to look up content previously stored in the `IMemoryCache`.
+    *   *Note: The mechanism for initially populating the cache (e.g., a separate ingestion step or pre-loading) is currently specific to the adapter implementation (e.g., the Console Adapter might read a local file based on the context identifier before sending the interaction request).* This document previously described a dedicated ingestion endpoint which is now superseded by the unified interaction flow.
+    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`AnalyzeEphemeralContentAsync` - Example of cache usage)
+3.  **Contextual Query Handling (Persona `HandleQueryAsync`):**
+    *   If cached content associated with the `ArtifactReference.OptionalContext` is found during orchestration/persona processing, it is made available to the persona's primary query handling logic (e.g., `HandleQueryAsync`).
+    *   The persona then incorporates this retrieved context into the prompt sent to the AI model (as detailed in Section 2.2, Step 3).
 
-This mechanism allows users to upload context for a specific interaction without that context being permanently stored by Nucleus, addressing potential privacy and data management concerns.
+This mechanism allows users to reference context for a specific interaction without that context being permanently stored by Nucleus, addressing potential privacy and data management concerns, by leveraging the `IMemoryCache` and context identifiers passed within the standard `AdapterRequest`.
 
 ## 3. Future Considerations & Multi-Provider Strategy
 

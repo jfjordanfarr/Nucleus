@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Slack
 description: Describes a client adapter which enables the interaction with Nucleus personas in Slack
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Client Adapter: Slack
@@ -10,7 +10,7 @@ date: 2025-04-13
 
 ## Overview
 
-Enables interaction with Nucleus Personas within a Slack workspace.
+Enables interaction with Nucleus Personas within a Slack workspace. This adapter adheres to the principles outlined in the main [Client Architecture Overview](../05_ARCHITECTURE_CLIENTS.md) and implements concepts from the [Common Adapter Interfaces](./ARCHITECTURE_ADAPTER_INTERFACES.md).
 
 ## Auth
 
@@ -77,7 +77,11 @@ Slack offers rich presentation options via Block Kit.
 *   **Slack Blocks:** The primary method. Personas should generate structured output suitable for formatting as Block Kit JSON (text, images, dividers, context, buttons, menus, etc.).
 *   **Markdown:** Slack uses `mrkdwn`, a variant of Markdown, within text blocks.
 *   **Interactive Components:** Buttons, select menus, date pickers etc., can be included in Block Kit messages, enabling user interaction (requires bot interaction handling).
-*   **Embedded Visualizations:** Complex interactive visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md:0:0-0:0)) are best handled by:
+*   **Embedded Visualizations:** Complex interactive visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](../Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md)) are best handled by:
     1.  Generating as a static image (PNG) and uploading via `files.upload`, displayed inline.
     2.  Generating an interactive HTML file, uploading it via `files.upload`, and providing a link/button in the message.
     3.  Direct embedding within Slack messages is not feasible for complex JS-based visualizations.
+
+## References
+
+*   For details on initial feasibility and design considerations across Slack, Email, and Discord adapters, see: [Slack, Email, and Discord Adapter Report](../../HelpfulMarkdownFiles/Slack-Email-Discord-Adapter-Report.md)

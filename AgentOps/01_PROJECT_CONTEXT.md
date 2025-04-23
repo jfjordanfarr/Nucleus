@@ -85,8 +85,6 @@ This section provides a comprehensive listing of the files and directories withi
         *   `STORY_01_NavigatingEvolvingAILibraries.md`: Narrative log.
         *   `STORY_02_MCP_Server_Integration_Lessons.md`: Narrative log.
         *   `STORY_03_LinterIntegration.md`: Narrative log.
-        *   `tmp_currentplan.md`: Temporary planning document.
-        *   `tmp_DirectoryStructure.md`: Temporary directory structure notes.
     *   `Logs/`: Directory for agent-related logs.
     *   `Scripts/`: Utility scripts for agent operations.
         *   `codebase_to_markdown.py`: Script to generate markdown from codebase structure.
@@ -240,6 +238,7 @@ This section provides a comprehensive listing of the files and directories withi
         *   `Nucleus.Domain.Processing/`: Central domain services project.
             *   `Infrastructure/`: Infrastructure-specific implementations used by the domain.
                 *   `GoogleAiChatClientAdapter.cs`: Adapter for interacting with the Google AI Chat service (Mscc.GenerativeAI).
+                *   `obj/`: Build output directory (typically gitignored).
             *   `Resources/`: Embedded resource files.
                 *   `Dataviz/`: Resources for the Dataviz HTML builder.
                     *   `dataviz_plotly_script.py`: Python script (likely for Plotly generation, used by builder).
@@ -247,6 +246,9 @@ This section provides a comprehensive listing of the files and directories withi
                     *   `dataviz_styles.css`: CSS styles for the dataviz HTML output.
                     *   `dataviz_template.html`: HTML template file used by `DatavizHtmlBuilder`.
                     *   `dataviz_worker.js`: Web worker script for dataviz processing.
+            *   `Services/`: Domain-specific services.
+                *   `DatavizHtmlBuilder.cs`: Service to build HTML data visualizations.
+            *   `DefaultPersonaManager.cs`: Default implementation of `IPersonaManager`.
             *   `DefaultPersonaResolver.cs`: Default implementation of `IPersonaResolver`.
             *   `Nucleus.Processing.csproj`: C# project file for Domain Processing.
             *   `OrchestrationService.cs`: Implements `IOrchestrationService`, coordinating request processing.
@@ -273,8 +275,6 @@ This section provides a comprehensive listing of the files and directories withi
                     *   `NullMessageQueuePublisher.cs`: No-op implementation of `IMessageQueuePublisher`.
                     *   `ServiceBusQueueConsumerService.cs`: Background service for consuming messages from Azure Service Bus.
                 *   `NullArtifactProvider.cs`: No-op implementation of `IArtifactProvider` for API service context.
-            *   `Properties/`: Project properties.
-                *   `launchSettings.json`: Debug launch profiles for the API service.
             *   `AdapterWithErrorHandler.cs`: Bot Framework adapter wrapper with error handling.
             *   `appsettings.Development.json`: Development-specific configuration for the API service.
             *   `appsettings.json`: Base configuration for the API service.

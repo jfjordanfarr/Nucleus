@@ -1,24 +1,21 @@
 ---
 title: Architecture - Hosting Strategy: Azure
 description: Details the specific Azure services and configuration for deploying the Nucleus OmniRAG system.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Azure Deployment Strategy
 
-**Version:** 1.1
-**Date:** 2025-04-13
-
 ## 1. Introduction
 
-This document specifies the recommended architecture for deploying the Nucleus OmniRAG system using Microsoft Azure services. It builds upon the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) and refines the concepts initially outlined in the [Overall Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md).
+This document specifies the recommended architecture for deploying the Nucleus OmniRAG system using Microsoft Azure services. It builds upon the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) and refines the concepts initially outlined in the [Overall Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md).
 
 **Goal:** Leverage Azure's PaaS offerings for scalability, manageability, and integration while using Google Gemini for AI services.
 
 ## 2. Core Azure Service Mapping
 
-Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the following Azure services are chosen:
+Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the following Azure services are chosen:
 
 1.  **Containerized Compute Runtime:**
     *   **Service:** **Azure Container Apps (ACA)**
@@ -50,17 +47,13 @@ Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
     *   **Integration:** Direct API calls from ACA compute instances to the Google Cloud APIs.
     *   **Consideration:** Network latency between Azure and Google Cloud. Ensure secure handling of Google API keys/credentials (e.g., via Azure Key Vault).
 
-## 4. AI Services (LLM & Embeddings)
-
-*   **Service:** **Google Gemini API** (accessed directly)
-*   **Alternatives:** Azure OpenAI (requires separate resource and configuration).
-
 ## 5. Networking & Security
 
 *   **ACA Environment:** Deploy within an ACA Environment, potentially linked to a Virtual Network for enhanced security and control if needed (e.g., using Private Endpoints for Service Bus, Cosmos DB).
 *   **Ingress:** Managed HTTPS ingress provided by ACA.
 *   **Secrets Management:** Utilize **Azure Key Vault** for storing connection strings, API keys (including Google Gemini keys), and other secrets. Access Key Vault using Managed Identities from ACA.
 *   **Authentication:** Implement robust authentication, likely using Azure AD (Entra ID) for user and potentially service principal authentication ([Architecture - Security](../06_ARCHITECTURE_SECURITY.md)).
+*   **Bot Framework Security:** For specific security considerations when deploying Bot Framework applications (like the Teams Adapter) within this Azure environment, refer to: [Secure Bot Framework Azure Deployment](../../../HelpfulMarkdownFiles/Secure-Bot-Framework-Azure-Deployment.md).
 *   **Monitoring:** Azure Monitor for logs, metrics, and application insights.
 
 ## 6. Cost Considerations

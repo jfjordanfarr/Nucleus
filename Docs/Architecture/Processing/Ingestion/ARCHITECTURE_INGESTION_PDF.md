@@ -1,7 +1,12 @@
-# Architecture: PDF Ingestion
+---
+title: Ingestion Architecture - PDF Files
+description: Outlines the hybrid ingestion strategy for PDF files, balancing direct multimodal LLM processing with fallback to external pre-processing services for complex cases.
+version: 1.0
+date: 2025-04-22
+parent: ../ARCHITECTURE_PROCESSING_INGESTION.md
+---
 
-**Version:** 1.0
-**Date:** 2025-04-13
+# Architecture: PDF Ingestion
 
 This document outlines the ingestion strategy for Portable Document Format (PDF) files within the Nucleus OmniRAG architecture. PDFs represent a unique challenge due to their complex, fixed-layout nature, potentially containing a mix of structured text, raster images (requiring OCR), vector graphics, forms, and annotations. They are not inherently structured as archives of simple components like Office Open XML formats.
 
@@ -9,7 +14,7 @@ The strategy aims to balance the core principles of simplicity and leveraging LL
 
 ## 1. Core Challenge
 
-Directly applying the "bundle components + LLM synthesis" pattern used for File Collections (like `.docx`) is not feasible for PDFs because:
+Directly applying the "bundle components + LLM synthesis" pattern used for [File Collections](./ARCHITECTURE_INGESTION_FILECOLLECTIONS.md) (like `.docx`) is not feasible for PDFs because:
 
 *   PDFs lack a standardized, easily extractable internal component structure comparable to OOXML.
 *   Content extraction often requires specialized parsing libraries and Optical Character Recognition (OCR).
@@ -52,7 +57,7 @@ Nucleus employs a two-pronged, configurable approach based on the PDF's characte
 Crucially, regardless of whether the PDF is processed via direct LLM or an external pre-processor, the final step is **always** passing the resulting text/Markdown to the **Plaintext Processor**. This ensures:
 
 *   The core ingestion flow remains consistent.
-*   The final artifact stored and linked in `ArtifactMetadata` is always the canonical Markdown representation.
+*   The final artifact stored and linked in [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) is always the canonical Markdown representation.
 *   Downstream processes (retrieval, analysis) interact with a uniform data type.
 
 ## 4. Configuration and Considerations

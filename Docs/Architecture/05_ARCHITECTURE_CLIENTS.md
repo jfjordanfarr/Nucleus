@@ -1,14 +1,14 @@
 ---
 title: Architecture - Client Applications & Adapters
 description: Outlines the architecture for clients (MVP Console App) and future platform adapters interacting with the Nucleus API.
-version: 3.1
-date: 2025-04-19
+version: 3.2
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Client Architecture
 
-**Version:** 3.1
-**Date:** 2025-04-19
+**Version:** 3.2
+**Date:** 2025-04-22
 
 This document outlines the architecture for client applications interacting with the Nucleus OmniRAG backend API, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It details the primary interaction mechanism for the Minimum Viable Product (MVP) – a command-line interface (CLI) application – and outlines future plans for integrating with collaboration platforms.
 

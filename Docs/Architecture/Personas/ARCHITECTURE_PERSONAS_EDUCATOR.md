@@ -1,19 +1,15 @@
 ---
 title: Persona - Educator ('EduFlow OmniEducator')
 description: Describes a pre-build persona for Nucleus OmniRAG that is focused on educational use cases, including classroom chats, one-on-one precision teaching, personalized learning experiences, and rich reporting capabilities.
-version: 1.5
-date: 2025-04-20
+date: 2025-04-22
+parent: ../02_ARCHITECTURE_PERSONAS.md
 ---
-
 
 # Persona: Educator ('EduFlow OmniEducator')
 
-**Version:** 1.5
-**Date:** 2025-04-20
-
 ## 1. Vision & Purpose
 
-The Educator persona, initially conceived as EduFlow OmniEducator, is the flagship persona for Nucleus OmniRAG. It stems from the need to create a safer, more personalized, and authentic educational experience, particularly recognizing learning within digital creation and self-directed projects. Traditional educational models often fail to capture or support this intrinsic drive.
+The Educator persona, initially conceived as EduFlow OmniEducator, is the flagship persona for Nucleus OmniRAG, detailed within the overall [Personas Architecture](../02_ARCHITECTURE_PERSONAS.md). It stems from the need to create a safer, more personalized, and authentic educational experience, particularly recognizing learning within digital creation and self-directed projects. Traditional educational models often fail to capture or support this intrinsic drive.
 
 This persona aims to:
 
@@ -65,7 +61,7 @@ sequenceDiagram
 
 ## 3. Core Functionality
 
-The Educator persona implements the [IPersona](../../../Nucleus.Abstractions/IPersona.cs) interface defined in the `Nucleus.Abstractions` project.
+The Educator persona implements the [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) interface defined in the `Nucleus.Abstractions` project.
 
 ### 3.1 Ingestion / Analysis
 
@@ -133,7 +129,7 @@ For a detailed explanation of this framework and links to the age-specific knowl
 
 ## 8. Next Steps
 
-1.  **Implement `EducatorPersona.cs`:** Create the concrete class implementing [IPersona](../../../Nucleus.Abstractions/IPersona.cs) within a `Nucleus.Personas` project.
+1.  **Implement `EducatorPersona.cs`:** Create the concrete class implementing [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) within a `Nucleus.Personas` project.
 2.  **Define `EduFlowAnalysis`:** Finalize the C# record/class structure for the analysis data within `Nucleus.Abstractions`.
 3.  **Implement `IPersonaKnowledgeRepository<EduFlowAnalysis>`:** Develop the specific repository interface (planned for `Nucleus.Abstractions`) and implementation (planned for `Nucleus.Infrastructure`/`Persistence`) for storing/retrieving educator knowledge entries.
 4.  **Integrate AI Services:** Connect the persona logic to the chosen AI services for analysis and generation.

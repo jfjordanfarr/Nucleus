@@ -2,17 +2,15 @@
 title: Persona - Professional Colleague
 description: Describes the Professional Colleague persona, simulating a helpful peer for task assistance, information retrieval, and contextual insights in a work environment.
 version: 1.1
-date: 2025-04-19
+date: 2025-04-22
+parent: ../02_ARCHITECTURE_PERSONAS.md
 ---
 
 # Persona: Professional Colleague
 
-**Version:** 1.1
-**Date:** 2025-04-19
-
 ## 1. Vision & Purpose
 
-The Professional Colleague persona aims to seamlessly integrate into a user's workflow, acting as a knowledgeable and efficient digital teammate. Its purpose is to assist with common professional tasks, such as retrieving information from connected enterprise systems (e.g., knowledge bases, ticketing systems, project trackers), summarizing documents or conversations, drafting communications, and providing contextual insights relevant to ongoing work. Unlike specialized personas, the Professional Colleague offers broad, generalist support, reducing friction in daily tasks and augmenting the user's productivity by acting as an readily available assistant that understands the work context. It leverages organizational knowledge passively ingested or actively queried through tools to provide relevant and timely help.
+The Professional Colleague persona aims to seamlessly integrate into a user's workflow, acting as a knowledgeable and efficient digital teammate, as outlined in the [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). Its purpose is to assist with common professional tasks, such as retrieving information from connected enterprise systems (e.g., knowledge bases, ticketing systems, project trackers), summarizing documents or conversations, drafting communications, and providing contextual insights relevant to ongoing work. Unlike specialized personas, the Professional Colleague offers broad, generalist support, reducing friction in daily tasks and augmenting the user's productivity by acting as an readily available assistant that understands the work context. It leverages organizational knowledge passively ingested or actively queried through tools to provide relevant and timely help.
 
 ## 2. Typical Request Flow (IT Helpdesk)
 
@@ -46,9 +44,11 @@ sequenceDiagram
 
 **Explanation:** This sequence shows a query originating from an IT staff member in Teams. The message flows through the Bot Framework to the Nucleus Teams Adapter. The adapter forwards the query to the backend API/handler. The backend generates a vector embedding for the query, searches the `PersonaKnowledgeEntry` data in Cosmos DB using the embedding and any relevant filters (like detected error codes), retrieves the most relevant derived knowledge (structured data, snippets, vectors), and uses the AI service to synthesize a user-friendly response based on those retrieved items. The response is then sent back through the layers to the user in Teams.
 
+See [Azure .NET IT Helpdesk Reference Implementation](./Professional/ARCHITECTURE_AZURE_DOTNET_HELPDESK.md) for a specific deployment example of this flow.
+
 ## 3. Core Functionality
 
-The Professional Colleague persona implements the [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs) interface defined in the `Nucleus.Abstractions` project.
+The Professional Colleague persona implements the [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) interface defined in the `Nucleus.Abstractions` project.
 
 ### 3.1 Ingestion / Analysis (Optional)
 
@@ -95,7 +95,7 @@ If background analysis is implemented, the schema might include:
 
 ## 7. Next Steps
 
-1.  **Implement `ProfessionalColleaguePersona.cs`:** Create the concrete class implementing [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs).
+1.  **Implement `ProfessionalColleaguePersona.cs`:** Create the concrete class implementing [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0).
 2.  **Define `ProfessionalAnalysis` (Optional):** If background analysis is desired, define the C# structure in `Nucleus.Abstractions`.
 3.  **Implement Knowledge Repository (Optional):** If background analysis is desired, implement `IPersonaKnowledgeRepository<ProfessionalAnalysis>`.
 4.  **Develop Core Query Logic:** Implement the primary request/response flow, focusing initially on stateless interaction or simple `ArtifactMetadata` retrieval.

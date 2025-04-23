@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Console
 description: Describes a basic interaction surface with Nucleus personas, tailored for accelerated local development and providing a lightweight simulation environment for core adapter interactions.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Client Adapter: Console

@@ -1,18 +1,15 @@
 ---
 title: Architecture - CI/CD Strategy for Open Source
 description: Outlines the Continuous Integration and Continuous Delivery/Deployment strategy tailored for the Nucleus OmniRAG open-source project.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: CI/CD Strategy (Open Source Context)
 
-**Version:** 1.1
-**Date:** 2025-04-13
-
 ## 1. Introduction
 
-This document details the Continuous Integration (CI) and Continuous Delivery (CD) strategy for the Nucleus OmniRAG project. As an open-source project, the focus of CI/CD is less on deploying to a specific production environment and more on:
+This document details the Continuous Integration (CI) and Continuous Delivery (CD) strategy for the Nucleus OmniRAG project, as part of the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). As an open-source project, the focus of CI/CD is less on deploying to a specific production environment and more on:
 
 *   **Validating Code Quality:** Ensuring code builds, passes tests, and adheres to standards.
 *   **Creating Consumable Artifacts:** Building versioned Docker images and potentially example deployment configurations (like `docker-compose.yml` files) that users can easily deploy in their own environments ([Azure](./Hosting/ARCHITECTURE_HOSTING_AZURE.md), [Cloudflare](./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md), [Self-Hosted](./Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md)).

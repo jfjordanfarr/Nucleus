@@ -1,18 +1,15 @@
 ---
 title: Architecture - Hosting Strategy: Self-Host (Home Network)
 description: Details the strategy and considerations for deploying Nucleus OmniRAG on a local home network using Docker.
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Nucleus OmniRAG: Self-Hosted Home Network Deployment Strategy
 
-**Version:** 1.1
-**Date:** 2025-04-13
-
 ## 1. Introduction
 
-This document outlines the architecture and considerations for deploying the Nucleus OmniRAG system within a home network environment, primarily targeting individual users or developers who wish to run the system locally on their own hardware. This approach leverages Docker Desktop (or a similar containerization platform) for packaging and running the necessary components.
+This document outlines the architecture and considerations for deploying the Nucleus OmniRAG system within a home network environment, as part of the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). It primarily targets individual users or developers who wish to run the system locally on their own hardware. This approach leverages Docker Desktop (or a similar containerization platform) for packaging and running the necessary components.
 
 **Goal:** Provide a self-contained Nucleus instance accessible within the user's home network, minimizing reliance on cloud services for core infrastructure while still potentially using cloud AI providers.
 
@@ -31,7 +28,7 @@ Self-hosting Nucleus on a home network is generally **feasible**, especially for
 
 ## 3. Core Component Mapping (Docker Containers)
 
-Based on the [Deployment Abstractions](./ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the system can be run using standard Docker containers:
+Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md), the system can be run using standard Docker containers:
 
 1.  **Containerized Compute Runtime:**
     *   **Technology:** **Docker Desktop** (Windows, macOS) or Docker Engine (Linux).

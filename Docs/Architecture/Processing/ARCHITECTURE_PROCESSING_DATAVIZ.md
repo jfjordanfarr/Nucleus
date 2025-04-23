@@ -2,7 +2,8 @@
 title: Processing Architecture - Data Visualization
 description: Describes a skill that can be performed by personas, which involves writing structured data and simple visualization code snippets into a template pyodide-based static HTML page.
 version: 1.0
-date: 2025-04-13
+date: 2025-04-22
+parent: ../05_ARCHITECTURE_PROCESSING.md
 ---
 
 # Processing Architecture: Data Visualization ('Dataviz')
@@ -31,7 +32,7 @@ The Persona's response payload should indicate a desire to generate a visualizat
 
 ## 3. Artifact Generation Process (`viz.html`)
 
-Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component** (implemented by the `Nucleus.Processing.Services.DatavizHtmlBuilder` class - see [`../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs`](../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)) performs the following steps to generate the self-contained `viz.html` artifact:
+Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component** (implemented by the `Nucleus.Processing.Services.DatavizHtmlBuilder` class - see [`cci:2://file:///d:/Projects/Nucleus/src/Processing/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Processing/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0)) performs the following steps to generate the self-contained `viz.html` artifact:
 
 1.  **Load Templates:** Reads the content of the standard template files (`dataviz_template.html`, `dataviz_styles.css`, `dataviz_script.js`, `dataviz_plotly_script.py`, `dataviz_worker.js`) located within the Processing service's resources.
 2.  **Inject Python Script:**
@@ -90,4 +91,4 @@ Security is handled through multiple layers inherent in the design:
 
 ## 6. Relationship to Client Adapters
 
-While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer, the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., `Nucleus.Adapters.Teams`, `Nucleus.Adapters.Console`) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).
+While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer, the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0), [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0)) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).

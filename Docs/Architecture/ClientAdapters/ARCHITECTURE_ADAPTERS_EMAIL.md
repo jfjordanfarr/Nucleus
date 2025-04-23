@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Email
 description: Describes a client adapter which enables the interaction with Nucleus personas in Email
-version: 1.1
-date: 2025-04-13
+version: 1.2
+date: 2025-04-22
 ---
 
 # Client Adapter: Email
@@ -76,3 +76,7 @@ Email presentation capabilities vary by client.
 *   **HTML:** Email bodies can contain rich HTML formatting.
 *   **Interactivity:** Limited. Some clients support basic forms or actions (e.g., Outlook Actionable Messages), but general interactivity is minimal.
 *   **Embedded Visualizations:** Not directly supported. Interactive data visualizations would need to be rendered as static images (PNG) embedded in the HTML body, or saved as files (HTML, SVG, PNG) and attached, with a link provided in the email body.
+
+## References
+
+*   For details on initial feasibility and design considerations across Slack, Email, and Discord adapters, see: [Slack, Email, and Discord Adapter Report](../../HelpfulMarkdownFiles/Slack-Email-Discord-Adapter-Report.md)

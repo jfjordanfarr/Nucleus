@@ -2,7 +2,7 @@
 title: Reference Implementation - Azure .NET IT Helpdesk Persona
 description: Describes a reference architecture for the Nucleus Professional Persona in an IT Helpdesk scenario, deployed on Azure using .NET.
 version: 1.0
-date: 2025-04-13
+date: 2025-04-22
 ---
 
 # Reference Implementation: Azure .NET IT Helpdesk

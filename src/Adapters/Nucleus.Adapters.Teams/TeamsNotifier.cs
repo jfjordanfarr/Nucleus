@@ -16,7 +16,7 @@ namespace Nucleus.Adapters.Teams;
 /// <summary>
 /// Implements <see cref="IPlatformNotifier"/> for Microsoft Teams using the Bot Framework SDK.
 /// Sends messages back to Teams conversations/channels.
-/// See: ../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_NOTIFIER.md (Assuming this doc exists or will be created)
+/// See: [ARCHITECTURE_ADAPTERS_TEAMS.md](../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS.md)
 /// </summary>
 public class TeamsNotifier : IPlatformNotifier
 {

@@ -6,6 +6,9 @@
   // Use the official Microsoft .NET Dev Container image for .NET 9
   "image": "mcr.microsoft.com/devcontainers/dotnet:0-9.0",
 
+  // For context on the integration strategy and decisions made for this dev container,
+  // see the feasibility study: ../Docs/HelpfulMarkdownFiles/Windsurf Dev Container Integration Feasibility_.md
+
   // Features add tools and configurations to the base image
   "features": {
     // Installs .NET SDK, workloads, and tools. Explicitly targets .NET 9 SDK.
@@ -45,7 +48,7 @@
 
   // Environment variables available inside the container
   "containerEnv": {
-    "ASPNETCORE_ENVIRONMENT": "Development",
+    "ASPNETCORE_ENVIRONMENT": "Development"
     // Uncomment if hot reload issues occur in the container:
     // "DOTNET_USE_POLLING_FILE_WATCHER": "true",
     // Uncomment if user secrets are used and need a specific path inside container:

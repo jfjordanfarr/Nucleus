@@ -2,18 +2,19 @@
 title: Persona - Bootstrapper
 description: Describes the basic Bootstrapper persona for Nucleus OmniRAG, serving as a foundation or fallback.
 version: 1.1
-date: 2025-04-19
+date: 2025-04-22
+parent: ../02_ARCHITECTURE_PERSONAS.md
 ---
 
 # Persona: Bootstrapper
 
 ## 1. Purpose
 
-The Bootstrapper persona represents the most fundamental level of interaction within the Nucleus OmniRAG system. It is designed to be simple and serve potentially as:
+The Bootstrapper persona represents the most fundamental level of interaction within the Nucleus OmniRAG system, as defined in the [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It is designed to be simple and serve potentially as:
 
 *   **Initial Setup/Testing:** Provides a basic interaction layer for verifying core system functionality (ingestion, storage, basic retrieval) without complex domain logic.
 *   **Fallback Behavior:** Could act as a default persona if a more specialized one is not specified or applicable.
-*   **Foundation:** Represents the core [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs) implementation from which more complex personas can inherit or delegate.
+*   **Foundation:** Represents the core [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) implementation from which more complex personas can inherit or delegate.
 
 It typically involves minimal analysis during ingestion and focuses on direct retrieval or simple query handling.
 
@@ -45,5 +46,5 @@ sequenceDiagram
 
 *   **Simplicity:** Minimal domain logic and analysis.
 *   **Directness:** Focuses on basic retrieval and interaction.
-*   **Foundation:** Implements the core [`IPersona`](../../../Nucleus.Abstractions/IPersona.cs) contract.
+*   **Foundation:** Implements the core [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) contract.
 *   **Low Overhead:** Requires minimal configuration and processing resources compared to specialized personas.

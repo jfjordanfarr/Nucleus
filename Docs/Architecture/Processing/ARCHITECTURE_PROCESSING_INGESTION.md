@@ -2,7 +2,8 @@
 title: Processing Architecture - Ingestion
 description: Describes a baseline approach to data ingestion, which leverages the fact that many data formats are ultimately plain text, a group of zipped plain text files, or multimedia files which can be described using text. 
 version: 1.0
-date: 2025-04-13
+date: 2025-04-22
+parent: ../05_ARCHITECTURE_PROCESSING.md
 ---
 
 # Processing Architecture: Ingestion
@@ -32,14 +33,14 @@ It strategically employs Large Language Models (LLMs) with extensive context win
 5.  **Initiate Orchestration:** The Consumer Service invokes the [`IOrchestrationService.ProcessIngestionRequestAsync`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IOrchestrationService.cs:24:4-25:93) method, passing the deserialized `NucleusIngestionRequest`.
 6.  **Orchestration & Processing (Ephemeral):**
     *   The `OrchestrationService` manages the subsequent flow (session handling, persona selection, etc.).
-    *   It uses the appropriate `IPlatformAttachmentFetcher` (resolved via DI based on the request's `PlatformType`) to retrieve the *current version* of the source artifact(s) using details from the request.
+    *   It uses the appropriate [`IPlatformAttachmentFetcher`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs:0:0-0:0) (resolved via DI based on the request's `PlatformType`) to retrieve the *current version* of the source artifact(s) using details from the request.
     *   The artifact is routed through the relevant processors (e.g., FileCollection -> Multimedia -> Plaintext; or PDF Processor -> Plaintext).
     *   Each processor performs its task, generating intermediate outputs (e.g., extracted components, descriptions, synthesized Markdown) that exist **ephemerally** (in memory or temporary local files).
     *   The final **ephemeral Markdown** representation is produced by the Plaintext processor.
 7.  **Persona Analysis:** The ephemeral Markdown is passed to the relevant `Persona` processor(s).
 8.  **Knowledge Extraction & Persistence:** Personas analyze the Markdown, extract structured data, identify salient snippets, generate vector embeddings *for those snippets/data*, and store/update `PersonaKnowledgeEntry` records in Cosmos DB.
 9.  **Update Metadata:** Update the `ArtifactMetadata` record in Cosmos DB for the source artifact, indicating processing status per persona.
-10. **(Response Handling):** If the initial interaction requires a response, the `OrchestrationService` uses the appropriate `IPlatformNotifier` to send status updates or results back to the user via the originating platform.
+10. **(Response Handling):** If the initial interaction requires a response, the `OrchestrationService` uses the appropriate [`IPlatformNotifier`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPlatformNotifier.cs:0:0-0:0) to send status updates or results back to the user via the originating platform.
 11. **Cleanup:** Ephemeral representations (like the full Markdown) are discarded at the end of the request processing scope.
 12. **(Query Phase):** Subsequent retrieval mechanisms query `PersonaKnowledgeEntry` in Cosmos DB for relevant snippets/structured data to synthesize responses.
 
@@ -57,5 +58,5 @@ This combination enables the high-quality, context-preserving approach central t
 
 Details for handling specific formats are documented separately:
 
-*   [Plaintext Files](./ARCHITECTURE_INGESTION_PLAINTEXT.md)
+*   [Plaintext Files](./Ingestion/ARCHITECTURE_INGESTION_PLAINTEXT.md)
 *   *Others TBD (e.g., PDF, Office, Image, Audio, Code, Zip)*
