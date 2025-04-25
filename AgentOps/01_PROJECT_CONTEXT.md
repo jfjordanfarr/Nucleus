@@ -66,7 +66,7 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
 
 ## - Project Structure & File Census
 
-This section provides a comprehensive listing of the files and directories within the Nucleus project, derived from the `tree_gitignore.py` script output. It serves as a persistent context for the AI, detailing the purpose of each significant file and project component.
+This section provides a comprehensive listing of the files and directories within the Nucleus project, derived from the `tree_gitignore.py` script output as of **2025-04-25**. It serves as a persistent context for the AI, detailing the purpose of each significant file and project component based on the refactored structure.
 
 *   **Root Directory:** `Nucleus/` (D:\Projects\Nucleus)
 
@@ -76,40 +76,44 @@ This section provides a comprehensive listing of the files and directories withi
     *   `devcontainer.json`: Defines the dev container environment settings.
 *   `.github/`: GitHub-specific files, primarily CI/CD workflows.
     *   `workflows/`: Contains GitHub Actions workflow definitions (if any).
-*   `.vs/`: Visual Studio specific files (typically gitignored, but listed for completeness if present in tree).
+*   `.vs/`: Visual Studio specific files (typically gitignored).
 *   `.vscode/`: VS Code specific settings.
     *   `launch.json`: Debugging configurations for VS Code.
 *   `_LocalData/`: Directory for storing local data, potentially large files (likely gitignored).
 *   `AgentOps/`: Files related to AI agent operations, methodology, and context management.
-    *   `Archive/`: Storage for historical agent conversations, plans, or analysis.
-        *   `STORY_01_NavigatingEvolvingAILibraries.md`: Narrative log.
-        *   `STORY_02_MCP_Server_Integration_Lessons.md`: Narrative log.
-        *   `STORY_03_LinterIntegration.md`: Narrative log.
-    *   `Logs/`: Directory for agent-related logs.
-    *   `Scripts/`: Utility scripts for agent operations.
-        *   `codebase_to_markdown.py`: Script to generate markdown from codebase structure.
-        *   `csharp_code_analyzer.csx`: C# script for code analysis tasks.
-        *   `tree_gitignore.py`: Python script to display directory tree, respecting .gitignore.
-    *   `00_START_HERE_METHODOLOGY.md`: Core document defining the AI-driven development methodology.
-    *   `01_PROJECT_CONTEXT.md`: High-level overview and context of the Nucleus project.
-    *   `02_CURRENT_SESSION_STATE.md`: Document tracking the state of the current development session.
-    *   `03_PROJECT_PLAN_KANBAN.md`: Kanban-style project plan/backlog.
-    *   `04_AGENT_TO_AGENT_CONVERSATION.md`: Log for meta-conversations about the agent's process.
-    *   `README.md`: Readme specific to the AgentOps directory.
+    *   `Archive/`:
+        *   `refactoring_checklist.md`: Checklist related to refactoring efforts.
+        *   `STORY_*.md`: Narrative logs of previous sessions.
+        *   `tmp_currentplan.md`: Temporary plan document for the current agent session.
+    *   `Scripts/`:
+        *   `codebase_to_markdown.py`
+        *   `csharp_code_analyzer.csx`
+        *   `tree_gitignore.py`: Script to display directory tree, respecting .gitignore.
+    *   `00_START_HERE_METHODOLOGY.md`: Core methodology document.
+    *   `01_PROJECT_CONTEXT.md`: **This file.**
+    *   `02_CURRENT_SESSION_STATE.md`: Current session state tracking.
+    *   `03_PROJECT_PLAN_KANBAN.md`: Project plan/backlog.
+    *   `04_AGENT_TO_AGENT_CONVERSATION.md`: Agent meta-conversation log.
+    *   `CodebaseDump.md`: Raw dump or snapshot of the codebase structure/content.
+    *   `README.md`: AgentOps directory readme.
 *   `Docs/`: Project documentation.
     *   `Architecture/`: Contains markdown files describing the system architecture.
+        *   `Api/`: Architecture related to the central API service.
+            *   `ARCHITECTURE_API_CLIENT_INTERACTION.md`: Defines interaction patterns (DTOs, synchronous/asynchronous handling) between Client Adapters and the Nucleus API Service.
+            *   `ARCHITECTURE_API_INGESTION.md`: Defines the API contract for data ingestion (path-based, potentially others).
         *   `ClientAdapters/`: Architecture for connecting Nucleus to different client platforms.
             *   `Console/`: Console adapter specifics.
-                *   `ARCHITECTURE_ADAPTERS_CONSOLE_INTERFACES.md`: Interfaces for the Console adapter.
+                *   `Archive/`: Archived documents related to the Console adapter.
+                    *   `ARCHITECTURE_ADAPTERS_CONSOLE_INTERFACES.md`: Archived interfaces specific to the older Console adapter design.
             *   `Teams/`: Microsoft Teams adapter specifics.
-                *   `ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md`: Details on fetching attachments from Teams.
-                *   `ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md`: Interfaces for the Teams adapter.
-            *   `ARCHITECTURE_ADAPTER_INTERFACES.md`: Common interfaces for all client adapters.
-            *   `ARCHITECTURE_ADAPTERS_CONSOLE.md`: Overview of the Console adapter architecture.
-            *   `ARCHITECTURE_ADAPTERS_DISCORD.md`: (Placeholder/Planned) Discord adapter architecture.
-            *   `ARCHITECTURE_ADAPTERS_EMAIL.md`: (Placeholder/Planned) Email adapter architecture.
-            *   `ARCHITECTURE_ADAPTERS_SLACK.md`: (Placeholder/Planned) Slack adapter architecture.
-            *   `ARCHITECTURE_ADAPTERS_TEAMS.md`: Overview of the Teams adapter architecture.
+                *   `ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md`: Details on *how* the adapter used to fetch attachments (Now references API for this task).
+                *   `ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md`: Interfaces for the Teams adapter (**Partially Deprecated:** Focus shifts to API DTOs, but Bot Framework interfaces remain relevant).
+            *   `ARCHITECTURE_ADAPTER_INTERFACES.md`: Common interfaces for client adapters (**Partially Deprecated:** Focus shifts to API contracts, but platform-specific interfaces like `IPlatformNotifier` might remain).
+            *   `ARCHITECTURE_ADAPTERS_CONSOLE.md`: Overview of the Console adapter architecture (Updated for API-First).
+            *   `ARCHITECTURE_ADAPTERS_DISCORD.md`: Placeholder for Discord adapter architecture.
+            *   `ARCHITECTURE_ADAPTERS_EMAIL.md`: Placeholder for Email adapter architecture.
+            *   `ARCHITECTURE_ADAPTERS_SLACK.md`: Placeholder for Slack adapter architecture.
+            *   `ARCHITECTURE_ADAPTERS_TEAMS.md`: Overview of the Teams adapter architecture (Needs review for API-First alignment).
         *   `Deployment/`: Architecture related to deployment strategies and hosting.
             *   `Hosting/`: Specific hosting environment details.
                 *   `ARCHITECTURE_HOSTING_AZURE.md`: Azure hosting architecture.
@@ -117,7 +121,7 @@ This section provides a comprehensive listing of the files and directories withi
                 *   `ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md`: Self-hosting architecture.
             *   `ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md`: Abstractions used in deployment.
             *   `ARCHITECTURE_DEPLOYMENT_CICD_OSS.md`: CI/CD strategy using open-source tools.
-        *   `Personas/`: Architecture for different AI personas within Nucleus.
+        *   `Personas/`: Architecture for different AI persona implementations.
             *   `Bootstrapper/`: (Empty directory, potentially for Bootstrapper persona specifics).
             *   `Educator/`: Architecture for the Educator persona.
                 *   `Pedagogical_And_Tautological_Trees_Of_Knowledge/`: Knowledge representation for Educator.
@@ -128,6 +132,7 @@ This section provides a comprehensive listing of the files and directories withi
             *   `Professional/`: Architecture for professional/workplace personas.
                 *   `ARCHITECTURE_AZURE_DOTNET_HELPDESK.md`: Specific architecture for an Azure/.NET helpdesk persona.
             *   `ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md`: Overview of the Bootstrapper persona.
+            *   `ARCHITECTURE_PERSONAS_CONFIGURATION.md`: Defines how Personas are configured.
             *   `ARCHITECTURE_PERSONAS_EDUCATOR.md`: Overview of the Educator persona.
             *   `ARCHITECTURE_PERSONAS_PROFESSIONAL.md`: Overview of professional personas.
         *   `Processing/`: Architecture for core data processing components.
@@ -142,12 +147,12 @@ This section provides a comprehensive listing of the files and directories withi
                 *   `ARCHITECTURE_INGESTION_PDF.md`: Handling PDF files.
                 *   `ARCHITECTURE_INGESTION_PLAINTEXT.md`: Handling plain text files.
             *   `Orchestration/`: Architecture for request handling and workflow orchestration.
-                *   `ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md`: Lifecycle of a user interaction.
-                *   `ARCHITECTURE_ORCHESTRATION_ROUTING.md`: Request routing logic.
-                *   `ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md`: How sessions are started.
-            *   `ARCHITECTURE_PROCESSING_DATAVIZ.md`: Overview of the Dataviz architecture.
+                *   `ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md`: Lifecycle of a user interaction (Updated for API-First & Hybrid Execution).
+                *   `ARCHITECTURE_ORCHESTRATION_ROUTING.md`: Request routing logic (Updated for API Activation/Routing).
+                *   `ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md`: How sessions are started (Updated for API-First).
+            *   `ARCHITECTURE_PROCESSING_DATAVIZ.md`: Overview of the Dataviz architecture (Updated for API-First).
             *   `ARCHITECTURE_PROCESSING_INGESTION.md`: Overview of the Ingestion architecture.
-            *   `ARCHITECTURE_PROCESSING_INTERFACES.md`: Common interfaces for processing components.
+            *   `ARCHITECTURE_PROCESSING_INTERFACES.md`: Common interfaces for processing components (Internal to `ApiService`).
             *   `ARCHITECTURE_PROCESSING_ORCHESTRATION.md`: Overview of the Orchestration architecture.
         *   `Storage/`: (Empty directory, planned for storage architecture documents).
         *   `00_ARCHITECTURE_OVERVIEW.md`: Top-level entry point for architecture documents.
@@ -159,6 +164,9 @@ This section provides a comprehensive listing of the files and directories withi
         *   `06_ARCHITECTURE_SECURITY.md`: Overview of security considerations.
         *   `07_ARCHITECTURE_DEPLOYMENT.md`: High-level overview of deployment.
         *   `08_ARCHITECTURE_AI_INTEGRATION.md`: Overview of AI integration points.
+        *   `09_ARCHITECTURE_TESTING.md`: Overview of testing strategy and methodologies (Updated for API-First integration testing).
+        *   `10_ARCHITECTURE_API.md`: Top-level overview of the API-First architecture.
+        *   `11_ARCHITECTURE_NAMESPACES_FOLDERS.md`: Overview of namespaces and folder structure (Needs update).
     *   `HelpfulMarkdownFiles/`: Collection of useful reference documents and reports.
         *   `Library-References/`: Documentation links/notes for key libraries.
             *   `AzureAI.md`: Azure AI services reference.
@@ -181,124 +189,145 @@ This section provides a comprehensive listing of the files and directories withi
         *   `02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`: Requirements for Phase 2.
         *   `03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md`: Requirements for Phase 3.
         *   `04_REQUIREMENTS_PHASE4_MATURITY.md`: Requirements for Phase 4.
-*   `Nucleus.AppHost/`: .NET Aspire application host project.
-    *   `Properties/`: Project properties, including launch settings.
-        *   `launchSettings.json`: Debug launch profiles for the AppHost.
-    *   `appsettings.Development.json`: Development-specific configuration for AppHost.
-    *   `appsettings.json`: Base configuration for AppHost.
-    *   `Nucleus.AppHost.csproj`: C# project file for the Aspire AppHost.
-    *   `Program.cs`: Main entry point for the Aspire AppHost, defines service orchestration.
+
+### Aspire Layer (`Aspire/`)
+
+*   `Aspire/`: Contains projects specific to .NET Aspire orchestration and configuration.
+    *   `Nucleus.AppHost/`: .NET Aspire application host project.
+        *   `Properties/launchSettings.json`: Debug launch profiles.
+        *   `appsettings.*.json`: Configuration files.
+        *   `Nucleus.AppHost.csproj`: C# project file.
+        *   `Program.cs`: Main entry point, defines service orchestration.
+    *   `Nucleus.ServiceDefaults/`: Shared service defaults project.
+        *   `Extensions.cs`: Extension methods for configuring service defaults.
+        *   `Nucleus.ServiceDefaults.csproj`: C# project file.
 
 ### Source Code (`src/`)
 
-*   `src/`: Root directory for all primary source code.
-    *   `Abstractions/`: Projects defining interfaces, DTOs, and core models.
-        *   `Nucleus.Abstractions/`: Main abstractions project.
-            *   `Models/`: Data Transfer Objects (DTOs) and simple models.
-                *   `Configuration/`: Configuration model classes.
-                    *   `GoogleAiOptions.cs`: Configuration options for the Google AI (Gemini) client.
-                *   `AdapterRequest.cs`: Represents an incoming request from a client adapter.
-                *   `AdapterResponse.cs`: Represents a response sent back to a client adapter.
-                *   `ArtifactMetadata.cs`: Metadata associated with an ingested artifact.
-                *   `NucleusIngestionRequest.cs`: Represents a request to ingest data.
-                *   `PlatformAttachmentReference.cs`: Platform-specific reference to an attachment.
-                *   `PlatformType.cs`: Enum defining supported client platforms.
-            *   `Orchestration/`: Interfaces related to request processing and orchestration.
-                *   `InteractionContext.cs`: Holds context during interaction processing.
-                *   `IOrchestrationService.cs`: Interface for the main orchestration service.
-                *   `IPersonaManager.cs`: Interface for managing personas.
-                *   `IPersonaResolver.cs`: Interface for resolving which persona to use.
-                *   `NewSessionEvaluationResult.cs`: Result of evaluating if a new session is needed.
-            *   `Repositories/`: Interfaces defining data access patterns.
-                *   `IArtifactMetadataRepository.cs`: Repository for artifact metadata.
-                *   `IPersonaKnowledgeRepository.cs`: Repository for persona-specific knowledge.
-            *   `IArtifactProvider.cs`: Interface for providing access to artifact content.
-            *   `IMessageQueuePublisher.cs`: Interface for publishing messages to a queue.
-            *   `IPersona.cs`: Interface representing an AI persona.
-            *   `IPlatformAttachmentFetcher.cs`: Interface for fetching attachments from specific platforms.
-            *   `IPlatformNotifier.cs`: Interface for sending notifications back to platforms.
-            *   `Nucleus.Abstractions.csproj`: C# project file for Abstractions.
-    *   `Adapters/`: Projects implementing client adapters.
-        *   `Nucleus.Adapters.Console/`: Command-Line Interface (CLI) adapter project.
-            *   `Services/`: Services specific to the Console adapter.
-                *   `ConsoleArtifactProvider.cs`: Implements `IArtifactProvider` for local file system access via console.
-                *   `NucleusApiServiceAgent.cs`: Client agent to communicate with the backend Nucleus API.
-            *   `appsettings.json`: Configuration for the Console adapter.
-            *   `Nucleus.Console.csproj`: C# project file for the Console adapter.
-            *   `Program.cs`: Main entry point for the Console application.
-        *   `Nucleus.Adapters.Teams/`: Microsoft Teams adapter project.
-            *   `GraphClientService.cs`: Service for interacting with Microsoft Graph API.
-            *   `Nucleus.Adapters.Teams.csproj`: C# project file for the Teams adapter.
-            *   `TeamsAdapterBot.cs`: Bot Framework `ActivityHandler` implementation for Teams.
-            *   `TeamsAdapterConfiguration.cs`: Configuration settings specific to the Teams adapter.
-            *   `TeamsGraphFileFetcher.cs`: Implements `IPlatformAttachmentFetcher` using MS Graph API.
-            *   `TeamsNotifier.cs`: Implements `IPlatformNotifier` for sending messages to Teams.
-    *   `DataAccess/`: (Currently Empty) Parent directory for data persistence logic projects.
-    *   `Domain/`: Projects containing core business logic.
-        *   `Nucleus.Domain.Processing/`: Central domain services project.
-            *   `Infrastructure/`: Infrastructure-specific implementations used by the domain.
-                *   `GoogleAiChatClientAdapter.cs`: Adapter for interacting with the Google AI Chat service (Mscc.GenerativeAI).
-                *   `obj/`: Build output directory (typically gitignored).
-            *   `Resources/`: Embedded resource files.
-                *   `Dataviz/`: Resources for the Dataviz HTML builder.
-                    *   `dataviz_plotly_script.py`: Python script (likely for Plotly generation, used by builder).
-                    *   `dataviz_script.js`: JavaScript for the dataviz HTML output.
-                    *   `dataviz_styles.css`: CSS styles for the dataviz HTML output.
-                    *   `dataviz_template.html`: HTML template file used by `DatavizHtmlBuilder`.
-                    *   `dataviz_worker.js`: Web worker script for dataviz processing.
-            *   `Services/`: Domain-specific services.
-                *   `DatavizHtmlBuilder.cs`: Service to build HTML data visualizations.
-            *   `DefaultPersonaManager.cs`: Default implementation of `IPersonaManager`.
-            *   `DefaultPersonaResolver.cs`: Default implementation of `IPersonaResolver`.
-            *   `Nucleus.Processing.csproj`: C# project file for Domain Processing.
-            *   `OrchestrationService.cs`: Implements `IOrchestrationService`, coordinating request processing.
-            *   `ServiceCollectionExtensions.cs`: Extension methods for dependency injection registration.
-    *   `Features/`: (Currently Empty) Parent directory for potential feature-specific modules.
-    *   `Personas/`: Projects defining specific AI persona implementations.
-        *   `Nucleus.Personas.Core/`: Core project for basic persona implementations.
-            *   `BootstrapperPersona.cs`: Implementation of the `IPersona` interface for the Bootstrapper persona.
-            *   `EmptyAnalysisData.cs`: Placeholder/empty data structure potentially used by personas.
-            *   `Nucleus.Personas.Core.csproj`: C# project file for Core Personas.
-    *   `Services/`: Projects containing backend services, including the main API.
-        *   `Nucleus.ServiceDefaults/`: Shared service defaults project (common configuration, health checks, etc., often used with Aspire).
-            *   `Extensions.cs`: Extension methods for configuring service defaults.
-            *   `Nucleus.ServiceDefaults.csproj`: C# project file for Service Defaults.
-        *   `Nucleus.Services.Api/`: The main backend API service project.
-            *   `Configuration/`: Configuration-related classes.
-            *   `Controllers/`: API controllers handling incoming HTTP requests.
-                *   `InteractionController.cs`: Controller handling core user interactions.
-            *   `Diagnostics/`: Services related to diagnostics and health checks.
-                *   `ServiceBusSmokeTestService.cs`: Background service for testing Service Bus connectivity.
-            *   `Infrastructure/`: Infrastructure-related components like messaging.
-                *   `Messaging/`: Implementations for message queue interactions.
-                    *   `AzureServiceBusPublisher.cs`: Implements `IMessageQueuePublisher` using Azure Service Bus.
-                    *   `NullMessageQueuePublisher.cs`: No-op implementation of `IMessageQueuePublisher`.
-                    *   `ServiceBusQueueConsumerService.cs`: Background service for consuming messages from Azure Service Bus.
-                *   `NullArtifactProvider.cs`: No-op implementation of `IArtifactProvider` for API service context.
-            *   `AdapterWithErrorHandler.cs`: Bot Framework adapter wrapper with error handling.
-            *   `appsettings.Development.json`: Development-specific configuration for the API service.
-            *   `appsettings.json`: Base configuration for the API service.
-            *   `Nucleus.ApiService.csproj`: C# project file for the API Service.
-            *   `Program.cs`: Main entry point for the API service, configures ASP.NET Core host.
+*   `src/` (Primary Source Code)
+    *   `Nucleus.Abstractions/` (Core Interfaces, DTOs, Base Types)
+        *   `Models/`
+            *   `Configuration/`
+                *   `GoogleAiOptions.cs`
+                *   `PersonaConfiguration.cs`
+            *   `AdapterRequest.cs`
+            *   `AdapterResponse.cs`
+            *   `ArtifactContent.cs`
+            *   `ArtifactMetadata.cs`
+            *   `ArtifactReference.cs`
+            *   `NucleusIngestionRequest.cs`
+            *   `PlatformAttachmentReference.cs`
+            *   `PlatformType.cs`
+        *   `Orchestration/`
+            *   `IActivationChecker.cs`
+            *   `IBackgroundTaskQueue.cs`
+            *   `InteractionContext.cs`
+            *   `IOrchestrationService.cs`
+            *   `IPersonaManager.cs`
+            *   `IPersonaResolver.cs`
+            *   `NewSessionEvaluationResult.cs`
+            *   `SalienceCheckResult.cs`
+        *   `Repositories/`
+            *   `IArtifactMetadataRepository.cs`
+            *   `IPersonaKnowledgeRepository.cs`
+        *   `IArtifactProvider.cs`
+        *   `IMessageQueuePublisher.cs`
+        *   `IPersona.cs`
+        *   `IPlatformAttachmentFetcher.cs`
+        *   `IPlatformNotifier.cs`
+        *   `Nucleus.Abstractions.csproj`
+    *   `Nucleus.Application/` (Placeholder)
+    *   `Nucleus.Domain/` (Core Business Logic, Entities, Domain Services)
+        *   `Nucleus.Domain.Processing/` (Central Domain Services)
+            *   `Infrastructure/` (Empty)
+            *   `Resources/Dataviz/` (HTML Dataviz Assets)
+                *   `dataviz_plotly_script.py`
+                *   `dataviz_script.js`
+                *   `dataviz_styles.css`
+                *   `dataviz_template.html`
+                *   `dataviz_worker.js`
+            *   `Services/`
+                *   `DatavizHtmlBuilder.cs`
+            *   `ActivationChecker.cs`
+            *   `DefaultPersonaManager.cs`
+            *   `DefaultPersonaResolver.cs`
+            *   `InMemoryBackgroundTaskQueue.cs`
+            *   `Nucleus.Domain.Processing.csproj`
+            *   `OrchestrationService.cs`
+            *   `QueuedInteractionProcessorService.cs`
+            *   `ServiceCollectionExtensions.cs`
+        *   `Personas/`
+            *   `Nucleus.Personas.Core/` (Core Persona Implementations)
+                *   `BootstrapperPersona.cs`
+                *   `EmptyAnalysisData.cs`
+                *   `Nucleus.Domain.Personas.Core.csproj`
+    *   `Nucleus.Infrastructure/` (External Concerns: Data, Adapters, etc.)
+        *   `Adapters/`
+            *   `Nucleus.Adapters.Console/` (CLI Adapter)
+                *   `_LocalData/`
+                *   `Services/`
+                    *   `ConsoleArtifactProvider.cs`
+                    *   `NucleusApiServiceAgent.cs`
+                *   `appsettings.json`
+                *   `Nucleus.Infrastructure.Adapters.Console.csproj`
+                *   `Program.cs`
+            *   `Nucleus.Adapters.Teams/` (Microsoft Teams Adapter)
+                *   `GraphClientService.cs`
+                *   `Nucleus.Infrastructure.Adapters.Teams.csproj`
+                *   `TeamsAdapterBot.cs`
+                *   `TeamsAdapterConfiguration.cs`
+                *   `TeamsNotifier.cs`
+        *   `Data/`
+            *   `Nucleus.Infrastructure.Persistence/` (Persistence Implementations)
+                *   `ArtifactProviders/` (Empty)
+                *   `Repositories/`
+                    *   `CosmosDbArtifactMetadataRepository.cs`
+                    *   `InMemoryArtifactMetadataRepository.cs`
+                *   `Nucleus.Infrastructure.Data.Persistence.csproj`
+    *   `Nucleus.Services/` (Hosting Layer: APIs, Workers)
+        *   `Nucleus.Services.Api/` (Main Backend API Service)
+            *   `Configuration/`
+                *   `GeminiOptions.cs`
+            *   `Controllers/`
+                *   `InteractionController.cs`
+            *   `Diagnostics/`
+                *   `ServiceBusSmokeTestService.cs`
+            *   `Infrastructure/` (API-Specific Infrastructure)
+                *   `Artifacts/`
+                    *   `LocalFileArtifactProvider.cs`
+                *   `Messaging/`
+                    *   `AzureServiceBusPublisher.cs`
+                    *   `NullMessageQueuePublisher.cs`
+                    *   `ServiceBusQueueConsumerService.cs`
+                *   `NullArtifactProvider.cs`
+            *   `Properties/`
+                *   `launchSettings.json`
+            *   `AdapterWithErrorHandler.cs`
+            *   `appsettings.Development.json`
+            *   `appsettings.json`
+            *   `Nucleus.Services.Api.csproj`
+            *   `Program.cs`
 
 ### Testing (`tests/`)
 
 *   `tests/`: Root directory for all test projects.
-    *   `Adapters/`: Test projects for client adapters.
-        *   `Nucleus.Adapters.Console.Tests/`: Test project for the Console adapter.
-            *   `TestData/`: Contains data files used in tests.
-                *   `test_context.txt`: Sample context file for testing.
-            *   `test_ingest_agent_api.ps1`: PowerShell script likely used for integration/e2e testing of ingestion via console.
-            *   `test_query_agent_api.ps1`: PowerShell script likely used for integration/e2e testing of queries via console.
+    *   `Integration/`: Integration test projects.
+        *   `Nucleus.Infrastructure.Adapters.Console.Tests/`: (Placeholder/Legacy tests for Console Adapter - Verify content).
+        *   `Nucleus.Services.Api.IntegrationTests/`: Integration tests for the `Nucleus.Services.Api`.
+            *   `TestData/`: Sample data for tests.
+                *   `test_context.txt`: Sample context data for testing.
+            *   `ApiIntegrationTests.cs`: Tests using `HttpClient` against the API.
+            *   `Nucleus.Services.Api.IntegrationTests.csproj`: C# project file.
+            *   `*.ps1`: Test scripts.
 
 ### Root Files
 
-*   `.editorconfig`: Defines coding styles enforced by editors.
-*   `.gitattributes`: Defines attributes for paths in Git.
-*   `.gitignore`: Specifies intentionally untracked files that Git should ignore.
-*   `.windsurfrules`: **This file.** Defines rules and context for the AI development agent (Cascade).
-*   `LICENSE.txt`: Project license file.
-*   `Nucleus.sln`: Visual Studio Solution file, organizes the projects.
-*   `README.md`: Main project README file.
+*   `.editorconfig`: Coding style definitions.
+*   `.gitattributes`: Git path attributes.
+*   `.gitignore`: Specifies files ignored by Git.
+*   `.windsurfrules`: AI agent configuration and rules.
+*   `LICENSE.txt`: Project license.
+*   `Nucleus.sln`: Visual Studio Solution file.
+*   `README.md`: Main project README.
 
 ---

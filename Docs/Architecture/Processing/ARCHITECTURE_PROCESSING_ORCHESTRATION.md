@@ -1,8 +1,8 @@
 ---
 title: Architecture - Processing Orchestration Overview
-description: Describes the high-level concepts and responsibilities for orchestrating the flow of user interactions and processing tasks within Nucleus OmniRAG, including the role of Persona Managers.
-version: 1.2
-date: 2025-04-22
+description: Describes the high-level concepts and responsibilities for orchestrating the flow of user interactions and processing tasks within Nucleus OmniRAG, coordinated via the API service.
+version: 1.3
+date: 2025-04-23
 parent: ../05_ARCHITECTURE_PROCESSING.md
 ---
 
@@ -12,11 +12,11 @@ parent: ../05_ARCHITECTURE_PROCESSING.md
 
 This document provides a high-level overview of the **Orchestration** sub-domain within the overall [Processing Architecture](../05_ARCHITECTURE_PROCESSING.md). Orchestration is concerned with managing the *flow* of work required to handle user interactions and related background processing tasks.
 
-While the [Ingestion](./Ingestion/ARCHITECTURE_PROCESSING_INGESTION.md) components focus on transforming raw artifacts into usable representations, and [Personas](../02_ARCHITECTURE_PERSONAS.md) focus on analyzing content and generating responses, Orchestration bridges the gap. It coordinates the sequence of events, routes requests based on **platform context and persona profiles**, and manages the execution context, potentially leveraging dedicated `PersonaManager` components to handle persona-specific session lifecycle and salience checks across **multiple platforms**.
+While the [Ingestion](./Ingestion/ARCHITECTURE_PROCESSING_INGESTION.md) components focus on transforming raw artifacts into usable representations, and [Personas](../02_ARCHITECTURE_PERSONAS.md) focus on analyzing content and generating responses, Orchestration bridges the gap. It coordinates the sequence of events, routes requests based on **activation rules evaluated within the API service**, and manages the execution context.
 
 Key goals of the orchestration layer include:
 *   **Reliability:** Ensuring interactions are processed correctly and consistently.
-*   **Scalability:** Handling varying loads of concurrent interactions, **facilitated by decentralized session management.**
+*   **Scalability:** Handling varying loads of concurrent interactions through efficient API routing and asynchronous processing.
 *   **Decoupling:** Separating concerns between triggering, routing, execution, and response delivery.
 *   **Observability:** Providing visibility into the flow of work.
 
@@ -28,14 +28,14 @@ The Orchestration layer encompasses several key responsibilities:
     *   Monitoring triggers (e.g., messages on Pub/Sub subscriptions, API calls).
     *   Interpreting trigger information (e.g., `NucleusIngestionRequest`) and hydrating the initial message context, **including `PlatformType`, platform-specific user/conversation identifiers, and `ContentSourceUri`.**
     *   Potentially invoking an [`IPersonaResolver`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPersonaResolver.cs:0:0-0:0) service early to map platform identifiers to a canonical Nucleus Persona ID, if applicable, to aid routing.
-*   **Interaction Routing (Salience Check):**
-    *   Determining if an incoming message (with its associated `PlatformType` and resolved/unresolved Persona ID) belongs to an *existing* `PersonaInteractionContext`.
-    *   This involves checking active sessions, possibly coordinated via [`PersonaManager`](cci:2://file:///d:/Projects/Nucleus/src/ApiService/Nucleus.ApiService/Orchestration/PersonaManager.cs:0:0-0:0) instances which might be responsible for sessions of a specific Persona *across all its supported platforms*.
-    *   The component (Orchestrator or specific `PersonaManager`) managing the claiming session handles further processing.
-    *   **Details:** See [Routing & Salience](./Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md).
+*   **API Interaction Activation & Routing:**
+    *   Determining if an incoming interaction received by the API service warrants processing based on configured activation rules (e.g., mentions, scope, user).
+    *   If activated, routing the task to the appropriate handler: either a synchronous service for quick responses or an asynchronous task queue for background processing.
+    *   This centralized API-based process replaces the previous decentralized salience check model.
+    *   **Details:** See [API Activation & Routing](./Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md).
 *   **New Session Initiation:**
-    *   If no existing session claims the message, determining which Persona (if any) should handle it and initiate a *new* `PersonaInteractionContext`.
-    *   This may involve using the [`IPersonaResolver`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPersonaResolver.cs:0:0-0:0) (if not done during hydration) and checking Persona activation rules based on platform context and message content, potentially coordinated via `PersonaManagers`. **Crucially, a platform-specific key is used for the atomic database claim to prevent duplicates across platforms. This key is constructed by combining the platform type with the platform-specific user or conversation identifier, ensuring uniqueness across different platforms.**
+    *   If no existing session claims the message (Note: Session management logic is distinct from initial API activation), determining which Persona (if any) should handle it and initiate a *new* `PersonaInteractionContext`.
+    *   This may involve using the [`IPersonaResolver`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPersonaResolver.cs:0:0-0:0) and checking Persona activation rules based on platform context and message content.
     *   **Details:** See [Session Initiation](./Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md).
 *   **Interaction Lifecycle Management:**
     *   Executing the defined steps for processing an interaction within its context.
@@ -52,7 +52,10 @@ The Orchestration layer encompasses several key responsibilities:
 
 *   **Client Adapters:** Provide initial triggers (`NucleusIngestionRequest`) and context. Receive final responses via [`IPlatformNotifier`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPlatformNotifier.cs:0:0-0:0).
 *   **Messaging Queues / API Endpoints:** Act as entry points triggering orchestration.
-*   **[`PersonaManager`](cci:2://file:///d:/Projects/Nucleus/src/ApiService/Nucleus.ApiService/Orchestration/PersonaManager.cs:0:0-0:0) Instances:** Components potentially used to manage session lifecycles and salience checks for specific Personas across their supported platforms.
+*   **[`Nucleus.Services.Api`](.):** The central hub for receiving interactions, performing activation checks, and initiating synchronous or asynchronous processing flows.
+*   **Activation Rule Engine:** Logic within the API service that determines if an interaction is relevant.
+*   **Internal Task Queue & Workers:** Used for handling long-running asynchronous tasks decoupled from the API request.
+*   **[`PersonaManager`](cci:2://file:///d:/Projects/Nucleus/src/ApiService/Nucleus.ApiService/Orchestration/PersonaManager.cs:0:0-0:0) Instances:** Components potentially used to manage the *state* and *lifecycle* of active interaction sessions for specific Personas after the initial API activation and routing.
 *   **Personas ([`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0)):** Execute domain-specific logic (analysis, query handling).
 *   **Platform Services ([`IPlatformAttachmentFetcher`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs:0:0-0:0), [`IPlatformNotifier`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPlatformNotifier.cs:0:0-0:0)):** Resolved by the orchestrator based on `PlatformType` for platform-specific interactions.
 *   **Persona Resolver ([`IPersonaResolver`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IPersonaResolver.cs:0:0-0:0)):** Service used to map between platform identities and canonical Persona IDs.

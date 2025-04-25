@@ -1,8 +1,8 @@
 ---
 title: Processing Architecture - Shared Interfaces
 description: Defines common C# interfaces used across various stages of the Nucleus OmniRAG processing pipeline.
-version: 1.0
-date: 2025-04-22
+version: 1.1
+date: 2025-04-23
 parent: ../05_ARCHITECTURE_PROCESSING.md
 ---
 
@@ -47,7 +47,7 @@ public record ContentExtractionResult(
 
 ## 2. `IOrchestrationService`
 
-This interface defines the central coordinating service for processing incoming requests. It's responsible for managing the overall flow, including potentially fetching source data (via `IPlatformAttachmentFetcher`), invoking specific processors, handling session state, and ensuring responses are sent back (via `IPlatformNotifier`).
+This interface defines the central coordinating service for processing incoming requests within the `Nucleus.Services.Api`. It's responsible for managing the overall flow for tasks like ingestion or querying. **In the API-First architecture, implementations of this service are typically invoked by the API's request handlers (e.g., ASP.NET Core Controllers) after initial request validation and authentication.** It orchestrates steps like fetching/validating source data, invoking specific processors (e.g., content extraction, chunking, embedding, LLM interaction), handling session state, and potentially triggering notifications or responses.
 
 *   **Code:** [`Nucleus.Abstractions/IOrchestrationService.cs`](cci:7://file:///d:/Projects/Nucleus/Nucleus.Abstractions/IOrchestrationService.cs:0:0-0:0)
 *   **Related Architecture:**
@@ -63,16 +63,17 @@ namespace Nucleus.Abstractions;
 
 /// <summary>
 /// Defines the contract for the central service responsible for orchestrating
-/// the processing of incoming ingestion requests.
+/// the processing of incoming ingestion requests within the Nucleus API service.
 /// This includes session management, persona selection, routing, and invoking specific processing steps.
+/// Implementations are typically invoked by the API request handling layer (e.g., Controllers).
 /// See: ../05_ARCHITECTURE_PROCESSING.md
 /// See: ./ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 /// </summary>
 public interface IOrchestrationService
 {
     /// <summary>
-    /// Processes a standardized ingestion request received from a platform adapter
-    /// (typically via the ServiceBusQueueConsumerService).
+    /// Processes a standardized ingestion request, typically constructed by the API layer
+    /// from an incoming API call.
     /// </summary>
     /// <param name="request">The details of the ingestion request.</param>
     /// <param name="cancellationToken">Cancellation token.</param>

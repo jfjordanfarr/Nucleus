@@ -4,15 +4,18 @@ This document outlines the planned development phases for Nucleus OmniRAG, struc
 
 ---
 
-## Phase 1: MVP - Core Console Interaction & Basic Backend
+## Phase 1: MVP - Core API Foundation & Initial Validation
 
-**Epic:** `EPIC-MVP-CONSOLE` - Establish the minimum viable product focusing on interaction via a **Console Application (`Nucleus.Console`)** talking to a backend **API (`Nucleus.ApiService`)**. Prioritize accelerating the development loop for backend logic, persona integration, and agentic workflows. Set up foundational architecture, basic knowledge storage (Cosmos DB), and deployment infrastructure (Azure, IaC) for the API.
+**Epic:** `EPIC-MVP-API` - Establish the minimum viable **API service (`Nucleus.ApiService`)** and backend infrastructure. Prioritize building the core API endpoints, integrating the initial persona, setting up basic knowledge storage (Cosmos DB), and validating these components using an **initial reference client (e.g., `Nucleus.Console`)**. Set up foundational architecture and deployment infrastructure (Azure, IaC) for the API.
+
+See also:
+*   [Requirements: MVP - Core API & Initial Console Client](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
 
 *   **Issue:** `ISSUE-MVP-SETUP-01`: Establish Core Project Structure & Local Environment
 *   **Issue:** `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for Ingestion)
 *   **Issue:** `ISSUE-MVP-PERSONA-01`: Create Initial Bootstrapper Persona
-*   **Issue:** `ISSUE-MVP-API-01`: Develop Backend API (WebAPI for Console)
-*   **Issue:** `ISSUE-MVP-CONSOLE-01`: Create Minimal Console Application Interface
+*   **Issue:** `ISSUE-MVP-API-01`: Develop Backend API (Core Endpoints: Query, Ingest, Status)
+*   **Issue:** `ISSUE-MVP-CONSOLE-01`: Create Minimal Console Client Interface (for API Validation)
 *   **Issue:** `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code for API)
 *   **Issue:** `ISSUE-MVP-RETRIEVAL-01`: Implement Basic Knowledge Store & Retrieval
 

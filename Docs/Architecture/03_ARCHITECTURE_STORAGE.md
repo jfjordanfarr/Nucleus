@@ -1,16 +1,16 @@
 ---
 title: Architecture - Storage & Metadata Management
-description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence.
-version: 1.10
-date: 2025-04-22
+description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence, coordinated via the API service.
+version: 1.11
+date: 2025-04-24
 ---
 
 # Nucleus OmniRAG: Storage Architecture
 
-**Version:** 1.10
-**Date:** 2025-04-22
+**Version:** 1.11
+**Date:** 2025-04-24
 
-This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
+This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). These interactions are orchestrated by the `Nucleus.Services.Api`. Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
 ## 1. Core Principles
 
@@ -50,16 +50,14 @@ The conceptual categories of information stored within `ArtifactMetadata` includ
 
 A core principle is that Nucleus **does not manage its own persistent artifact storage layer**. This applies equally to artifacts generated *by* Personas (e.g., reports, summaries, code, data visualizations) in response to user requests.
 
-1.  **Generation:** A Persona generates the content for a new artifact.
-2.  **Storage via Adapters:** The Nucleus Processing Pipeline takes the generated content and uses the appropriate **Platform Adapter** (e.g., `SharePointAdapter`, `MSTeamsAdapter`) to save this content *back into the user's designated source system* (e.g., a specific SharePoint library, the Files tab of a Teams channel, a user's OneDrive).
-3.  **Metadata Creation:** Upon successful saving, the Adapter returns the necessary details (like the `sourceUri`, `displayName`, `sizeBytes`, etc.) of the newly created artifact in the source system.
-4.  **`ArtifactMetadata` Record:** Nucleus creates a standard `ArtifactMetadata` record for this newly generated artifact in the `ArtifactMetadataContainer`.
-5.  **Linking Generation Context:** This new record's `ArtifactMetadata` is populated with:
-    *   `sourceSystemType`: The target system (e.g., `SharePoint`).
-    *   `sourceUri`: The URI where the generated artifact now resides.
-    *   `generationMethod`: Set to `persona_generated`.
-    *   `generatingPersonaName`: The name of the persona that produced the content.
-    *   `originatingSourceIdentifier`: The `sourceIdentifier` of the user's request or context that led to this generation.
+1.  **Generation:** A Persona, operating within the context of the **API service's processing flow**, generates the content for a new artifact.
+2.  **Instruction:** The Persona's logic signals the intent to save this artifact.
+3.  **API Orchestration:** The **`Nucleus.Services.Api` layer** receives this instruction.
+4.  **Targeting:** The API service determines the appropriate target source system (e.g., the user's default OneDrive, the current Teams channel) based on user context, configuration, or explicit instruction.
+5.  **Adapter Invocation:** The API service resolves the correct Platform Adapter for the target system.
+6.  **Write Operation:** The API service instructs the adapter to write the generated artifact content to the target location, providing necessary authentication context (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). The adapter handles the platform-specific API calls.
+7.  **Metadata Creation:** Upon successful write, the adapter returns details (like the new `sourceUri`, `sourceIdentifier`, timestamps) to the API service.
+8.  **Persistence:** The API service uses this information to create a new `ArtifactMetadata` record in Cosmos DB, linking it to the newly generated artifact in the source system.
 
 This approach ensures:
 *   User data (including generated artifacts) remains within their managed environment.
@@ -68,10 +66,16 @@ This approach ensures:
 
 ## 4. Core Operations
 
-*   **Ingestion/Update:** When a new artifact is detected or an existing one changes in a source system:
-    *   The corresponding Adapter notifies the Processing Pipeline.
-    *   The Processing Pipeline updates the `ArtifactMetadata` record in Cosmos DB.
-    *   The Processing Pipeline triggers the appropriate Personas for analysis.
+*   **Ingestion/Update:** When a new artifact is detected (e.g., via webhook from a source system handled by an adapter) or an existing one changes:
+    *   The Platform Adapter receives the trigger event from the source system.
+    *   The Adapter makes an **API call** to the `Nucleus.Services.Api` (e.g., `POST /ingest`) with details about the artifact event (e.g., `sourceUri`, `sourceIdentifier`, `eventType`).
+    *   The **API service** authenticates, validates, and potentially performs initial triage.
+    *   The **API service orchestrates** the processing pipeline (sync or async, see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)).
+    *   The pipeline logic, under API control:
+        *   Interacts with the `IArtifactMetadataRepository` (typically hosted within the API service project) to check for existing metadata or prepare for creation/update.
+        *   Creates or updates the `ArtifactMetadata` document in Cosmos DB.
+        *   If processing is required, instructs the appropriate platform adapters (via the API service) to fetch the artifact content stream from the `sourceUri` for analysis.
+        *   Updates processing status fields in the `ArtifactMetadata` document as analysis progresses.
 
 *   **Persona Analysis:** Personas analyze the artifact content (fetched via Adapters) and generate `PersonaKnowledgeEntry` data.
     *   The `PersonaKnowledgeEntry` data is stored in Cosmos DB.
@@ -84,24 +88,26 @@ This approach ensures:
 ## 5. Integration with Other Architectures
 
 *   **Processing Pipeline (`01_ARCHITECTURE_PROCESSING.md`):**
-    *   Receives triggers (e.g., webhook from Teams) indicating a new/updated artifact in the source system.
-    *   Creates or updates the `ArtifactMetadata` document in Cosmos DB.
-    *   Uses platform adapters to fetch the artifact content stream from the `sourceUri` for analysis.
-    *   Updates processing status fields in the `ArtifactMetadata` document.
+    *   **Orchestrated by the API service**, it coordinates the steps of ingestion, analysis, and knowledge storage.
+    *   Invokes `IArtifactMetadataRepository` to manage metadata persistence.
+    *   Uses platform adapters **(as directed by the API service)** to fetch artifact content when needed for analysis.
+
 *   **Database Layer (`04_ARCHITECTURE_DATABASE.md`):**
     *   Is the primary persistence layer for `ArtifactMetadata` and `PersonaKnowledgeEntry`.
     *   Leverages Cosmos DB features for indexing (including vector indexing on embeddings within `PersonaKnowledgeEntry`), querying, and scaling.
+
 *   **Persona Layer (`02_ARCHITECTURE_PERSONAS.md`):**
     *   Receives artifact content streams (fetched by the pipeline) for analysis.
     *   Produces `PersonaKnowledgeEntry` data (including analysis and embeddings) stored in Cosmos DB.
     *   During query handling, retrieves relevant `PersonaKnowledgeEntry` documents from Cosmos DB. May use the associated `sourceIdentifier` to request the pipeline/adapter layer to fetch fresh snippets or verify information from the original artifact via its `sourceUri` if needed.
+
 *   **Client/Adapter Layer (`05_ARCHITECTURE_CLIENTS.md`):**
     *   Provides the concrete implementations for interacting with source systems (Graph API, Slack API, etc.) to read/write artifacts using appropriate authentication and permissions.
     *   Handles triggers/webhooks from source systems.
 
 ## 6. Security Considerations
 
-*   **Authentication & Authorization:** Nucleus adapters must securely authenticate with source systems (e.g., OAuth for Graph API, Slack Bot Tokens). Access to artifacts is governed by the permissions granted to the Nucleus application/bot identity *within the source system*.
+*   **Authentication & Authorization:** Nucleus adapters must securely authenticate with source systems (e.g., OAuth for Graph API, Slack Bot Tokens). Access to artifacts is governed by the permissions granted to the Nucleus application/bot identity *within the source system*. **The `Nucleus.Services.Api` layer is responsible for managing the security context and securely providing necessary credentials/tokens to adapters when directing them to interact with source systems.**
 *   **Data Minimization:** Nucleus only stores metadata in its database. The potentially sensitive content remains within the user's controlled environment.
 *   **Cosmos DB Security:** Standard database security practices apply (network restrictions, access keys/RBAC, encryption at rest/transit).
 *   **Secrets Management:** Securely manage API keys, OAuth client secrets, bot tokens needed by adapters (e.g., Azure Key Vault, Aspire configuration).

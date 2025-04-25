@@ -1,50 +1,88 @@
 ---
-title: "Architecture: AI Integration"
-description: "Overview of strategies and patterns for integrating external AI models and services into the Nucleus platform."
-version: 1.4
-date: 2025-04-22
+title: "Architecture: AI Integration (Microsoft.Extensions.AI)"
+description: "Overview of strategies and patterns for integrating external AI models using the provider-agnostic Microsoft.Extensions.AI abstractions. Currently uses Mscc.GenerativeAI as a temporary solution for Gemini."
+version: 1.6
+date: 2025-04-23
 ---
 
-# Architecture: AI Integration
+# Architecture: AI Integration (using `Microsoft.Extensions.AI`)
 
 **Parent:** [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
 
 ## 1. Overview
 
-This document outlines the architectural approach for integrating various third-party AI models and services (like Large Language Models, Embedding Generators, etc.) within the Nucleus ecosystem. The **primary goal** is to provide a flexible and extensible framework that allows different AI providers (e.g., Google Gemini, Azure OpenAI) to be configured and used, ideally interchangeably where appropriate, through suitable abstraction layers.
+This document outlines the architectural approach for integrating various third-party AI models and services (like Large Language Models) within the Nucleus ecosystem. The **primary architectural choice** is to leverage the **`Microsoft.Extensions.AI`** abstractions, specifically `Microsoft.Extensions.AI.IChatClient` for chat completions.
 
-While the initial implementation focuses on Google Gemini, the overall architecture should accommodate other providers as the project evolves.
+**Key Benefits:**
+*   **Provider Agnosticism:** Using `IChatClient` allows the application core (e.g., Personas) to interact with different AI providers (Google Gemini, Azure OpenAI, Ollama, etc.) through a unified interface without code changes in the consuming components. Switching providers primarily involves changing configuration and dependency injection registration.
+*   **Flexibility & Extensibility:** The `Microsoft.Extensions.AI` framework supports middleware for adding capabilities like logging, caching, telemetry, and function calling in a standard way across providers.
+*   **Standardization:** Aligns with emerging .NET standards for AI integration, facilitating interoperability with other libraries and frameworks in the ecosystem.
 
-## 2. Core Integration Pattern (Current: Google Gemini via `Mscc.GenerativeAI`)
+**Current Status:** The *current* implementation uses the `Mscc.GenerativeAI.Microsoft` package as a **temporary solution** to provide an `IChatClient` implementation for Google Gemini, pending an official .NET SDK for the latest Google AI APIs.
 
-The initial integration focuses on Google's Gemini models via the `Mscc.GenerativeAI` NuGet package ecosystem. This section details the findings and the working pattern established for *this specific provider*.
+**Reference:** For background on `Microsoft.Extensions.AI`, see [../HelpfulMarkdownFiles/Library-References/MicrosoftExtensionsAI.md](../HelpfulMarkdownFiles/Library-References/MicrosoftExtensionsAI.md).
 
-### 2.1. Findings and Challenges (Gemini Integration)
+## 2. Core Integration Pattern (`IChatClient`)
 
-Integration attempts revealed discrepancies between the documentation/intended usage of the `Mscc.GenerativeAI.Microsoft` integration package (v2.5.0) and its actual implementation:
+The core pattern relies on registering and injecting `Microsoft.Extensions.AI.IChatClient`. The specific implementation registered determines the backend AI provider.
 
-*   **Missing Abstractions:** Key types like `IChatClient` and `ChatOptions`, expected based on documentation and examples related to `Microsoft.Extensions.AI` integration, were not found in the installed package's source code or compiled DLLs.
-*   **Build Failures:** Attempts to use these missing types resulted in `CS0246` build errors.
-*   **Investigation:** Extensive searching of source files, DLL inspection via reflection, and web searches confirmed the absence of these types in the installed version (Reference: Cascade Session April 16-17, 2025, Steps 300-356).
+### 2.1. Current Implementation (Temporary: Google Gemini via `Mscc.GenerativeAI.Microsoft`)
 
-### 2.2. Recommended Pattern (Gemini via `IGenerativeAI`)
+The current working integration uses the `Mscc.GenerativeAI.Microsoft` NuGet package to bridge Gemini to `IChatClient`.
 
-Due to the issues with the `Mscc.GenerativeAI.Microsoft` layer, the recommended and currently implemented pattern for **Gemini** relies directly on the base `Mscc.GenerativeAI` package:
+**Note:** While previous investigations (Memory [d9dbc22b-8575-4d43-b35f-29ad5d37640f]) noted discrepancies, the current setup *is* functional using this pattern.
 
-1.  **Dependency Injection:** Register the core `Mscc.GenerativeAI.IGenerativeAI` interface in the service container. The specific implementation (`Mscc.GenerativeAI.GoogleAI`) is instantiated with the necessary configuration (like API keys) retrieved primarily from environment variables (`GEMINI_API_KEY`), falling back to application settings (`appsettings.json`). Register `IMemoryCache` for ephemeral storage.
-    *   **Code Link:** [Nucleus.ApiService/Program.cs](../../../Services/Nucleus.Services.Api/Program.cs)
-2.  **Usage in Personas/Services:** Inject `IGenerativeAI` and `IMemoryCache` into consuming classes (like Personas).
-3.  **Chat Interaction:** To initiate a chat:
-    *   Get a specific model instance using `IGenerativeAI.GenerativeModel()`.
-    *   Start a chat session using `GenerativeModel.StartChat()`.
-    *   Send messages using `ChatSession.SendMessageAsync(prompt)`. If ephemeral context is provided (see Section 2.3), it is prepended to the user's query within the prompt.
-    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`HandleQueryAsync`)
-4.  **API Invocation:** The API layer (`InteractionController`) receives client requests (`AdapterRequest`) via the `POST /api/Interaction/process` endpoint. This single endpoint handles both direct queries and requests providing context artifacts. The controller maps the request to a `NucleusIngestionRequest` and invokes the `IOrchestrationService`.
-    *   **Code Link:** [Nucleus.ApiService/Controllers/InteractionController.cs](../../../Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
-    *   **Code Link:** [Nucleus.Abstractions/Models/AdapterRequest.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterRequest.cs)
-    *   **Code Link:** [Nucleus.Abstractions/Models/AdapterResponse.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterResponse.cs)
+1.  **Dependencies:** `Mscc.GenerativeAI.Microsoft` package reference in `Nucleus.Services.Api`.
+2.  **Configuration:** `AI:GoogleAI:ApiKey` and `AI:GoogleAI:Model` in `appsettings.json`.
+    *   **Code Link:** [Nucleus.Services.Api/appsettings.Development.json](../../../src/Services/Nucleus.Services.Api/appsettings.Development.json)
+3.  **Dependency Injection (`Program.cs`):**
+    ```csharp
+    // Register Google AI Chat Client using Mscc.GenerativeAI.Microsoft extension method
+    builder.Services.AddGeminiChat(options =>
+    {
+        options.ApiKey = builder.Configuration["AI:GoogleAI:ApiKey"];
+        options.Model = builder.Configuration["AI:GoogleAI:Model"] ?? "gemini-1.5-flash-001"; // Example default
+    });
+    ```
+    *   This registers `IChatClient` backed by Gemini.
+    *   **Code Link:** [Nucleus.Services.Api/Program.cs](../../../src/Services/Nucleus.Services.Api/Program.cs)
+4.  **Usage:** Inject `IChatClient` into consumers (e.g., `BootstrapperPersona`).
+    *   Create `ChatRequest` with `ChatMessage` list.
+    *   Call `IChatClient.CompleteAsync(chatRequest)`.
+    *   Process `ChatCompletion` response.
+    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../src/Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`HandleQueryAsync`)
 
-This pattern aligns with the examples provided in the `Mscc.GenerativeAI` library's primary documentation and avoids the problematic dependencies of the Microsoft integration layer *for Gemini*. It serves as the blueprint for the initial MVP and has been successfully implemented and tested, enabling basic query interaction with the Gemini API via the `/api/Interaction/process` endpoint, optionally using context provided via artifacts.
+### 2.2. Switching Providers (Example: Azure OpenAI)
+
+Leveraging the `IChatClient` abstraction makes switching providers straightforward:
+
+1.  **Dependencies:** Add the required provider package (e.g., `Microsoft.Extensions.AI.OpenAI`, `Azure.AI.OpenAI`, `Azure.Identity`).
+2.  **Configuration:** Add necessary configuration for the new provider (e.g., `AI:AzureOpenAI:Endpoint`, `AI:AzureOpenAI:DeploymentName`) in `appsettings.json`.
+3.  **Dependency Injection (`Program.cs`):** Replace the `AddGeminiChat` registration with the appropriate registration for the new provider. For Azure OpenAI, this might look like (referencing patterns from `MicrosoftExtensionsAI.md`):
+    ```csharp
+    // Remove or comment out AddGeminiChat registration
+    // builder.Services.AddGeminiChat(...);
+
+    // Register Azure OpenAI Chat Client
+    builder.Services.AddSingleton<IChatClient>(sp =>
+    {
+        var endpoint = builder.Configuration["AI:AzureOpenAI:Endpoint"];
+        var deploymentName = builder.Configuration["AI:AzureOpenAI:DeploymentName"];
+        // Ensure endpoint and deploymentName are configured
+        if (string.IsNullOrEmpty(endpoint) || string.IsNullOrEmpty(deploymentName))
+        {
+            throw new InvalidOperationException("Azure OpenAI endpoint and deployment name must be configured.");
+        }
+
+        // Using DefaultAzureCredential for authentication
+        return new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+                 .AsChatClient(deploymentName);
+    });
+    ```
+    *   Ensure the necessary using statements (`Azure.AI.OpenAI`, `Azure.Identity`, `Microsoft.Extensions.AI`) are added.
+4.  **Usage:** No changes required in consuming classes like `BootstrapperPersona` as they still inject and use `IChatClient`.
+
+This demonstrates the power of the abstraction layer – the core application logic remains unchanged.
 
 ### 2.3. Ephemeral Context via API
 
@@ -60,7 +98,7 @@ To support providing context to the AI model without persisting user file conten
     *   The `InteractionController` passes the request to the `IOrchestrationService`.
     *   The orchestration service (or relevant persona logic triggered by it, like `BootstrapperPersona.AnalyzeEphemeralContentAsync`) uses the `ArtifactReference.OptionalContext` as a key to look up content previously stored in the `IMemoryCache`.
     *   *Note: The mechanism for initially populating the cache (e.g., a separate ingestion step or pre-loading) is currently specific to the adapter implementation (e.g., the Console Adapter might read a local file based on the context identifier before sending the interaction request).* This document previously described a dedicated ingestion endpoint which is now superseded by the unified interaction flow.
-    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`AnalyzeEphemeralContentAsync` - Example of cache usage)
+    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../src/Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`AnalyzeEphemeralContentAsync` - Example of cache usage)
 3.  **Contextual Query Handling (Persona `HandleQueryAsync`):**
     *   If cached content associated with the `ArtifactReference.OptionalContext` is found during orchestration/persona processing, it is made available to the persona's primary query handling logic (e.g., `HandleQueryAsync`).
     *   The persona then incorporates this retrieved context into the prompt sent to the AI model (as detailed in Section 2.2, Step 3).

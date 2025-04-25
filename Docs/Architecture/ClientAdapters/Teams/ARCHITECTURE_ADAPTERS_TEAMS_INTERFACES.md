@@ -1,13 +1,15 @@
 ---
 title: Architecture - Teams Adapter Interface Mapping
 description: Details how the common client adapter interfaces (IPersonaInteractionContext, IPlatformMessage, etc.) are implemented within the Teams adapter using Bot Framework SDK and Microsoft Graph.
-version: 1.0
-date: 2025-04-13
+version: 1.1
+date: 2025-04-24
 ---
 
 # Teams Adapter: Interface Mapping
 
-This document details the specific implementation patterns for the common client adapter interfaces defined in `../ARCHITECTURE_ADAPTER_INTERFACES.md` within the context of the [Microsoft Teams adapter (`Nucleus.Adapters.Teams`)](../ARCHITECTURE_ADAPTERS_TEAMS.md), leveraging the Bot Framework SDK and Microsoft Graph API.
+**Note:** Under the API-First architecture ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the Teams adapter acts purely as a translator between the Bot Framework and the `Nucleus.Services.Api`. It **does not** directly implement interfaces like `ISourceFileReader` or `IOutputWriter` for file content I/O using Graph. Those responsibilities belong to the central `ApiService`.
+
+This document focuses on how the Teams adapter maps information from a Bot Framework `Activity` object into the `InteractionRequest` DTO sent to the `Nucleus.Services.Api` (as defined in [API Client Interaction Pattern](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)).
 
 ## 1. `IPlatformMessage` Implementation
 
@@ -15,43 +17,28 @@ Corresponds primarily to a Bot Framework `Activity` object received by the bot.
 
 *   **`MessageId`**: Maps to `Activity.Id`.
 *   **`ConversationId`**: Maps to `Activity.Conversation.Id`. This could represent a channel (`teamsChannelId`), a group chat, or a 1:1 chat.
-*   **`UserId`**: Maps to `Activity.From.AadObjectId`.
-*   **`Content`**: Maps to `Activity.Text`. Mentions (`@NucleusPersonaName`) need to be stripped. If the activity represents a command (e.g., via Adaptive Card submission or specific text patterns), this content might need parsing.
+*   **`UserId`**: Maps to `Activity.From.AadObjectId` (or potentially `Activity.From.Id` if AAD mapping isn't available/required for a specific scenario).
+*   **`Content`**: Maps primarily to `Activity.Text`. Mentions targeting the Nucleus bot (`@NucleusPersonaName`) should be stripped or handled appropriately during parsing.
 *   **`Timestamp`**: Maps to `Activity.Timestamp` or `Activity.LocalTimestamp`.
 *   **`SourceArtifactUris`**: Derived from `Activity.Attachments`.
-    *   For file uploads (`application/vnd.microsoft.teams.file.download.info`), the attachment's `contentUrl` might provide a short-lived download URL, but more robustly, metadata within the attachment or context allows constructing a **Microsoft Graph URI** pointing to the file in SharePoint (channel) or OneDrive (chat). This Graph URI (e.g., referencing DriveItem ID and path) is the preferred representation for persistence in `ArtifactMetadata`.
-    *   For inline images or other content, appropriate identifiers/URIs are extracted.
+    *   For file uploads (`application/vnd.microsoft.teams.file.download.info`), the adapter extracts information needed to construct a **Microsoft Graph reference URI** (e.g., combining Drive ID and Item ID) or potentially uses a temporary `contentUrl` if suitable for the API service's fetching mechanism. This reference URI is included in the `InteractionRequest.SourceArtifactUris` list.
+    *   For inline images or other content, appropriate identifiers/URIs are extracted and added to `SourceArtifactUris`.
+*   **`PlatformContext`**: Populated with relevant context from the `Activity`, especially `Activity.ReplyToId` (if present) to support the API's Activation Check, and potentially `Activity.Conversation.TenantId`, `Activity.ChannelData`, etc.
 
-## 2. `IPersonaInteractionContext` Implementation
+## 2. `IPersonaInteractionContext` Implementation (Adapter Context - Deprecated Concept)
 
-Represents the scope of processing a specific `Activity` (or potentially a sequence related by `Activity.Conversation.Id` and `Activity.ReplyToId`). It's typically created within the bot's `OnTurnAsync` handler or a specific command handler.
+The concept of an adapter-level `IPersonaInteractionContext` holding direct `ISourceFileReader` and `IOutputWriter` instances for Graph I/O is **deprecated** under the API-First model. The adapter's role is simplified:
 
-*   **`InteractionId`**: A unique ID generated for this turn/interaction (e.g., `Guid.NewGuid().ToString()`). Could potentially incorporate `Activity.Id`.
-*   **`UserId`**: Sourced from `Activity.From.AadObjectId`.
-*   **`PlatformId`**: Hardcoded as `"Teams"`.
-*   **`TriggeringMessages`**: Contains the `IPlatformMessage` wrapper(s) around the relevant `Activity` object(s).
-*   **`SourceFileReader`**: An instance of a `TeamsSourceFileReader` (see below). Requires access to a `GraphServiceClient` authenticated for the user or the application, scoped appropriately based on the interaction context (channel/chat).
-*   **`OutputWriter`**: An instance of a `TeamsOutputWriter` (see below). Also requires access to a `GraphServiceClient`.
-*   **Disposal (`Dispose`)**: Should release any resources, potentially including cancelling long-running Graph API calls if applicable.
-*   **Additional Capabilities**: Might hold references to the `ITurnContext` for sending replies (`TurnContext.SendActivityAsync`) or accessing bot-specific state/services.
+1.  Receive the `Activity` within the `ITurnContext`.
+2.  Create an `InteractionRequest` DTO.
+3.  Map fields from the `Activity` and `ITurnContext` to the `InteractionRequest` DTO (as described in Section 1).
+4.  Call the `Nucleus.Services.Api` with the `InteractionRequest`.
+5.  Receive the response from the API.
+6.  Use the `ITurnContext` (e.g., `TurnContext.SendActivityAsync`) to send the API's response back to the Teams user.
 
-## 3. `ISourceFileReader` Implementation (`TeamsSourceFileReader`)
+## 3. Handling API Responses
 
-Relies heavily on the Microsoft Graph API.
-
-*   **`SourceExistsAsync(string sourceUri, ...)`**: Uses `GraphServiceClient` to query Graph based on the `sourceUri` (which should be a Graph-compatible identifier like a DriveItem path or ID) to check for the item's existence and accessibility within the context's permissions.
-*   **`OpenReadSourceAsync(string sourceUri, ...)`**: Uses `GraphServiceClient.Drives[driveId].Items[itemId].Content.Request().GetAsync()` or similar Graph calls to download the file content as a `Stream`. Requires appropriate Graph permissions (`Files.Read`, `Sites.Read.All`, etc.).
-*   **`GetSourceMetadataAsync(string sourceUri, ...)`**: Uses `GraphServiceClient` to retrieve the `DriveItem` metadata (name, size, lastModifiedDateTime, etc.) corresponding to the `sourceUri`.
-
-## 4. `IOutputWriter` Implementation (`TeamsOutputWriter`)
-
-Also relies on the Microsoft Graph API to write files back to the `.Nucleus` structure in the appropriate SharePoint site (Team default library) or potentially OneDrive for Business (less common for shared outputs).
-
-*   **`WriteOutputAsync(string personaId, string outputName, Stream contentStream, ...)`**:
-    1.  Determines the target SharePoint site/library based on the interaction context (e.g., `Activity.ChannelData.Team.Id`).
-    2.  Constructs the target path within the `.Nucleus` structure (e.g., `/{TeamLibrary}/.Nucleus/Personas/{personaId}/GeneratedOutputs/{outputName}`).
-    3.  Uses `GraphServiceClient.Drives[driveId].Root.ItemWithPath(path).Content.Request().PutAsync<DriveItem>(contentStream)` or similar Graph API calls to upload the file. Requires appropriate Graph permissions (`Files.ReadWrite`, `Sites.ReadWrite.All`, etc.).
-    4.  Returns the Graph ID or persistent URL of the created `DriveItem`.
-*   **`WriteTextReplyAsync(string personaId, string replyContent, ...)`**:
-    *   **Option 1 (Primary):** Sends the `replyContent` back to the user via `ITurnContext.SendActivityAsync()`. This is the standard bot reply mechanism. Does *not* typically save a separate file for the chat message itself. Returns `null`.
-    *   **Option 2 (If Explicit File Needed):** Could potentially use `WriteOutputAsync` to save the `replyContent` as a `.md` file (e.g., `chat_reply_{timestamp}.md`) in the `.Nucleus` output folder, in addition to sending it via `SendActivityAsync`. Returns the Graph ID/URL if saved. This might be useful for logging or complex replies.
+*   **Synchronous (`HTTP 200 OK`):** The adapter receives the response DTO from the API and formats it into one or more `Activity` objects sent back via `TurnContext.SendActivityAsync`.
+*   **Asynchronous (`HTTP 202 Accepted`):** The adapter receives the `jobId`. How the adapter handles polling/waiting for the final result is TBD and part of the adapter's implementation detail (it might send an initial ack, then use proactive messaging or require the user to check status).
+*   **No Action (`HTTP 204 No Content`):** The adapter typically does nothing.
+*   **Errors (`HTTP 4xx/5xx`):** The adapter should log the error and potentially send an informative error message back to the user via `TurnContext.SendActivityAsync`.

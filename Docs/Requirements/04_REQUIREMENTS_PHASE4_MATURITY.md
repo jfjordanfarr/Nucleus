@@ -1,14 +1,14 @@
 ---
 title: "Requirements: Phase 4 - Platform Maturity & Orchestration"
-description: Requirements for enhancing Nucleus OmniRAG bot interactions, implementing workflow orchestration, and adding enterprise/admin features.
-version: 1.0
-date: 2025-04-08
+description: Requirements for enhancing Nucleus OmniRAG bot interactions, implementing workflow orchestration, and adding enterprise/admin features via the API.
+version: 1.1
+date: 2025-04-24
 ---
 
 # Requirements: Phase 4 - Platform Maturity & Orchestration
 
-**Version:** 1.0
-**Date:** 2025-04-08
+**Version:** 1.1
+**Date:** 2025-04-24
 
 ## 1. Goal
 
@@ -32,20 +32,20 @@ To mature the Nucleus OmniRAG platform by enhancing the user experience within i
     *   **Slack:** Use Block Kit elements for interactive messages, buttons, select menus for configuration or feedback.
     *   **Discord:** Use Embeds for formatted results, Buttons, and potentially Slash Commands for invoking specific persona actions (e.g., `/analyze`, `/query`, `/status`).
 *   **REQ-P4-BOT-002:** Bots SHOULD support more natural conversational flows for clarifying user requests or guiding interactions, potentially maintaining limited short-term context within a conversation.
-*   **REQ-P4-BOT-003:** The system MUST handle callbacks and interactions originating from these richer UI elements (e.g., button clicks, menu selections).
+*   **REQ-P4-BOT-003:** The system (specifically the adapters) MUST handle callbacks and interactions originating from these richer UI elements (e.g., button clicks, menu selections). *(Note: This often involves the adapter making calls back to the `Nucleus.Services.Api` to fulfill the requested action).*
 
 ### 3.2. Workflow Orchestration
 
 *   **REQ-P4-ORC-001:** An orchestration engine (e.g., Azure Durable Functions via `Nucleus.Orchestrations`) MUST be implemented to manage complex, stateful, long-running, or multi-step persona analysis workflows.
 *   **REQ-P4-ORC-002:** The existing asynchronous processing trigger (message queue) SHOULD initiate orchestration instances instead of directly invoking the full analysis pipeline in a single function execution for tasks deemed complex.
 *   **REQ-P4-ORC-003:** The orchestration framework MUST reliably manage state between steps (e.g., content extraction -> parallel analysis by multiple personas -> aggregation -> notification).
-*   **REQ-P4-ORC-004:** The status query mechanism (REQ-P2-USR-006) MUST be updated to retrieve status information from active orchestration instances.
+*   **REQ-P4-ORC-004:** The status query API endpoint (defined in P2/P3) MUST be updated to retrieve status information from active orchestration instances, providing a unified status view.
 *   **REQ-P4-ORC-005:** Orchestrations MUST handle failures and retries gracefully within the workflow definition.
 
 ### 3.3. Enterprise Readiness & Admin Features
 
-*   **REQ-P4-ADM-001:** An Admin UI/API MUST be significantly expanded to provide administrative oversight and control. Implementation MAY involve a dedicated, potentially minimal, web interface or leverage platform-native UIs (e.g., Adaptive Cards in Teams) where feasible.
-*   **REQ-P4-ADM-002:** Administrators MUST be able to view detailed system logs and monitor the health and performance of backend services (Adapters, Processing Logic, API, Database) via the Admin UI/API.
+*   **REQ-P4-ADM-001:** An Admin UI/API MUST be significantly expanded to provide administrative oversight and control. Implementation involves expanding the `Nucleus.Services.Api` with dedicated admin endpoints and MAY involve a dedicated web interface or leverage platform-native UIs interacting with those endpoints.
+*   **REQ-P4-ADM-002:** Administrators MUST be able to view detailed system logs and monitor the health and performance of backend services (Adapters, Orchestrations, API, Database) via the Admin UI/API.
 *   **REQ-P4-ADM-003:** Administrators MUST be able to manage users and permissions/roles within the Nucleus system (if applicable beyond relying solely on platform permissions) via the Admin UI/API.
 *   **REQ-P4-ADM-004:** Administrators MUST have finer-grained control over Persona configuration (e.g., enabling/disabling personas, setting resource limits, configuring prompts/behavior parameters) via the Admin UI/API.
 *   **REQ-P4-ADM-005:** Comprehensive deployment automation scripts (Bicep/Terraform) MUST be created and maintained (`infra/` project) to enable repeatable deployments of the entire Nucleus stack (Azure resources, application code) for both Cloud-Hosted and Self-Hosted scenarios.

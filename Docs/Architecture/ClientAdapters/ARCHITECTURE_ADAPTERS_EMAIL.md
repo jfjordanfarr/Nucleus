@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Email
 description: Describes a client adapter which enables the interaction with Nucleus personas in Email
-version: 1.2
-date: 2025-04-22
+version: 1.3
+date: 2025-04-24
 ---
 
 # Client Adapter: Email
@@ -11,6 +11,8 @@ date: 2025-04-22
 ## Overview
 
 Enables interaction with Nucleus Personas via email (e.g., reading monitored mailboxes, sending replies).
+
+> **Warning:** This document is currently **underdeveloped** regarding the specific mechanisms for **monitoring incoming emails** (e.g., Microsoft Graph Change Notifications vs. polling) and the **activation strategies** used to determine which emails should trigger processing by the Nucleus API. These critical aspects require further definition.
 
 
 ## Auth

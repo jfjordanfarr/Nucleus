@@ -1,14 +1,14 @@
 ---
 title: Nucleus OmniRAG Security Architecture & Data Governance
 description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus OmniRAG platform.
-version: 1.3
-date: 2025-04-22
+version: 1.4
+date: 2025-04-24
 ---
 
 # Nucleus OmniRAG: Security Architecture & Data Governance
 
-**Version:** 1.3
-**Date:** 2025-04-22
+**Version:** 1.4
+**Date:** 2025-04-24
 
 ## 1. Introduction
 
@@ -53,13 +53,15 @@ graph TD
         Persona[Persona Modules]
         AI[AI Service]
         Cosmos[Cosmos DB]
+        Api[Nucleus.Services.Api]
     end
 
     U -- Query or Trigger --> Teams
     Teams -- Request --> Adapter
-    Adapter -- Reads Secrets --> KV
-    Adapter -- Uses OAuth Token --> CS
-    Adapter -- Fetches Source Data --> Proc
+    Adapter -- Authenticate --> Api
+    Api -- Retrieves Secrets --> KV
+    Api -- Uses OAuth Token --> CS
+    Api -- Fetches Source Data --> Proc
     Proc -- Processes Data --> Persona
     Persona -- Uses AI --> AI
     Proc -- Stores Metadata --> Cosmos
@@ -73,8 +75,11 @@ graph TD
     *   [Persona Modules](./02_ARCHITECTURE_PERSONAS.md) perform specialized analysis.
     *   The [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md) stores only derived metadata and knowledge.
     *   Key Vault secures credentials.
+    *   **`Nucleus.Services.Api`** orchestrates interactions, manages OAuth flows, and securely retrieves secrets.
 *   **Interactions:**
-    *   Adapters authenticate with Key Vault and interact with external storage APIs using OAuth tokens.
+    *   Adapters authenticate primarily with their respective platforms (e.g., Teams Bot authentication).
+    *   The **`Nucleus.Services.Api`** authenticates with Key Vault to retrieve secrets for core backend services (Database, AI, etc.).
+    *   The **API service orchestrates** interactions with external storage. It may direct adapters on how to interact (e.g., providing specific tokens or parameters obtained securely) or handle the interaction directly.
     *   Data flows ephemerally through processing and persona layers.
     *   Only derived metadata/knowledge is persisted to the Nucleus Database.
 *   Access to user data is governed by the permissions granted during the OAuth flow, respecting the source system's controls.
@@ -104,21 +109,21 @@ A multi-layered approach handles user identity and access to resources.
     *   **Self-Hosted:** Configurable to use the organization's preferred IdP (Entra ID, Okta, etc.) via OIDC or potentially SAML.
 *   **Storage Provider Authentication (OAuth 2.0):**
     *   To access files in the user's cloud storage (OneDrive, SharePoint, GDrive), Nucleus initiates a separate OAuth 2.0 authorization code flow, specific to that storage provider.
-    *   The user grants Nucleus (represented by its Client ID) explicit permission to access their files.
-    *   This flow is initiated via the [Client/Adapter](./05_ARCHITECTURE_CLIENTS.md) layer.
-    *   Nucleus requests specific, least-privilege scopes (e.g., read-only access if sufficient, details in [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)).
+    *   User interaction to grant consent may be triggered via the [Client/Adapter](./05_ARCHITECTURE_CLIENTS.md) layer.
+    *   However, the **`Nucleus.Services.Api` manages or validates the core OAuth flow** (e.g., handling the redirect URI, receiving the authorization code, exchanging it for tokens securely).
+    *   The API service ensures specific, least-privilege scopes are requested (e.g., read-only access if sufficient, details in [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)).
+    *   Tokens obtained are managed centrally by the API service.
 *   **Token Management:**
     *   **Hosted Model (Transitory Access):**
         *   **MUST NOT** request the `offline_access` scope during the storage OAuth flow.
         *   Obtains short-lived **access tokens** only.
-        *   Stores access tokens securely, associated with the active backend user session (e.g., encrypted server-side cache).
-        *   Tokens are discarded when the user session ends.
+        *   Access tokens are used for immediate operations and then discarded.
     *   **Self-Hosted Model (Optional Persistent Access):**
-        *   Persistent background access requires an **explicit configuration flag** (`EnableBackgroundStorageAccess: true`).
+        *   Persistent background access requires an **explicit configuration flag** (`EnableBackgroundStorageAccess: true`) and explicit user/admin consent for `offline_access`.
         *   If enabled, **MAY** request the `offline_access` scope during storage OAuth flow.
         *   If requested and granted, receives a **refresh token** in addition to the access token.
-        *   **CRITICAL:** The hosting organization is **solely responsible** for storing refresh tokens with extreme security (e.g., Azure Key Vault, HashiCorp Vault, HSM-backed encryption). Nucleus code provides the mechanism but relies on secure infrastructure configuration.
-        *   Background workers use the refresh token to obtain new access tokens as needed.
+        *   **CRITICAL:** The **`Nucleus.Services.Api`** is responsible for securely retrieving refresh tokens from the configured secure store (e.g., Azure Key Vault, HashiCorp Vault, HSM-backed encryption) provided by the hosting organization. The hosting organization is responsible for the secure *provisioning and infrastructure* of that store.
+        *   The **API service's background workers** securely use the refresh token to obtain new access tokens as needed.
 *   **RBAC Delegation:** Nucleus operates within the permissions granted through the OAuth consent flow. Access control to specific files/folders within the user/team storage is **governed by the underlying storage provider's RBAC rules** ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), not by Nucleus itself.
 
 ## 4. Secrets Management
@@ -126,9 +131,10 @@ A multi-layered approach handles user identity and access to resources.
 All sensitive configuration values must be managed securely.
 
 *   **Secrets Include:** [AI Service](./02_ARCHITECTURE_PERSONAS.md) API Keys, [Database](./04_ARCHITECTURE_DATABASE.md) Connection Strings, Message Queue Connection Strings, OAuth Client IDs/Secrets, Token Signing Keys, Refresh Tokens (Self-Hosted).
-*   **Mandatory Practice:** Use secure secret management solutions appropriate for the [deployment](./07_ARCHITECTURE_DEPLOYMENT.md) environment:
+*   **Secure Storage:** Use secure secret management solutions appropriate for the [deployment](./07_ARCHITECTURE_DEPLOYMENT.md) environment:
     *   **Cloud-Hosted:** Azure Key Vault, integrated with App Services/Functions via Managed Identity.
     *   **Self-Hosted:** Azure Key Vault, HashiCorp Vault, Kubernetes Secrets (with appropriate backend), secure environment variables.
+*   **Primary Consumer:** The **`Nucleus.Services.Api`** is the primary consumer of secrets for core backend services (Database, AI, Queues, OAuth Client Secrets for storage providers). Adapters should only require secrets specific to their platform integration (e.g., Teams Bot ID/Password, Slack Bot Token), which should also be stored securely.
 *   **Policy:** **NO hardcoded secrets** in source code or configuration files checked into version control.
 
 ## 5. Infrastructure Security

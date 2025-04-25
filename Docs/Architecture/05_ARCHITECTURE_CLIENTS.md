@@ -1,20 +1,20 @@
 ---
 title: Architecture - Client Applications & Adapters
 description: Outlines the architecture for clients (MVP Console App) and future platform adapters interacting with the Nucleus API.
-version: 3.2
-date: 2025-04-22
+version: 3.3
+date: 2025-04-24
 ---
 
 # Nucleus OmniRAG: Client Architecture
 
-**Version:** 3.2
-**Date:** 2025-04-22
+**Version:** 3.3
+**Date:** 2025-04-24
 
 This document outlines the architecture for client applications interacting with the Nucleus OmniRAG backend API, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It details the primary interaction mechanism for the Minimum Viable Product (MVP) – a command-line interface (CLI) application – and outlines future plans for integrating with collaboration platforms.
 
 ## 1. Core Principles
 
-*   **Direct API Interaction:** Clients primarily interact with the backend via the defined `Nucleus.Api` endpoints (see [Deployment Architecture](./07_ARCHITECTURE_DEPLOYMENT.md)).
+*   **Direct API Interaction:** All clients, whether standalone applications (like `Nucleus.Console`) or integrated Platform Adapters (like `Nucleus.Adapters.Teams`), **must** interact exclusively with the backend via the defined `Nucleus.Services.Api` endpoints (see [API Architecture](./10_ARCHITECTURE_API.md) and [Deployment Architecture](./07_ARCHITECTURE_DEPLOYMENT.md)). Adapters act as translators between the platform and the API.
 *   **Clear Feedback:** Provide clear status updates and output to the user for all operations.
 *   **Extensibility:** The core API design should support various client types.
 *   **Development Focus (MVP):** The initial client prioritizes enabling rapid development, testing, and direct interaction for developers and agents.
@@ -115,7 +115,7 @@ While implementations will vary based on the target platform, adapters should ge
     *   **Status Checks:** Allow users to query the status of ongoing [processing](./01_ARCHITECTURE_PROCESSING.md).
 *   **Response Formatting:** Format Nucleus API responses into platform-native messages (e.g., Teams Adaptive Cards, Slack Blocks, plain text).
 *   **Feedback Mechanisms:** Provide clear feedback to the user about command acceptance, processing status, and final results.
-*   **Artifact Handling:** Manage the upload/download of artifacts between the platform storage (e.g., SharePoint, Slack files) and the Nucleus backend, respecting the defined [storage architecture](./03_ARCHITECTURE_STORAGE.md) for the platform (see specific adapter documents like [Console](../ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md) and [Teams](../ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md)).
+*   **Artifact Handling:** Facilitate artifact transfer between the platform and Nucleus by interacting with the API. For example, an adapter might call `POST /ingest` with artifact metadata. The **`Nucleus.Services.Api` then orchestrates** the data transfer (e.g., by providing a secure upload URL back to the adapter, or by instructing the adapter where to fetch content from) and subsequent processing, respecting the defined [Storage Architecture](./03_ARCHITECTURE_STORAGE.md). The adapter does not directly manage backend storage. (See specific adapter documents like [Console](../ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md) and [Teams](../ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md)).
 *   **Error Handling:** Gracefully handle platform-specific errors and Nucleus API errors, providing informative messages to the user.
 *   **Administrative Capabilities:** Future adapters will also need to surface administrative functionalities (monitoring, user management, persona configuration, reporting) as defined in [Phase 4 Maturity Requirements](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features) (REQ-P4-ADM-001 to ADM-004). This might involve dedicated admin commands or interfaces within the client platform (e.g., specific Adaptive Cards in Teams for authorized administrators).
 

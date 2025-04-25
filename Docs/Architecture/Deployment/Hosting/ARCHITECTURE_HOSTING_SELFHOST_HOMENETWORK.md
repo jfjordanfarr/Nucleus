@@ -1,8 +1,8 @@
 ---
 title: Architecture - Hosting Strategy: Self-Host (Home Network)
 description: Details the strategy and considerations for deploying Nucleus OmniRAG on a local home network using Docker.
-version: 1.2
-date: 2025-04-22
+version: 1.3
+date: 2025-04-23
 ---
 
 # Nucleus OmniRAG: Self-Hosted Home Network Deployment Strategy
@@ -18,12 +18,12 @@ This document outlines the architecture and considerations for deploying the Nuc
 Self-hosting Nucleus on a home network is generally **feasible**, especially for access *within* the local network. Key considerations include:
 
 *   **Outbound Connectivity:** Required for the Nucleus API/Workers to reach external services like the Google Gemini API. Standard home internet connections usually permit this.
-*   **Inbound Connectivity (Local):** Accessing the Nucleus API from other devices *on the same home network* is straightforward (using the host machine's local IP address and the mapped port).
-*   **Inbound Connectivity (External - Optional/Complex):** Allowing access from *outside* the home network (e.g., for a Teams bot webhook) is more complex and introduces security risks. It typically requires:
-    *   **Dynamic DNS (DDNS):** To handle the changing public IP address assigned by most ISPs.
-    *   **Port Forwarding:** Configuring the home router to forward specific external ports to the internal IP address and port of the machine hosting Nucleus.
-    *   **Security:** Exposing services directly from a home network significantly increases the attack surface. Proper firewall rules, HTTPS with valid certificates (e.g., via Let's Encrypt with DNS challenge), and potentially reverse proxies (like Traefik or Nginx Proxy Manager running in Docker) are highly recommended.
-    *   **ISP Terms:** Some ISPs prohibit hosting servers on residential connections.
+*   **Inbound Connectivity (Local):** Accessing the Nucleus API from other devices *on the same home network* is straightforward (using the host machine's local IP address and the mapped port). **Client adapters (e.g., `Nucleus.Console`, test scripts) running on the local network would connect to this exposed API endpoint.**
+*   **Inbound Connectivity (External - Optional/Complex):** Allowing access from *outside* the home network introduces security risks and complexity. This is typically needed if:
+    *   An *external client adapter* (e.g., a cloud-hosted Teams Bot) needs to send requests *to* the self-hosted `Nucleus.Api`.
+    *   An adapter *itself* needs to be externally reachable (e.g., the Teams Bot messaging endpoint receiving webhooks from Microsoft), and this adapter then needs to communicate with the self-hosted `Nucleus.Api` (which might require the API also being externally accessible or reachable through other secure means like VPN/tunneling).
+    *   This generally requires: Dynamic DNS (DDNS), Port Forwarding, and robust security measures (Firewall, HTTPS, Reverse Proxy).
+*   **ISP Terms:** Some ISPs prohibit hosting servers on residential connections.
 *   **Hardware Resources:** Requires a reasonably powerful host machine (CPU, ample RAM, sufficient disk space) to run Docker Desktop and multiple containers concurrently (API, database, queue, potentially workers).
 
 ## 3. Core Component Mapping (Docker Containers)
@@ -58,7 +58,7 @@ Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.m
 
 *   **Docker Network:** Define a custom bridge network for all Nucleus services to communicate via service names.
 *   **Port Mapping:** Expose the `Nucleus.Api` container's port to a port on the host machine (e.g., map host `5000` to container `8080`).
-*   **Access:** Other devices on the home network access the API via `http://<host-machine-local-ip>:<mapped-host-port>`.
+*   **Access:** Other devices on the home network access the API via `http://<host-machine-local-ip>:<mapped-host-port>`. **External clients would use the public IP/DDNS name and forwarded port.**
 
 ## 6. Security Considerations
 
@@ -75,6 +75,6 @@ Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.m
 
 ## 8. Summary
 
-Self-hosting Nucleus on a home network via Docker is viable and provides maximum data privacy and control for local use. It requires technical proficiency with Docker, managing different containerized services, and understanding basic home networking. While outbound connections (for AI APIs) are easy, enabling reliable and secure *inbound* access from the internet poses significant challenges and security risks that users must carefully consider and mitigate.
+Self-hosting Nucleus on a home network via Docker is viable and provides maximum data privacy and control for local use **by ensuring the core `Nucleus.Api` and data stores remain within the user's network**. It requires technical proficiency with Docker, managing different containerized services, and understanding basic home networking. While outbound connections (for AI APIs) are easy, enabling reliable and secure *inbound* access from the internet (for external clients or certain adapter types) poses significant challenges and security risks that users must carefully consider and mitigate.
 
 ---

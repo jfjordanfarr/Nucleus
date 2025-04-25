@@ -1,99 +1,86 @@
-# Phase 2: Multi-Platform Integration Tasks
+# Phase 2: API Extension & Multi-Platform Client Adapters Tasks
 
-**Epic:** [`EPIC-MULTI-PLATFORM`](./00_ROADMAP.md#phase-2-multi-platform-integration)
+**Epic:** [`EPIC-MULTI-PLATFORM`](./00_ROADMAP.md#phase-2-api-extension--multi-platform-integration)
 **Requirements:** [`02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)
 
-This document details the specific tasks required to complete Phase 2.
+This document details the specific tasks required to complete Phase 2, focusing on extending the API and building thin client adapters.
 
 ---
 
-## `ISSUE-MP-INGEST-00-EMAIL`: Implement Email Ingestion Adapter
+## `ISSUE-MP-API-01`: Implement API Endpoints for Platform Integration
 
-*   [ ] **TASK-P2-ING-E01:** Define `IPlatformAdapter` interface (ensure support for async sources like email) - *(Verify definition from P1 if not already done)*.
-*   [ ] **TASK-P2-ING-E02:** Choose ingestion mechanism (e.g., Azure Function with Timer trigger + MailKit, Logic App connector). Document decision.
-*   [ ] **TASK-P2-ING-E03:** Implement core `EmailAdapter` (`Nucleus.Adapters.Email`) logic: Connect, fetch new emails, handle basic authentication (app password/OAuth token).
-*   [ ] **TASK-P2-ING-E04:** Implement email parsing: Extract sender, recipients, subject, date, plain text body, HTML body.
-*   [ ] **TASK-P2-ING-E05:** Implement attachment handling: Identify attachments, prepare for storage.
-*   [ ] **TASK-P2-ING-E06:** Implement hand-off to processing: Call internal service/API endpoint in `Nucleus.Api` to **trigger in-process background task** for the ingested email (metadata + attachment pointers).
-*   [ ] **TASK-P2-ING-E07:** Implement basic error handling and logging for the ingestion service.
-*   [ ] **TASK-P2-ING-E08:** Configure secure storage for email credentials (Key Vault).
-*   [ ] **TASK-P2-ING-E09:** Implement mechanism to prevent re-processing of the same email (e.g., track Message-IDs).
-*   [ ] **TASK-P2-ING-E10:** Implement mechanism to distinguish content submissions vs. direct queries if needed (e.g., subject line prefix, specific recipient). (Revisit P1 MVP assumption).
+*Primary location: `Nucleus.Services.Api`*
 
-## `ISSUE-MP-INGEST-01`: Implement Teams Ingestion Adapter
+*   [ ] **TASK-P2-API-01:** Design and document DTOs for platform interaction requests/responses (including file references, platform context, status info).
+*   [ ] **TASK-P2-API-02:** Implement API endpoint for initiating ingestion from platforms (e.g., `/api/v1/ingest/platform`).
+    *   [ ] Include logic to authenticate adapter requests.
+    *   [ ] Implement file retrieval logic using platform references (e.g., MS Graph API for Teams file IDs/links) based on received context and stored credentials.
+    *   [ ] Integrate with `IFileStorage` and initiate backend processing (sync/async).
+    *   [ ] Return appropriate response (e.g., 202 Accepted with Job ID).
+*   [ ] **TASK-P2-API-03:** Implement API endpoint for general platform queries/interactions (e.g., `/api/v1/interactions`).
+    *   [ ] Handle incoming queries with platform context.
+    *   [ ] Integrate with core processing logic (LLM interaction, etc.).
+    *   [ ] Return synchronous response or initiate async job.
+*   [ ] **TASK-P2-API-04:** Implement API endpoint for querying job status (e.g., `/api/v1/jobs/{jobId}/status`).
+*   [ ] **TASK-P2-API-05:** Implement mechanism for notifying adapters of async job completion/failure (e.g., Webhook callback system, requires adapters to register endpoints).
+*   [ ] **TASK-P2-API-06:** Ensure API endpoints handle platform-specific context securely and associate it correctly with internal artifacts/jobs.
+*   [ ] **TASK-P2-API-07:** Implement necessary configuration handling for platform API credentials used by the `ApiService` (e.g., Graph API secrets).
 
-*   [ ] **TASK-P2-ING-T01:** Research Teams integration options (Graph API webhooks, potentially bots if query integration requires it).
-*   [ ] **TASK-P2-ING-T02:** Register Azure AD application for Graph API access.
-*   [ ] **TASK-P2-ING-T03:** Implement `TeamsAdapter` inheriting `IPlatformAdapter` (`Nucleus.Adapters.Teams`).
-*   [ ] **TASK-P2-ING-T04:** Implement webhook endpoint (e.g., Azure Function) to receive Teams notifications/messages.
-*   [ ] **TASK-P2-ING-T05:** Implement message parsing for Teams format (text, mentions, potential attachments/links).
-*   [ ] **TASK-P2-ING-T06:** Implement authentication/authorization for webhook calls.
-*   [ ] **TASK-P2-ING-T07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
-*   [ ] **TASK-P2-ING-T08:** Update processing pipeline (background task logic) to handle Teams-originated artifacts/queries.
+## `ISSUE-MP-ADAPT-TEAMS-01`: Implement Teams Client Adapter
 
-## `ISSUE-MP-INGEST-02`: Implement Slack Ingestion Adapter
+*Primary location: `Nucleus.Adapters.Teams`*
 
-*   [ ] **TASK-P2-ING-S01:** Research Slack integration options (Events API, Socket Mode).
-*   [ ] **TASK-P2-ING-S02:** Create Slack App and configure permissions/events.
-*   [ ] **TASK-P2-ING-S03:** Implement `SlackAdapter` inheriting `IPlatformAdapter` (`Nucleus.Adapters.Slack`).
-*   [ ] **TASK-P2-ING-S04:** Implement endpoint (e.g., Azure Function) or background service for receiving Slack events.
-*   [ ] **TASK-P2-ING-S05:** Implement message parsing for Slack format (mrkdwn, user mentions, attachments/files).
-*   [ ] **TASK-P2-ING-S06:** Implement request verification/authentication for Slack events.
-*   [ ] **TASK-P2-ING-S07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
-*   [ ] **TASK-P2-ING-S08:** Update processing pipeline (background task logic) to handle Slack-originated artifacts/queries.
+*   [ ] **TASK-P2-TEA-01:** Set up Teams Bot project using Bot Framework SDK.
+*   [ ] **TASK-P2-TEA-02:** Register Azure AD application and configure Bot registration for Teams.
+*   [ ] **TASK-P2-TEA-03:** Implement Bot logic to handle incoming Teams events (messages, mentions, file shares).
+*   [ ] **TASK-P2-TEA-04:** Implement translation layer: Map Teams events/data to API DTOs (e.g., extracting user query, file references, context).
+*   [ ] **TASK-P2-TEA-05:** Implement authenticated HTTP calls to the `Nucleus.Services.Api` endpoints (`/ingest/platform`, `/interactions`, `/jobs/.../status`).
+*   [ ] **TASK-P2-TEA-06:** Implement logic to render API responses (sync data, status updates, async completion notifications) into Teams messages (Text, Adaptive Cards).
+*   [ ] **TASK-P2-TEA-07:** (If using webhooks for async results) Implement endpoint within the adapter to receive callbacks from the `ApiService` and register it.
+*   [ ] **TASK-P2-TEA-08:** Handle Teams-specific authentication aspects required *by the adapter* itself (e.g., validating incoming requests from Bot Framework).
 
-## `ISSUE-MP-INGEST-03`: Implement Discord Ingestion Adapter
+## `ISSUE-MP-ADAPT-SLACK-01`: Implement Slack Client Adapter
 
-*   [ ] **TASK-P2-ING-D01:** Research Discord integration options (Bot User, Gateway API).
-*   [ ] **TASK-P2-ING-D02:** Create Discord Application and Bot User.
-*   [ ] **TASK-P2-ING-D03:** Implement `DiscordAdapter` inheriting `IPlatformAdapter` (`Nucleus.Adapters.Discord`).
-*   [ ] **TASK-P2-ING-D04:** Implement background service or Function to connect to Discord Gateway.
-*   [ ] **TASK-P2-ING-D05:** Implement message parsing for Discord format (Markdown, mentions, attachments).
-*   [ ] **TASK-P2-ING-D06:** Handle Gateway events (message creation, etc.).
-*   [ ] **TASK-P2-ING-D07:** Integrate with internal processing: Call `Nucleus.Api` service/endpoint to **trigger in-process background task**.
-*   [ ] **TASK-P2-ING-D08:** Update processing pipeline (background task logic) to handle Discord-originated artifacts/queries.
+*Primary location: `Nucleus.Adapters.Slack`*
 
-## `ISSUE-MP-PROCESS-01`: Enhance Content Extraction
+*   [ ] **TASK-P2-SLA-01:** Set up Slack App project (using preferred SDK/approach - Events API, Socket Mode).
+*   [ ] **TASK-P2-SLA-02:** Configure Slack App permissions and event subscriptions.
+*   [ ] **TASK-P2-SLA-03:** Implement logic to handle incoming Slack events (messages, mentions, file shares, slash commands).
+*   [ ] **TASK-P2-SLA-04:** Implement translation layer: Map Slack events/data to API DTOs.
+*   [ ] **TASK-P2-SLA-05:** Implement authenticated HTTP calls to `Nucleus.Services.Api` endpoints.
+*   [ ] **TASK-P2-SLA-06:** Implement logic to render API responses into Slack messages (Text, Block Kit).
+*   [ ] **TASK-P2-SLA-07:** (If using webhooks) Implement endpoint to receive callbacks from `ApiService`.
+*   [ ] **TASK-P2-SLA-08:** Handle Slack request verification/authentication required by the adapter.
 
-*   [ ] **TASK-P2-EXT-01:** Implement `MarkdownExtractor` (handle variants potentially needed for Slack/Discord).
-*   [ ] **TASK-P2-EXT-02:** Enhance attachment handling in processing pipeline to correctly associate files from different platforms.
-*   [ ] **TASK-P2-EXT-03:** Update `IContentExtractor` selection logic to accommodate new platform types/formats.
+## `ISSUE-MP-ADAPT-DISCORD-01`: Implement Discord Client Adapter
 
-## `ISSUE-MP-QUERY-01`: Integrate Query into Teams
+*Primary location: `Nucleus.Adapters.Discord`*
 
-*   [ ] **TASK-P2-QRY-T01:** Design Teams interaction model (Bot command, Message Extension, Adaptive Card?).
-*   [ ] **TASK-P2-QRY-T02:** Implement Teams Bot logic (if required) to handle user queries.
-*   [ ] **TASK-P2-QRY-T03:** Integrate Bot/Extension with `Nucleus.Api` (new endpoint needed for platform queries).
-*   [ ] **TASK-P2-QRY-T04:** Implement logic to call the appropriate `IPersona.HandleQueryAsync` based on Teams context.
-*   [ ] **TASK-P2-QRY-T05:** Implement response formatting for Teams (Adaptive Cards?).
+*   [ ] **TASK-P2-DIS-01:** Set up Discord Bot project (using preferred library for Gateway interaction).
+*   [ ] **TASK-P2-DIS-02:** Create Discord Application and Bot User, configure permissions.
+*   [ ] **TASK-P2-DIS-03:** Implement logic to connect to Discord Gateway and handle relevant events (message creation, mentions, slash commands).
+*   [ ] **TASK-P2-DIS-04:** Implement translation layer: Map Discord events/data to API DTOs.
+*   [ ] **TASK-P2-DIS-05:** Implement authenticated HTTP calls to `Nucleus.Services.Api` endpoints.
+*   [ ] **TASK-P2-DIS-06:** Implement logic to render API responses into Discord messages (Text, Embeds).
+*   [ ] **TASK-P2-DIS-07:** (If using webhooks) Implement endpoint to receive callbacks from `ApiService`.
+*   [ ] **TASK-P2-DIS-08:** Handle Discord Bot token authentication required by the adapter.
 
-## `ISSUE-MP-QUERY-02`: Integrate Query into Slack
+## `ISSUE-MP-PROCESS-01`: Enhance Content Extraction (Minor Update)
 
-*   [ ] **TASK-P2-QRY-S01:** Design Slack interaction model (Slash command, Bot mention?).
-*   [ ] **TASK-P2-QRY-S02:** Implement Slack command handler or Bot event handler.
-*   [ ] **TASK-P2-QRY-S03:** Integrate handler with `Nucleus.Api` query endpoint.
-*   [ ] **TASK-P2-QRY-S04:** Implement logic to call `IPersona.HandleQueryAsync` based on Slack context.
-*   [ ] **TASK-P2-QRY-S05:** Implement response formatting for Slack (Block Kit?).
-
-## `ISSUE-MP-QUERY-03`: Integrate Query into Discord
-
-*   [ ] **TASK-P2-QRY-D01:** Design Discord interaction model (Slash command, Bot mention?).
-*   [ ] **TASK-P2-QRY-D02:** Implement Discord command handler or Bot event handler.
-*   [ ] **TASK-P2-QRY-D03:** Integrate handler with `Nucleus.Api` query endpoint.
-*   [ ] **TASK-P2-QRY-D04:** Implement logic to call `IPersona.HandleQueryAsync` based on Discord context.
-*   [ ] **TASK-P2-QRY-D05:** Implement response formatting for Discord (Embeds?).
+*   [ ] **TASK-P2-EXT-01:** Review `IContentExtractor` implementations (e.g., Markdown) to ensure compatibility with formats potentially passed *through* the API from different platforms. (Core extraction logic remains within API service boundary).
 
 ## `ISSUE-MP-UI-01`: Update Web App UI
 
-*   [ ] **TASK-P2-UI-01:** Update `ArtifactMetadata` model/storage to include source platform.
-*   [ ] **TASK-P2-UI-02:** Update Admin UI (from P1) to display source platform for ingested items/status.
-*   [ ] **TASK-P2-UI-03:** (Low Priority for P2) Consider adding basic filtering by source platform if feasible.
+*(Dependent on `ArtifactMetadata` updates in API)*
 
-## `ISSUE-MP-AUTH-01`: Implement Platform Authentication
+*   [ ] **TASK-P2-UI-01:** Update `ArtifactMetadata` definition (in Domain/Api DTOs) to include source platform/context info provided by adapters.
+*   [ ] **TASK-P2-UI-02:** Update Admin UI (if applicable) to display source platform for ingested items/status based on updated metadata.
+*   [ ] **TASK-P2-UI-03:** (Low Priority) Consider adding filtering by source platform.
 
-*   [ ] **TASK-P2-AUTH-01:** Implement OAuth flow or secure token handling for Teams adapter.
-*   [ ] **TASK-P2-AUTH-02:** Implement OAuth flow or secure token handling for Slack adapter.
-*   [ ] **TASK-P2-AUTH-03:** Implement Bot token handling securely for Discord adapter.
-*   [ ] **TASK-P2-AUTH-04:** Store platform credentials/tokens securely (Key Vault).
+## `ISSUE-MP-AUTH-01`: Secure Credential Handling
+
+*   [ ] **TASK-P2-AUTH-01:** Ensure secure storage (e.g., Key Vault) for credentials used *by Adapters* to connect to platforms (Bot tokens, App Secrets).
+*   [ ] **TASK-P2-AUTH-02:** Ensure secure storage for credentials used *by the `ApiService`* to call platform APIs (e.g., Graph API tokens/secrets).
+*   [ ] **TASK-P2-AUTH-03:** Implement/verify secure configuration loading for these credentials in both Adapters and the ApiService.
 
 ---

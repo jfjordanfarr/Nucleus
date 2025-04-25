@@ -1,14 +1,14 @@
 ---
 title: Architecture - Database (Azure Cosmos DB)
 description: Details the Azure Cosmos DB structure for storing ArtifactMetadata and PersonaKnowledgeEntry records.
-version: 2.1
-date: 2025-04-22
+version: 2.2
+date: 2025-04-24
 ---
 
 # Nucleus OmniRAG: Database Architecture (Azure Cosmos DB)
 
-**Version:** 2.1
-**Date:** 2025-04-22
+**Version:** 2.2
+**Date:** 2025-04-24
 
 This document details the architecture of the backend database used by Nucleus OmniRAG, utilizing Azure Cosmos DB for NoSQL, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). Cosmos DB serves as the central persistence layer for **all** Nucleus-managed metadata, including both the primary **`ArtifactMetadata`** records describing source artifacts (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)) and the **`PersonaKnowledgeEntry`** records containing persona-specific analysis (see [Persona Architecture](./02_ARCHITECTURE_PERSONAS.md)).
 
@@ -121,17 +121,13 @@ public record PersonaKnowledgeEntry<TAnalysisData>(
 ## 5. Integration with Other Architectures
 
 ### 5.1 Processing (`01_ARCHITECTURE_PROCESSING.md`)
-*   The pipeline interacts primarily with Cosmos DB and Platform [Adapters](./05_ARCHITECTURE_CLIENTS.md):
-    *   Receives trigger with source artifact info (e.g., `sourceUri`).
-    *   Creates/Updates the `ArtifactMetadata` document in the `ArtifactMetadataContainer` in Cosmos DB.
-    *   Uses Platform [Adapters](./05_ARCHITECTURE_CLIENTS.md) (see `05_ARCHITECTURE_CLIENTS.md`) to fetch artifact content from the `sourceUri`.
-    *   Extracts raw text.
-    *   For each target persona:
-        *   Invokes the persona's analysis logic (`AnalyzeContentAsync`).
-        *   Persona generates `analysis` (type `TAnalysisData`) and `relevantTextSnippetOrSummary`.
-        *   Pipeline calculates `snippetEmbedding` (and optionally `analysisSummaryEmbedding`).
-        *   Pipeline writes the complete `PersonaKnowledgeEntry<TAnalysisData>` record to the specific `{PersonaId}KnowledgeContainer` in Cosmos DB.
-        *   Pipeline updates the `personaProcessingStatus` dictionary within the relevant `ArtifactMetadata` document in Cosmos DB.
+*   The **`Nucleus.Services.Api` orchestrates** the processing pipeline.
+*   Upon receiving an interaction/trigger (potentially relayed by an adapter), the API service initiates the pipeline.
+*   The pipeline logic, operating within the API service context, uses the **`IArtifactMetadataRepository`** to create/update `ArtifactMetadata` in `ArtifactMetadataContainer`.
+*   It instructs Personas (also within the API service context) to analyze content (fetched via adapters, as directed by the API service).
+*   It receives `PersonaKnowledgeEntry` data from Personas.
+*   It uses the **`IPersonaKnowledgeRepository<TAnalysisData>`** to store `PersonaKnowledgeEntry` in the appropriate `{PersonaId}KnowledgeContainer`.
+*   Pipeline updates the `personaProcessingStatus` dictionary within the relevant `ArtifactMetadata` document in Cosmos DB (again, via the `IArtifactMetadataRepository`).
 
 ### 5.2 Personas (`02_ARCHITECTURE_PERSONAS.md`)
 
@@ -140,7 +136,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>(
     *   A persona queries **its own** `{PersonaId}KnowledgeContainer` in Cosmos DB.
     *   It performs vector searches against `snippetEmbedding` or `analysisSummaryEmbedding`.
     *   Field projection retrieves necessary fields (`id`, `relevantTextSnippetOrSummary`, `analysis`, `sourceIdentifier`, etc.).
-    *   If needed, the persona can use the `sourceIdentifier` from a retrieved PKE to request the full `ArtifactMetadata` (from `ArtifactMetadataContainer`) or even fresh content from the source system via adapters (using `sourceUri`) for more context.
+    *   If needed, the persona can use the `sourceIdentifier` from a retrieved PKE to request the full `ArtifactMetadata` (from `ArtifactMetadataContainer`) or even fresh content from the source system via adapters (using `sourceUri`) for more context. **This request for fresh content is mediated by the `Nucleus.Services.Api`, which instructs the appropriate adapter.**
 
 ### 5.3 Storage (`03_ARCHITECTURE_STORAGE.md`)
 
@@ -160,7 +156,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>(
 2.  **Implement Repository Layer:** Develop concrete implementations (likely within `Nucleus.Services.Api`) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) and [`IPersonaKnowledgeRepository<TAnalysisData>`](../../../Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs) interfaces using the Cosmos DB .NET SDK. Ensure dynamic container handling for PKEs.
 3.  **Define Partition Key Strategy:** Finalize the partition key choices for both container types based on [deployment models](./07_ARCHITECTURE_DEPLOYMENT.md) and query patterns.
 4.  **Provision Cosmos DB:** Set up the Cosmos DB account, database, and define container creation/configuration strategy (part of [Deployment](./07_ARCHITECTURE_DEPLOYMENT.md)).
-5.  **Integrate with Processing Pipeline:** Update the [pipeline](./01_ARCHITECTURE_PROCESSING.md) to implement the flow described in Section 5.1.
+5.  **Integrate with Processing Pipeline:** Update the [pipeline](./01_ARCHITECTURE_PROCESSING.md) (orchestrated by the API service) to implement the flow described in Section 5.1, utilizing the repository implementations.
 
 ---
 

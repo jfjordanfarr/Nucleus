@@ -1,8 +1,8 @@
 ---
 title: Architecture - Hosting Strategy: Azure
 description: Details the specific Azure services and configuration for deploying the Nucleus OmniRAG system.
-version: 1.2
-date: 2025-04-22
+version: 1.3
+date: 2025-04-24
 ---
 
 # Nucleus OmniRAG: Azure Deployment Strategy
@@ -29,10 +29,10 @@ Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.m
 2.  **Asynchronous Messaging Queue:**
     *   **Service:** **Azure Service Bus (Standard Tier or higher)**
     *   **Entity Type:** **Queue**
-    *   **Rationale:** Reliable enterprise messaging with features like dead-lettering, competing consumers, and good integration with Azure Functions/Container Apps via triggers or KEDA scalers. Suitable for point-to-point delivery of ingestion requests.
-    *   **Usage:** Decoupling Platform Adapters (like Teams) from the core API Service. Adapters publish [`NucleusIngestionRequest`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs:10:0-49:1) messages to a dedicated queue (e.g., `nucleus-ingestion-requests`).
-    *   **Consumer:** The [`ServiceBusQueueConsumerService`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs:24:0-174:1), hosted within the `Nucleus.ApiService` container app instance(s), listens to this queue and processes messages.
-    *   **Alternative:** Azure Storage Queues - Simpler and cheaper, but fewer features (e.g., no built-in dead-lettering without extra logic). Azure Service Bus Topics - More suitable for pub/sub scenarios where multiple independent services need to react to the same event; potentially useful in the future but overkill for the current ingestion flow.
+    *   **Rationale:** Reliable enterprise messaging for decoupling long-running or asynchronous tasks. Features like dead-lettering and competing consumers are beneficial.
+    *   **Usage (Asynchronous Tasks):** Primarily used for scenarios like bulk ingestion or background processing initiated by the API. For example, an adapter might make a direct API call to *initiate* a large ingestion, and the API service might then place detailed work items onto a Service Bus queue for its background workers (running in ACA) to process asynchronously.
+    *   **Note on Direct API Calls:** For standard, interactive client requests (e.g., processing a chat message), Adapters typically make direct, synchronous or asynchronous **HTTPS calls** to the `Nucleus.Services.Api` endpoints (e.g., `POST /api/interactions`) hosted in ACA. Service Bus is generally reserved for decoupling background work, not replacing the primary request/response API interaction pattern.
+    *   **Alternative:** Azure Storage Queues - Simpler and cheaper, but fewer features.
 
 3.  **Document & Vector Database:**
     *   **Service:** **Azure Cosmos DB (NoSQL API)**
