@@ -4,10 +4,14 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Repositories;
 
 /// <summary>
-/// Defines the contract for a repository responsible for managing ArtifactMetadata records.
-/// Implementations will typically interact with the ArtifactMetadataContainer in Cosmos DB.
-/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#8-next-steps
-/// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#7-next-steps
+/// Defines the contract for storing and retrieving artifact metadata.
+/// This metadata includes information about artifacts processed by Nucleus, 
+/// but crucially *not* the artifact content itself.
+/// <seealso cref="Models.ArtifactMetadata"/>
+/// <seealso cref="../../../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md"/>
+/// <seealso cref="../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
 /// </summary>
 public interface IArtifactMetadataRepository
 {

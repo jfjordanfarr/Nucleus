@@ -7,11 +7,16 @@ using System.Collections.Generic;
 namespace Nucleus.Abstractions.Models;
 
 /// <summary>
-/// Standardized request payload sent from any client adapter (e.g., Teams, Console, Slack)
-/// to the central Nucleus backend API endpoint (e.g., /api/ingestion/generic-trigger)
-/// to initiate processing. This decouples the backend from platform-specific event structures.
-/// See: ../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
+/// Record representing a request submitted by a client adapter to the Nucleus API.
+/// This serves as the primary data transfer object for initiating interaction processing.
+/// It includes core context, source information, and optional artifacts.
 /// </summary>
+/// <remarks>
+/// This record is also used as the message payload when queueing interactions for asynchronous processing.
+/// See related architecture documents for data flow and processing logic.
+/// </remarks>
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/>
 public record NucleusIngestionRequest(
     // --- Core Context ---
 

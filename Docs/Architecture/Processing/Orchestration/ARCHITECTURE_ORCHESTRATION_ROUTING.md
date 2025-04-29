@@ -1,12 +1,12 @@
 ---
 title: Architecture - API Activation & Routing
 description: Details the process for activating interactions received via the API and routing them to appropriate synchronous or asynchronous handlers.
-version: 2.2
-date: 2025-04-24
+version: 2.3
+date: 2025-04-27
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
-# Nucleus OmniRAG: API Activation & Routing
+# Nucleus: API Activation & Routing
 
 ## 1. Introduction
 
@@ -123,4 +123,27 @@ The chosen approach depends on the desired user experience and the interruptibil
     *   **Configuration Management:** Requires a robust way to define and manage activation rules.
     *   **State Management (Async):** Retrieving results/status for async jobs requires careful handling of `jobId`s and potentially polling or callback mechanisms by the client adapters.
 
+## 7. Related Core Components
+
+The activation and routing logic described above involves the following key interfaces and implementations:
+
+-   **API Entry Point:**
+    -   `InteractionController` ([`Nucleus.Services.Api/Controllers/InteractionController.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)): Receives the initial `AdapterRequest`.
+-   **Orchestration Hub:**
+    -   `IOrchestrationService` ([`Nucleus.Abstractions/Orchestration/IOrchestrationService.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)): Defines the orchestration contract.
+    -   `OrchestrationService` ([`Nucleus.Domain/Processing/OrchestrationService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs)): Implements the core orchestration, activation checks, and routing.
+-   **Activation Check:**
+    -   `IActivationChecker` ([`Nucleus.Abstractions/Orchestration/IActivationChecker.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)): Defines the contract for activation checks.
+    -   `ActivationChecker` ([`Nucleus.Domain/Processing/ActivationChecker.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)): A basic implementation of the activation check.
+-   **Asynchronous Processing (Queueing):**
+    -   `IBackgroundTaskQueue` ([`Nucleus.Abstractions/IBackgroundTaskQueue.cs`](../../../../src/Nucleus.Abstractions/IBackgroundTaskQueue.cs)): Interface for the internal queue.
+    -   `InMemoryBackgroundTaskQueue` ([`Nucleus.Domain/Processing/InMemoryBackgroundTaskQueue.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/InMemoryBackgroundTaskQueue.cs)): In-memory implementation of the queue.
+    -   `QueuedInteractionProcessorService` ([`Nucleus.Domain/Processing/QueuedInteractionProcessorService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs)): Background service processing items from `IBackgroundTaskQueue`.
+-   **Asynchronous Processing (External Message Queue):**
+    -   `IMessageQueuePublisher<T>` ([`Nucleus.Abstractions/IMessageQueuePublisher.cs`](../../../../src/Nucleus.Abstractions/IMessageQueuePublisher.cs)): Interface for publishing to an external queue.
+    -   `NullMessageQueuePublisher<T>` ([`Nucleus.Services.Api/Infrastructure/Messaging/NullMessageQueuePublisher.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/NullMessageQueuePublisher.cs)): A null implementation for development/testing.
+    -   `ServiceBusQueueConsumerService` ([`Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs)): Background service consuming messages from Azure Service Bus (example external queue consumer).
+
 ---
+
+[<- Back to Orchestration Overview](ARCHITECTURE_PROCESSING_ORCHESTRATION.md)

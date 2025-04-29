@@ -2,11 +2,16 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection; // Added for IServiceProvider and GetKeyedService
+using Microsoft.Extensions.DependencyInjection; 
 using Nucleus.Abstractions;
-using Nucleus.Abstractions.Models; // Used for AdapterRequest, NucleusIngestionRequest, InteractionContext etc.
+using Nucleus.Abstractions.Models; 
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Repositories;
+using Nucleus.Abstractions.Models.Configuration;
+using Nucleus.Abstractions.Repositories;
+using Nucleus.Abstractions.Extraction;
+using Nucleus.Domain.Personas.Core.Interfaces; // Added for IPersonaRuntime
+using Nucleus.Abstractions.Configuration; // Added for IPersonaConfigurationProvider
 
 using System;
 using System.Collections.Generic;
@@ -23,27 +28,38 @@ namespace Nucleus.Domain.Processing;
 /// It first checks if a message is salient to an existing session via managers, and if not,
 /// asks managers to evaluate if they should initiate a new session.
 /// See: Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
-/// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
 /// See: Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md"/>
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_OVERVIEW.md"/>
+/// <seealso cref="../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
 /// </summary>
 public class OrchestrationService : IOrchestrationService
 {
     private readonly ILogger<OrchestrationService> _logger;
     private readonly IPersonaResolver _personaResolver;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IActivationChecker _activationChecker; // Added
-    private readonly IBackgroundTaskQueue _backgroundTaskQueue; // Added
-    private readonly IArtifactMetadataRepository _artifactMetadataRepository; // Added
-    private readonly IEnumerable<IArtifactProvider> _artifactProviders; // Added
+    private readonly IActivationChecker _activationChecker; 
+    private readonly IBackgroundTaskQueue _backgroundTaskQueue; 
+    private readonly IArtifactMetadataRepository _artifactMetadataRepository; 
+    private readonly IEnumerable<IArtifactProvider> _artifactProviders; 
+    private readonly IEnumerable<IContentExtractor> _contentExtractors;
+    private readonly IPersonaRuntime _personaRuntime; // Added IPersonaRuntime
+    private readonly IPersonaConfigurationProvider _personaConfigurationProvider; // Added provider
 
     public OrchestrationService(
         ILogger<OrchestrationService> logger,
         IPersonaResolver personaResolver,
-        IServiceProvider serviceProvider,
+        IServiceProvider serviceProvider, 
         IActivationChecker activationChecker,
         IBackgroundTaskQueue backgroundTaskQueue,
         IArtifactMetadataRepository artifactMetadataRepository,
-        IEnumerable<IArtifactProvider> artifactProviders)
+        IEnumerable<IArtifactProvider> artifactProviders,
+        IEnumerable<IContentExtractor> contentExtractors,
+        IPersonaRuntime personaRuntime,
+        IPersonaConfigurationProvider personaConfigurationProvider) // Added provider
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _personaResolver = personaResolver ?? throw new ArgumentNullException(nameof(personaResolver));
@@ -52,6 +68,9 @@ public class OrchestrationService : IOrchestrationService
         _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
         _artifactMetadataRepository = artifactMetadataRepository ?? throw new ArgumentNullException(nameof(artifactMetadataRepository));
         _artifactProviders = artifactProviders ?? throw new ArgumentNullException(nameof(artifactProviders));
+        _contentExtractors = contentExtractors ?? throw new ArgumentNullException(nameof(contentExtractors));
+        _personaRuntime = personaRuntime ?? throw new ArgumentNullException(nameof(personaRuntime)); // Added IPersonaRuntime
+        _personaConfigurationProvider = personaConfigurationProvider ?? throw new ArgumentNullException(nameof(personaConfigurationProvider)); // Added provider
     }
 
     /// <inheritdoc />
@@ -59,8 +78,12 @@ public class OrchestrationService : IOrchestrationService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        _logger.LogInformation("[Orchestration] Processing interaction. Platform: {PlatformType}, ConversationId: {ConversationId}, MessageId: {MessageId}",
+        _logger.LogInformation("[Orchestration] Processing interaction. Platform: {PlatformType}, ConvId: {ConversationId}, MsgId: {MessageId}",
             request.PlatformType, request.ConversationId, request.MessageId);
+
+        // --- Effective Artifacts --- (References from request ONLY)
+        // Start with artifact references explicitly provided in the request.
+        List<ArtifactReference> effectiveArtifactReferences = request.ArtifactReferences?.ToList() ?? new List<ArtifactReference>();
 
         try
         {
@@ -112,15 +135,22 @@ public class OrchestrationService : IOrchestrationService
             {
                 _logger.LogInformation("[Orchestration] Processing interaction synchronously. ConversationId: {ConversationId}, ResolvedPersonaId: {ResolvedPersonaId}", request.ConversationId, resolvedPersonaId);
                 AdapterResponse response = await ProcessInteractionCoreAsync(
-                    parsedPlatformType,
                     resolvedPersonaId,
-                    request.ConversationId,
-                    request.UserId,
-                    request.MessageId, // Pass directly, method accepts nullable
-                    request.ReplyToMessageId,
-                    request.QueryText,
-                    request.ArtifactReferences?.ToList(), // Convert to List
-                    request.Metadata, // Corrected type: nullable Dictionary
+                    new InteractionContext(
+                        new AdapterRequest(
+                            PlatformType: request.PlatformType,
+                            ConversationId: request.ConversationId,
+                            UserId: request.UserId,
+                            QueryText: request.QueryText,
+                            MessageId: request.MessageId,
+                            ReplyToMessageId: request.ReplyToMessageId,
+                            ArtifactReferences: effectiveArtifactReferences,
+                            Metadata: request.Metadata
+                        ),
+                        parsedPlatformType,
+                        resolvedPersonaId,
+                        new List<ContentExtractionResult>() // Pass empty list for now
+                    ),
                     cancellationToken
                 );
                 return new OrchestrationResult(OrchestrationStatus.ProcessedSync, response); // Use ProcessedSync status
@@ -139,7 +169,7 @@ public class OrchestrationService : IOrchestrationService
                     OriginatingReplyToMessageId: request.ReplyToMessageId,
                     ResolvedPersonaId: resolvedPersonaId, // Pass the resolved ID
                     TimestampUtc: DateTimeOffset.UtcNow, // Set timestamp
-                    ArtifactReferences: request.ArtifactReferences?.ToList(), // Pass artifact references
+                    ArtifactReferences: effectiveArtifactReferences, // Pass the combined/processed list
                     Metadata: request.Metadata, // Pass metadata
                     CorrelationId: request.MessageId ?? Guid.NewGuid().ToString() // Use MessageId or generate new Guid
                 );
@@ -183,15 +213,22 @@ public class OrchestrationService : IOrchestrationService
             // TODO: Verify NucleusIngestionRequest has everything needed by ProcessInteractionCoreAsync.
 
             AdapterResponse response = await ProcessInteractionCoreAsync(
-                platformTypeEnum, // Use the parsed enum
-                request.ResolvedPersonaId ?? "", // If null, pass empty string (core expects non-null)
-                request.OriginatingConversationId,
-                request.OriginatingUserId,
-                request.OriginatingMessageId,
-                request.OriginatingReplyToMessageId, // Use the field added to NucleusIngestionRequest
-                request.QueryText ?? "",            // Use the renamed field, default to empty if null
-                request.ArtifactReferences,          // Use the corrected field
-                request.Metadata,                    // Use the renamed field
+                request.ResolvedPersonaId,
+                new InteractionContext(
+                    new AdapterRequest(
+                        PlatformType: request.PlatformType,
+                        ConversationId: request.OriginatingConversationId,
+                        UserId: request.OriginatingUserId,
+                        QueryText: request.QueryText,
+                        MessageId: request.OriginatingMessageId,
+                        ReplyToMessageId: request.OriginatingReplyToMessageId,
+                        ArtifactReferences: request.ArtifactReferences,
+                        Metadata: request.Metadata
+                    ),
+                    platformTypeEnum,
+                    request.ResolvedPersonaId,
+                    new List<ContentExtractionResult>() // Pass empty list for now
+                ),
                 cancellationToken
             );
 
@@ -235,66 +272,40 @@ public class OrchestrationService : IOrchestrationService
 
     /// <summary>
     /// Executes the core logic for processing an interaction after activation and persona resolution.
-    /// Resolves the appropriate PersonaManager and calls its InitiateNewSessionAsync method.
+    /// Resolves the appropriate PersonaRuntime and calls its ExecuteAsync method.
     /// </summary>
-    private async Task<AdapterResponse> ProcessInteractionCoreAsync(
-        PlatformType platformType,
-        string? resolvedPersonaId, // Changed to nullable string
-        string conversationId,
-        string userId,
-        string? messageId, // Changed to nullable string
-        string? replyToMessageId,
-        string queryText,
-        List<ArtifactReference>? artifactReferences, // Corrected type: nullable List
-        Dictionary<string, string>? metadata, // Corrected type: nullable Dictionary
-        CancellationToken cancellationToken)
+    private async Task<AdapterResponse> ProcessInteractionCoreAsync(string resolvedPersonaId, InteractionContext interactionContext, CancellationToken cancellationToken)
     {
+        // Ensure interactionContext isn't null after construction
+        ArgumentNullException.ThrowIfNull(interactionContext);
+        var conversationId = interactionContext.SessionContext?.ConversationId ?? "N/A"; // Use null-conditional access
+
+        _logger.LogInformation("[Core Processing] Starting core processing for Persona '{ResolvedPersonaId}', ConversationId: {ConversationId}", resolvedPersonaId, conversationId);
+
         try
         {
-            _logger.LogDebug("[Core Processing] Initiating for Persona '{ResolvedPersonaId}', ConversationId {ConversationId}",
-                resolvedPersonaId, conversationId);
+            // --- Start Refactoring ---
+            // Load the configuration using the provider
+            _logger.LogInformation("[Core Processing] Attempting to load PersonaConfiguration for Persona ID: {ResolvedPersonaId}", resolvedPersonaId);
+            var personaConfig = await _personaConfigurationProvider.GetConfigurationAsync(resolvedPersonaId, cancellationToken);
 
-            // Step 1: Get the corresponding Persona Manager using the resolved ID as a key
-            IPersonaManager personaManager;
-            try
-            {                
-                personaManager = _serviceProvider.GetRequiredKeyedService<IPersonaManager>(resolvedPersonaId);
-            }
-            catch (Exception ex)
+            if (personaConfig == null)
             {
-                _logger.LogError(ex, "Failed to get required keyed service IPersonaManager for key '{ResolvedPersonaId}'. Ensure it's registered.", resolvedPersonaId);
-                return new AdapterResponse(Success: false, ErrorMessage: $"Internal configuration error for persona: {resolvedPersonaId}", ResponseMessage: "");
+                _logger.LogError("[Core Processing] PersonaConfiguration not found for Persona ID: {ResolvedPersonaId}", resolvedPersonaId);
+                return new AdapterResponse(Success: false, ErrorMessage: $"Internal configuration error: Persona configuration '{resolvedPersonaId}' not found.", ResponseMessage: "");
             }
 
-            _logger.LogInformation("[Core Processing] Retrieved PersonaManager {PersonaManagerType} (managing {ManagedPersonaTypeId}) for ConversationId {ConversationId}",
-                personaManager.GetType().Name, personaManager.ManagedPersonaTypeId, conversationId);
+            _logger.LogInformation("[Core Processing] Successfully loaded PersonaConfiguration '{DisplayName}' for Persona ID: {PersonaId}", personaConfig.DisplayName, personaConfig.PersonaId);
 
-            // Step 2: Construct the InteractionContext required by the manager
-            // Create a *minimal* AdapterRequest just for the context - avoids complex reconstruction.
-            var contextRequest = new AdapterRequest(
-                PlatformType: platformType.ToString(),
-                ConversationId: conversationId,
-                UserId: userId,
-                QueryText: queryText,
-                MessageId: messageId,
-                ReplyToMessageId: replyToMessageId,
-                ArtifactReferences: artifactReferences,
-                Metadata: metadata
-            );
-            var interactionContext = new InteractionContext(contextRequest, platformType, resolvedPersonaId);
+            // Invoke the generic Persona Runtime with the loaded configuration and context
+            _logger.LogInformation("[Core Processing] Invoking PersonaRuntime for Persona '{PersonaId}', Strategy '{StrategyKey}', ConversationId {ConversationId}", 
+                personaConfig.PersonaId, personaConfig.AgenticStrategy.StrategyKey, conversationId);
 
-            // Step 3: Initiate the session processing via the resolved manager
-            _logger.LogDebug("[Core Processing] Calling InitiateNewSessionAsync for PersonaManager {PersonaManagerType}, ConversationId {ConversationId}",
-                personaManager.GetType().Name, conversationId);
+            AdapterResponse response = await _personaRuntime.ExecuteAsync(personaConfig, interactionContext, cancellationToken);
+
+            _logger.LogInformation("[Core Processing] Finished PersonaRuntime execution for Persona '{PersonaId}', ConversationId {ConversationId}. Success: {Success}",
+                personaConfig.PersonaId, conversationId, response.Success);
             
-            AdapterResponse response = await personaManager.InitiateNewSessionAsync(interactionContext, cancellationToken);
-
-            _logger.LogInformation("[Core Processing] Finished InitiateNewSessionAsync for PersonaManager {PersonaManagerType}, ConversationId {ConversationId}. Success: {Success}",
-                personaManager.GetType().Name, conversationId, response.Success);
-            
-            // TODO: Consider if notification logic needs to live here or solely within the PersonaManager/Adapter layer.
-            // Currently, InitiateNewSessionAsync returns the final response.
-
             return response;
         }
         catch (Exception ex)
@@ -330,5 +341,33 @@ public class OrchestrationService : IOrchestrationService
 
         _logger.LogTrace("Selected artifact provider {ProviderType} for ReferenceType: {ReferenceType}", provider.GetType().Name, reference.ReferenceType);
         return provider;
+    }
+
+    /// <summary>
+    /// Selects the appropriate content extractor based on the MIME type.
+    /// </summary>
+    /// <param name="mimeType">The MIME type of the content.</param>
+    /// <returns>The matching IContentExtractor.</returns>
+    /// <exception cref="NotSupportedException">Thrown if no extractor supports the given MIME type.</exception>
+    private IContentExtractor GetContentExtractor(string mimeType)
+    {
+        var extractor = _contentExtractors.FirstOrDefault(e => 
+            e.SupportedMimeTypes.Contains(mimeType, StringComparer.OrdinalIgnoreCase));
+
+        if (extractor == null)
+        {
+            _logger.LogWarning("No IContentExtractor found supporting MimeType: {MimeType}. Falling back to PlainTextContentExtractor if available.", mimeType);
+            // Fallback to plain text if specific extractor not found
+            extractor = _contentExtractors.FirstOrDefault(e => e.SupportedMimeTypes.Contains("text/plain", StringComparer.OrdinalIgnoreCase));
+
+            if (extractor == null)
+            {
+                 _logger.LogError("No IContentExtractor found supporting MimeType: {MimeType}, and no fallback PlainTextContentExtractor registered.", mimeType);
+                 throw new NotSupportedException($"No content extractor registered for MIME type '{mimeType}', and no fallback plain text extractor available.");
+            }
+        }
+
+        _logger.LogTrace("Selected content extractor {ExtractorType} for MimeType: {MimeType}", extractor.GetType().Name, mimeType);
+        return extractor;
     }
 }

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration; // For IConfigurationSection
 using Microsoft.Extensions.DependencyInjection; // For IServiceProvider, IServiceScopeFactory
 using Microsoft.Extensions.Logging; // For ILogger
-using Microsoft.Extensions.Caching.Memory; // Added for IMemoryCache
 using Microsoft.Extensions.AI; // For IChatClient, AIContent, TextContent, ChatMessage, ChatRole, ChatResponse etc.
 // Removed redundant/incorrect using statement as types are in Microsoft.Extensions.AI namespace from Abstractions package
 // using Microsoft.Extensions.AI.Chat; 
@@ -19,15 +18,16 @@ using System.IO;    // Required for StreamReader
 namespace Nucleus.Domain.Personas.Core;
 
 /// <summary>
-/// A simple persona used during application startup or for basic interactions.
-/// It demonstrates direct interaction with the configured AI model via IChatClient.
-/// It does not perform complex analysis or maintain long-term state beyond the current query context.
+/// A basic persona implementation that uses the injected IChatClient to
+/// respond to queries, incorporating fetched artifact content.
+/// Represents the default fallback or initial interaction handler.
+/// See: <seealso cref="../../../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
+/// See: <seealso cref="../../../../../Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md"/>
 /// </summary>
 public class BootstrapperPersona : IPersona<EmptyAnalysisData>
 {
     private readonly IChatClient _chatClient;
     private readonly ILogger<BootstrapperPersona> _logger;
-    private readonly IMemoryCache _memoryCache;
 
     /// <inheritdoc />
     public string PersonaId => "Bootstrapper_v1";
@@ -43,12 +43,10 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     /// </summary>
     /// <param name="chatClient">The chat client for interacting with the AI model.</param>
     /// <param name="logger">The logger instance.</param>
-    /// <param name="memoryCache">In-memory cache for temporary data storage.</param>
-    public BootstrapperPersona(IChatClient chatClient, ILogger<BootstrapperPersona> logger, IMemoryCache memoryCache)
+    public BootstrapperPersona(IChatClient chatClient, ILogger<BootstrapperPersona> logger)
     {
         _chatClient = chatClient ?? throw new ArgumentNullException(nameof(chatClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
     }
 
     /// <summary>
@@ -69,89 +67,43 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     {
         ArgumentNullException.ThrowIfNull(query);
 
+        // TODO: Implement metadata lookup based on query context (User/Conversation) to find relevant
+        //       ArtifactMetadata/PersonaKnowledge entries from IArtifactMetadataRepository.
+        //       Currently, relies solely on fetchedArtifactContent provided by the orchestrator.
+
+        bool hasFetchedContent = fetchedArtifactContent?.Any() ?? false;
         _logger.LogInformation("Handling query for user {UserId} via {PersonaId}: '{QueryText}' (Fetched Content Provided: {ContextProvided})",
-            query.UserId, PersonaId, query.QueryText, fetchedArtifactContent?.Any() ?? false);
+            query.UserId, PersonaId, query.QueryText, hasFetchedContent);
 
         try
         {
             var messages = new List<ChatMessage>();
-            var systemContextBuilder = new StringBuilder();
+            var contextBuilder = new StringBuilder();
 
-            // Process fetchedArtifactContent into a suitable system prompt string.
-            if (fetchedArtifactContent?.Any() == true)
+            // Build system context from fetched content if available
+            if (hasFetchedContent)
             {
-                _logger.LogDebug("Processing {Count} fetched artifact(s) for system context.", fetchedArtifactContent.Count());
-                int artifactIndex = 0;
-                foreach (var artifact in fetchedArtifactContent)
+                contextBuilder.AppendLine("--- Provided Context ---");
+                int contentCount = 0;
+                foreach (var content in fetchedArtifactContent)
                 {
-                    if (artifact?.ContentStream == null || !artifact.ContentStream.CanRead)
-                    {
-                        _logger.LogWarning("Skipping artifact at index {Index} due to null or unreadable stream.", artifactIndex);
-                        artifactIndex++;
-                        continue;
-                    }
-
-                    try
-                    {
-                        // Ensure stream position is at the beginning
-                        if (artifact.ContentStream.CanSeek)
-                        {
-                            artifact.ContentStream.Position = 0;
-                        }
-
-                        // Use StreamReader with leaveOpen=true to avoid disposing the original stream
-                        using (var reader = new StreamReader(artifact.ContentStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true))
-                        {
-                            string content = await reader.ReadToEndAsync(cancellationToken);
-                            
-                            // Add header/separator for multiple artifacts
-                            if (fetchedArtifactContent.Count() > 1)
-                            {
-                                var fileName = artifact.Metadata?.GetValueOrDefault("FileName", "Unnamed");
-                                var sourceId = artifact.Metadata?.GetValueOrDefault("SourceIdentifier", "Unknown Source");
-                                systemContextBuilder.AppendLine($"--- Artifact {artifactIndex + 1}: {fileName} ({sourceId}) ---");
-                            }
-                            systemContextBuilder.AppendLine(content);
-                            _logger.LogTrace("Processed artifact {Index} ({Name}) with {Length} characters.", 
-                                artifactIndex, artifact.Metadata?.GetValueOrDefault("FileName", "Unnamed"), content.Length);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Error reading content from artifact stream at index {Index} ({Name}).", 
-                            artifactIndex, artifact.Metadata?.GetValueOrDefault("FileName", "Unnamed"));
-                        // Optionally add an error message to the context
-                        systemContextBuilder.AppendLine($"[Error reading artifact {artifactIndex + 1}: {ex.Message}]");
-                    }
-                    finally
-                    {
-                        artifactIndex++;
-                    }
+                    contentCount++;
+                    contextBuilder.AppendLine($"\n[Context {contentCount} - Source: {content.SourceUri ?? "Unknown"}]\n");
+                    contextBuilder.AppendLine(content.Text);
+                    _logger.LogTrace("Added fetched content from source {SourceUri} to context.", content.SourceUri ?? "Unknown");
                 }
-
-                string systemContext = systemContextBuilder.ToString();
-                if (!string.IsNullOrWhiteSpace(systemContext))
-                {
-                    messages.Add(new ChatMessage(ChatRole.System, systemContext));
-                    _logger.LogDebug("Added system context message based on {Count} processed artifacts. Total length: {Length}", 
-                        fetchedArtifactContent.Count(), systemContext.Length);
-                }
-                else
-                {
-                    _logger.LogWarning("System context generated from artifacts was empty or whitespace.");
-                }
+                contextBuilder.AppendLine("\n--- End Provided Context ---");
+                _logger.LogInformation("Built context from {Count} provided artifact(s).", contentCount);
             }
 
             // Add the user's query
-            // Revert to simple ChatMessage(ChatRole, string) constructor
-            messages.Add(new ChatMessage(ChatRole.User, query.QueryText)); 
+            messages.Add(new ChatMessage(ChatRole.User, query.QueryText));
 
             // Request options (if needed, e.g., temperature) can be set via ChatOptions
-            ChatOptions options = new ChatOptions(); 
-            // options.Temperature = 0.7f; // Example
+            ChatOptions options = new ChatOptions();
 
             _logger.LogDebug("Sending chat request to AI service via IChatClient. Messages: {@Messages}, Options: {@Options}", messages, options);
-            
+
             // Use GetResponseAsync instead of CompleteAsync
             ChatResponse response = await _chatClient.GetResponseAsync(messages, options, cancellationToken);
 
@@ -192,7 +144,7 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
         _logger.LogWarning("{PersonaId}.AnalyzeContentAsync is not implemented.", PersonaId);
         // Return a default result indicating no analysis was performed.
         var emptyAnalysis = new EmptyAnalysisData();
-        var result = new PersonaAnalysisResult<EmptyAnalysisData>(emptyAnalysis, "No analysis performed by BootstrapperPersona."); 
+        var result = new PersonaAnalysisResult<EmptyAnalysisData>(emptyAnalysis, "No analysis performed by BootstrapperPersona.");
         return Task.FromResult(result);
     }
 
@@ -213,47 +165,37 @@ public class BootstrapperPersona : IPersona<EmptyAnalysisData>
     }
 
     /// <summary>
-    /// Analyzes ephemeral content (e.g., raw text from ingestion) by storing it in a temporary cache.
-    /// Called by <see cref="Nucleus.ApiService.Controllers.IngestionController.IngestLocalFileAsync(IngestLocalFileRequest)"/>.
-    /// This implementation is for the MVP to provide context to subsequent queries within a short time frame.
-    /// See: [Architecture: AI Integration - Caching](~/../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#2-caching-bootstrapperpersonaanalyzeephemeralcontentasync)
-    /// </summary>
-    /// <param name="ephemeralContent">The content to be analyzed/cached.</param>
-    /// <param name="sourceIdentifier">A unique identifier for the content source (e.g., file path).</param>
-    /// <param name="cancellationToken">Cancellation token (not used in this simple implementation).</param>
-    /// <returns>A task representing the asynchronous operation.</returns>
-    public Task AnalyzeEphemeralContentAsync(string ephemeralContent, string sourceIdentifier, CancellationToken cancellationToken = default)
-    {
-        _logger.LogInformation("Caching ephemeral content from {SourceIdentifier} under key '{CacheKey}'.", sourceIdentifier, sourceIdentifier);
-
-        if (string.IsNullOrWhiteSpace(sourceIdentifier))
-        {
-            _logger.LogWarning("Cannot cache ephemeral content without a valid sourceIdentifier.");
-            return Task.CompletedTask;
-        }
-
-        if (ephemeralContent == null) // Allow empty string, but not null
-        {
-             _logger.LogWarning("Received null ephemeral content for {SourceIdentifier}. Caching empty string instead.", sourceIdentifier);
-             ephemeralContent = string.Empty;
-        }
-
-        // Cache the content with a sliding expiration (e.g., 10 minutes)
-        var cacheEntryOptions = new MemoryCacheEntryOptions()
-            .SetSlidingExpiration(TimeSpan.FromMinutes(10)); 
-
-        _memoryCache.Set(sourceIdentifier, ephemeralContent, cacheEntryOptions);
-        _logger.LogDebug("Successfully cached ephemeral content for {SourceIdentifier} ({ContentLength} chars).", sourceIdentifier, ephemeralContent.Length);
-
-        return Task.CompletedTask;
-    }
-
-    /// <summary>
     /// Placeholder: Configuration is not implemented in the initial Bootstrapper.
     /// </summary>
     public Task ConfigureAsync(IConfigurationSection configurationSection)
     {
         _logger.LogInformation("ConfigureAsync called for {PersonaId} but is not implemented.", PersonaId);
         return Task.CompletedTask;
+    }
+
+    // Placeholder for handling ephemeral content analysis (e.g., analyzing a newly uploaded doc)
+    // Maybe update metadata based on content?
+    public Task<EmptyAnalysisData> AnalyzeEphemeralContentAsync(string content, string mimeType, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("BootstrapperPersona AnalyzeEphemeralContentAsync called (Not Implemented).");
+        // In the Runtime model, this logic likely moves to a strategy handler or ingestion process
+        return Task.FromResult(new EmptyAnalysisData()); // Return empty data as per IPersona<EmptyAnalysisData>
+    }
+
+    // Placeholder for handling a user query with potentially relevant artifact content
+    public Task<AdapterResponse> HandleQueryAsync(UserQuery userQuery, IReadOnlyList<ArtifactContent> contextArtifacts, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("BootstrapperPersona HandleQueryAsync called (Not Implemented).");
+        // In the Runtime model, this logic moves to a strategy handler (like EchoAgenticStrategyHandler)
+        var response = new AdapterResponse
+        {
+            Success = true,
+            MessageId = userQuery.MessageId, // Echo back relevant IDs
+            ConversationId = userQuery.ConversationId,
+            ResponseText = "BootstrapperPersona received query but is not fully implemented in HandleQueryAsync.",
+            Prompt = userQuery.QueryText,
+            ShowYourWork = new List<string> { "Called BootstrapperPersona.HandleQueryAsync (Stub Implementation)" }
+        };
+        return Task.FromResult(response);
     }
 }

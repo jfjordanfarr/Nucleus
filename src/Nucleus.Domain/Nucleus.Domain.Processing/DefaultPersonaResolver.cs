@@ -15,6 +15,9 @@ namespace Nucleus.Domain.Processing;
 /// <remarks>
 /// Corresponds to: [IPersonaResolver](../../../Abstractions/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)
 /// See architecture doc: [ARCHITECTURE_ORCHESTRATION_PERSONA_RESOLUTION.md](../../../../../Docs/Architecture/Orchestration/ARCHITECTURE_ORCHESTRATION_PERSONA_RESOLUTION.md)
+/// See: ../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_IMPLEMENTATIONS.md
+/// <seealso cref="IPersonaResolver"/>
+/// <seealso cref="../../../../Docs/Architecture/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </remarks>
 public class DefaultPersonaResolver : IPersonaResolver
 {

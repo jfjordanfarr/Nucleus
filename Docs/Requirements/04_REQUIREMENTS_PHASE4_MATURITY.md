@@ -1,18 +1,18 @@
 ---
 title: "Requirements: Phase 4 - Platform Maturity & Orchestration"
-description: Requirements for enhancing Nucleus OmniRAG bot interactions, implementing workflow orchestration, and adding enterprise/admin features via the API.
-version: 1.1
-date: 2025-04-24
+description: Requirements for enhancing Nucleus bot interactions, implementing workflow orchestration, and adding enterprise/admin features via the API.
+version: 1.2
+date: 2025-04-27
 ---
 
 # Requirements: Phase 4 - Platform Maturity & Orchestration
 
-**Version:** 1.1
-**Date:** 2025-04-24
+**Version:** 1.2
+**Date:** 2025-04-27
 
 ## 1. Goal
 
-To mature the Nucleus OmniRAG platform by enhancing the user experience within integrated chat platforms (Teams, Discord, Slack) through richer interactions, implementing robust workflow orchestration for complex tasks, and adding key enterprise management and deployment features.
+To mature the Nucleus platform by enhancing the user experience within integrated chat platforms (Teams, Discord, Slack) through richer interactions, implementing robust workflow orchestration for complex tasks, and adding key enterprise management and deployment features.
 
 ## 2. Scope
 
@@ -49,4 +49,4 @@ To mature the Nucleus OmniRAG platform by enhancing the user experience within i
 *   **REQ-P4-ADM-003:** Administrators MUST be able to manage users and permissions/roles within the Nucleus system (if applicable beyond relying solely on platform permissions) via the Admin UI/API.
 *   **REQ-P4-ADM-004:** Administrators MUST have finer-grained control over Persona configuration (e.g., enabling/disabling personas, setting resource limits, configuring prompts/behavior parameters) via the Admin UI/API.
 *   **REQ-P4-ADM-005:** Comprehensive deployment automation scripts (Bicep/Terraform) MUST be created and maintained (`infra/` project) to enable repeatable deployments of the entire Nucleus stack (Azure resources, application code) for both Cloud-Hosted and Self-Hosted scenarios.
-*   **REQ-P4-ADM-006:** Backup and recovery strategies for the database and file storage MUST be defined and tested.
+*   **REQ-P4-ADM-006:** Backup and recovery strategies for the system's persistent **metadata database** (e.g., Cosmos DB) and any **temporary file storage** used during processing MUST be defined and tested. This explicitly **excludes** backing up original user file content, which remains in user-controlled storage per Zero Trust principles.

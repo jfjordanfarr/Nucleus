@@ -11,9 +11,13 @@ using System.Threading.Tasks;
 namespace Nucleus.Domain.Processing;
 
 /// <summary>
-/// Basic implementation of activation checking.
-/// Activates if the query text contains "@Nucleus".
+/// Basic implementation of the activation checker.
 /// </summary>
+/// <remarks>
+/// This implementation currently uses a very simple hardcoded rule (checking for '@Nucleus' mention).
+/// Future versions should integrate with a configuration source for more complex rule management.
+/// </remarks>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 public class ActivationChecker : IActivationChecker
 {
     private readonly ILogger<ActivationChecker> _logger;

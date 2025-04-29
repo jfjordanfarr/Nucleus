@@ -7,11 +7,21 @@ using System.Collections.Generic;
 namespace Nucleus.Abstractions.Models;
 
 /// <summary>
-/// Represents a reference to an artifact provided by a client adapter.
-/// This contains the minimal information needed for the ApiService to identify
-/// and potentially retrieve the artifact's content or metadata.
+/// Represents a reference to an artifact located in an external source system.
+/// This object is typically constructed by a client adapter and passed to the API service.
+/// The API service uses this reference, along with an appropriate <see cref="IArtifactProvider"/>,
+/// to ephemerally retrieve the artifact's content when needed for processing.
 /// See: ../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
 /// See: ../../Docs/Architecture/Api/03_API_DTOs.md
+/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
 /// </summary>
 public record ArtifactReference(
     /// <summary>

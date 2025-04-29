@@ -1,87 +1,97 @@
 ---
-title: Persona - Educator ('EduFlow OmniEducator')
-description: Describes a pre-build persona for Nucleus OmniRAG that is focused on educational use cases, including classroom chats, one-on-one precision teaching, personalized learning experiences, and rich reporting capabilities.
-date: 2025-04-22
+title: Persona Configuration - Educator
+description: Describes the configuration for the specialized Educator persona, focused on personalized learning and analysis of learning artifacts.
+version: 1.2
+date: 2025-04-28
 parent: ../02_ARCHITECTURE_PERSONAS.md
 ---
 
-# Persona: Educator ('EduFlow OmniEducator')
+# Persona Configuration: Educator
 
 ## 1. Vision & Purpose
 
-The Educator persona, initially conceived as EduFlow OmniEducator, is the flagship persona for Nucleus OmniRAG, detailed within the overall [Personas Architecture](../02_ARCHITECTURE_PERSONAS.md). It stems from the need to create a safer, more personalized, and authentic educational experience, particularly recognizing learning within digital creation and self-directed projects. Traditional educational models often fail to capture or support this intrinsic drive.
+The Educator configuration defines a key persona for Nucleus, detailed within the overall [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It enables the [Persona Runtime/Engine](../02_ARCHITECTURE_PERSONAS.md#22-persona-runtimeengine) to act as a specialized assistant for educational use cases, stemming from the need to create safer, personalized, and authentic learning experiences, particularly recognizing learning within digital creation and self-directed projects ([Security Considerations](../06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries)).
 
-This persona aims to:
+When executed by the Runtime, this configuration aims to:
 
-*   **Observe Authenticity:** Capture and understand learning as it happens naturally (e.g., coding projects, game modding, digital art).
-*   **Document Process:** Analyze *how* learning occurs (capabilities, processes, cognitive depth) using its "Learning Facets" schema, alongside *what* subjects are touched upon.
-*   **Build Understanding:** Create a dynamic, private knowledge base for each learner, mapping their unique trajectory.
-*   **Provide Insight:** Enable querying of this knowledge base for meaningful progress reports and contextually relevant support.
-*   **Foster Engagement:** Potentially leverage Nucleus capabilities (like dynamic content generation via tools) to create tailored micro-learning experiences.
+*   **Observe Authenticity:** Understand learning from artifacts referenced by metadata (e.g., coding projects, digital art).
+*   **Document Process:** Analyze *how* learning occurs using configured knowledge frameworks (see Section 7) based on retrieved artifact content.
+*   **Build Understanding:** Contribute to the dynamic, private knowledge base (metadata) for each learner by storing derived analysis (e.g., `PersonaKnowledgeEntry<EduFlowAnalysis>`).
+*   **Provide Insight:** Enable querying of this knowledge base (via metadata search + ephemeral content retrieval) for progress reports and support.
+*   **Foster Engagement:** Potentially leverage Nucleus capabilities to create tailored micro-learning experiences based on analysis.
 
-It transforms ephemeral moments of creation into tangible evidence of learning, supporting learners, educators, and parents.
+It transforms ephemeral moments of creation (accessed securely by the Runtime) into tangible evidence of learning stored as secure metadata.
 
-## 2. Typical Request Flow (Learning Artifact Analysis - Slow Path)
+## 2. Typical Request Flow (Query about Learner Progress - Executed by Runtime)
 
-**Purpose:** Illustrates the asynchronous analysis of a submitted learning artifact (e.g., a screen recording of a coding session).
+**Purpose:** Illustrates how the Persona Runtime handles a query requesting analysis or summary of a learner's progress when loaded with the Educator configuration, referencing stored metadata and retrieving artifact content securely.
 
 ```mermaid
 sequenceDiagram
-    participant LearnerApp
-    participant ACAInstance
-    participant TempStorage
-    participant KnowledgeDB
-    participant EducatorPersona
-    participant AIService
+    participant CA as Client Adapter (e.g., Teams)
+    participant API as Nucleus API Service
+    participant Runtime as Persona Runtime (Loaded w/ Educator Config)
+    participant MetaDB as Metadata Database (CosmosDB)
+    participant AI as AI Service (Gemini - Configured)
+    participant UserStore as User-Controlled Storage (via CA)
 
-    LearnerApp->>ACAInstance: Submits Artifact
-    ACAInstance->>ACAInstance: Establish Session Context
-    ACAInstance->>TempStorage: Store Raw Artifact
-    ACAInstance->>KnowledgeDB: Create IngestionRecord
-    ACAInstance->>ACAInstance: Schedule Background Task
-    ACAInstance-->>LearnerApp: Return API Response
-
-    ACAInstance->>KnowledgeDB: Read IngestionRecord
-    ACAInstance->>TempStorage: Fetch Raw Artifact Data
-    ACAInstance->>KnowledgeDB: Create or Update ArtifactMetadata
-    ACAInstance->>EducatorPersona: Initiate Analysis
-    EducatorPersona-->>ACAInstance: Confirms Salience
-    ACAInstance->>EducatorPersona: Process Artifact
-    EducatorPersona->>AIService: Analyze Content
-    AIService-->>EducatorPersona: Return Analysis Results
-    EducatorPersona-->>ACAInstance: Return Derived Knowledge
-    ACAInstance->>AIService: Generate Embeddings
-    AIService-->>ACAInstance: Return Embeddings
-    ACAInstance->>KnowledgeDB: Write PersonaKnowledgeEntry
-    ACAInstance->>KnowledgeDB: Update ArtifactMetadata
-    ACAInstance->>TempStorage: Delete Raw Artifact Data
+    CA->>+API: Send User Query (e.g., "Summarize progress in Algebra based on recent work")
+    API->>+Runtime: Route Request (Invoke Runtime w/ Educator Config)
+    Note over Runtime, MetaDB: Runtime queries Metadata DB for relevant EduFlowAnalysis entries & associated ArtifactMetadata based on query (Algebra, recent) - Scope defined in Config.
+    Runtime->>+MetaDB: Search Metadata Index (using EduFlow_v1KnowledgeContainer)
+    MetaDB-->>-Runtime: Return Matching Metadata (References + existing analysis summaries)
+    Note over Runtime, UserStore: Runtime determines *which* full artifacts need deeper analysis based on query & metadata.
+    Runtime->>+API: Request Artifact Content (Provide Secure References for needed artifacts)
+    API->>+CA: Request Content for Artifact References
+    CA->>+UserStore: Retrieve Full File Content
+    UserStore-->>-CA: Return File Content
+    CA-->>-API: Return File Content
+    API-->>-Runtime: Provide Ephemeral Full Content
+    Note over Runtime, AI: Runtime prepares prompt with query, existing analysis summaries, AND rich ephemeral context from retrieved full artifacts, using Educator prompts from Config.
+    Runtime->>+AI: Generate synthesized progress summary using configured model & Educator prompts/knowledge frameworks.
+    AI-->>-Runtime: Return Synthesized Response (Progress Summary)
+    Runtime-->>-API: Return Final Response (+ optional ShowYourWork if Configured)
+    API-->>-CA: Send Final Response
+    CA->>UserInterface: Display Response
 ```
 
-**Explanation:** A learner submits an artifact via an API call to the main Azure Container App (ACA) instance. The ACA handler establishes session context, creates an Ingestion Record, stores raw data temporarily, and schedules an in-process background task. The API responds quickly. The background task then executes within the same ACA instance, fetches the raw data using the Ingestion ID, accesses session context if needed, and invokes the Educator Persona. The Persona checks relevance (salience) and, if salient, orchestrates the analysis using AI services (like Gemini). The derived knowledge and embeddings are stored as a `PersonaKnowledgeEntry` in Cosmos DB. Finally, temporary data is cleaned up.
+**Explanation:**
+1.  A user sends a query via the **Client Adapter**.
+2.  The API routes the request, identifies the `PersonaId` (e.g., `Educator_Grade5`), loads the corresponding Educator configuration, and invokes the **Persona Runtime**.
+3.  The Runtime, guided by the Educator configuration, queries the **Metadata Database** (specifically the configured `EduFlow_v1KnowledgeContainer`) to find relevant `PersonaKnowledgeEntry<EduFlowAnalysis>` records and associated `ArtifactMetadata`.
+4.  Based on the query and retrieved metadata, the Runtime identifies which original artifacts require retrieval of their **full content**.
+5.  The Runtime requests this content securely via the standard API -> Adapter -> **User-Controlled Storage** flow.
+6.  The Runtime receives the ephemeral content.
+7.  The Runtime constructs a detailed prompt for the **AI Service** (using the model and specific educational prompts defined in the Educator configuration). This includes the query, metadata summaries, and the **rich, ephemeral context** from the full artifacts.
+8.  The AI Service generates a synthesized response.
+9.  The Runtime returns the final response to the API.
+10. The API sends the response back to the Client Adapter.
 
-## 3. Core Functionality
+## 3. Core Functionality (Enabled by Configuration)
 
-The Educator persona implements the [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) interface defined in the `Nucleus.Abstractions` project.
+When the Persona Runtime executes with an Educator configuration, it performs the following functions based on the configuration settings:
 
-### 3.1 Ingestion / Analysis
+### 3.1 Interaction Processing & Analysis
 
-*   **Salience Check:** Determines if an artifact is relevant to the Educator's domain (e.g., identifying educational content vs. casual chat).
-*   **Content Analysis:** Utilizes external AI services (e.g., Gemini, Azure AI) to:
-    *   Extract key concepts, skills demonstrated, and learning objectives met.
-    *   Summarize the artifact's educational significance.
-    *   Map the content to its internal knowledge frameworks (Pedagogical & Tautological Trees).
-*   **Knowledge Entry Generation:** Creates a `PersonaKnowledgeEntry<EduFlowAnalysis>` record containing the structured analysis.
-*   **Embedding Generation:** Calculates vector embeddings for relevant text snippets and the overall analysis summary to facilitate RAG.
+*   **Contextual Understanding:** Interprets user queries within the educational domain (guided by configured prompts).
+*   **Metadata-Driven Retrieval:** Identifies relevant knowledge entries (`PersonaKnowledgeEntry<EduFlowAnalysis>`) and source artifacts (`ArtifactMetadata`) via database queries, scoped by the configuration.
+*   **Secure Content Access:** Orchestrates the retrieval of ephemeral, full artifact content via the Client Adapter when deeper context is needed.
+*   **Content Analysis (On-Demand):** When processing requires analyzing newly retrieved artifact content, it utilizes the configured AI service (e.g., Gemini) guided by specific prompts and knowledge frameworks (referenced in the config) to:
+    *   Extract key concepts, skills, objectives relevant to the query.
+    *   Map content to configured knowledge frameworks.
+    *   Generate insights.
+*   *(Note: The initial creation of `PersonaKnowledgeEntry<EduFlowAnalysis>` still likely happens via a separate, specialized ingestion process/tool invoked by the user/adapter, ensuring security protocols are followed.)*
 
-### 3.2 Query Handling
+### 3.2 Query Handling & Synthesis
 
-*   **Knowledge Retrieval:** Queries its specific `EduFlow_v1KnowledgeContainer` in [Cosmos DB](../04_ARCHITECTURE_DATABASE.md) using vector search and keyword filtering based on the user's prompt.
-*   **Synthesis:** Combines retrieved knowledge entries with the user's query context.
-*   **Response Generation:** Leverages an LLM (via `IChatClient`) to generate a coherent, informative response based on the synthesized information, potentially citing source artifacts.
+*   **Knowledge Retrieval:** Queries the configured `EduFlow_v1KnowledgeContainer` in Cosmos DB.
+*   **Ephemeral Context Augmentation:** Combines retrieved metadata/analysis summaries with ephemerally retrieved full artifact content.
+*   **Synthesis:** Uses the combined context, query, and configured prompts.
+*   **Response Generation:** Leverages the configured LLM (via `IChatClient`) with Educator-specific prompts to generate a coherent response.
 
 ## 4. Data Schema (`PersonaKnowledgeEntry<EduFlowAnalysis>`)
 
-The specific data structure stored by the Educator persona in its dedicated Cosmos DB container ([`EduFlow_v1KnowledgeContainer`](../04_ARCHITECTURE_DATABASE.md#4-personaidknowledgecontainer-schema)).
+(Schema definition remains unchanged - describes the data *stored* as a result of processes potentially initiated via the Educator persona configuration)
 
 *   **Extends Base PKE:** Includes standard fields like `id`, `artifactId`, `tenantId`, `userId`, `personaId`, `createdAt`, `analysisSummaryEmbedding`, etc.
 *   **`analysisData` (Type: `EduFlowAnalysis`):** Contains the detailed educational analysis:
@@ -97,45 +107,43 @@ The specific data structure stored by the Educator persona in its dedicated Cosm
     *   `text`: The extracted text snippet.
     *   `embedding`: Vector embedding of the snippet.
     *   `sourceLocation`: Pointer to the snippet's location within the original artifact (e.g., timestamp, page number).
+    *   **Security Note:** Storing even sanitized text snippets derived from user content carries risk ([Data Governance Principles](../06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries)). The process creating these snippets MUST rigorously prevent inclusion of PII or sensitive data. Consider storing only embeddings and source locations if sanitization cannot be guaranteed.
 
 *(Note: The exact `EduFlowAnalysis` structure is defined in the `Nucleus.Abstractions` project and may evolve.)*
 
-## 5. Configuration
+## 5. Configuration Settings
 
-*   **AI Service Endpoints/Keys:** Credentials for accessing Gemini, Azure AI, etc.
-*   **Prompt Engineering:** Specific prompts used for analysis, synthesis, and response generation.
-*   **Knowledge Tree Definitions:** Loading or referencing the pedagogical and tautological tree structures.
-*   **Salience Thresholds:** Parameters defining relevance for artifact analysis.
+Refers to settings defined in [Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md), with Educator-specific values/types:
 
-## 6. Dependencies
+*   **`PersonaId`**: e.g., `Educator_Grade5`, `Educator_General`
+*   **`DisplayName`**: e.g., "Educator (Grade 5)"
+*   **`LlmConfiguration`**: Specifies models tuned or appropriate for educational analysis and response generation.
+*   **`KnowledgeScope`**: Typically configured to access all user artifacts (`AllUserArtifacts`) or specific educational collections, targeting the `EduFlow_v1KnowledgeContainer`.
+*   **`CorePrompt` / `SystemMessage`**: Tailored prompts emphasizing educational context, helpfulness, safety, and potentially referencing knowledge frameworks.
+*   **`AgenticStrategy`**: May define specific steps for analysis or progress reporting.
+*   **Educator-Specific Settings (Potentially via `CustomProperties` in config):**
+    *   Specific prompt templates for analysis and synthesis.
+    *   References to or identifiers for the Knowledge Trees (Pedagogical/Tautological).
+    *   Configuration for specific analysis tasks.
 
-*   **`Nucleus.Abstractions`:** Uses `IPersona`, `ArtifactMetadata`, `PersonaKnowledgeEntry<T>`, `IArtifactMetadataRepository`, `IPersonaKnowledgeRepository<T>`, potentially shared DTOs.
-*   **`Microsoft.Extensions.AI`:** Uses `IChatClient` for LLM interactions.
+## 6. Dependencies (for Runtime executing this config)
+
+*   **`Nucleus.Abstractions`:** Uses `ArtifactMetadata`, `PersonaKnowledgeEntry<EduFlowAnalysis>`, `IArtifactMetadataRepository`, `IPersonaKnowledgeRepository<EduFlowAnalysis>`, `IChatClient`.
 *   **Azure Cosmos DB SDK:** For interacting with the knowledge container.
-*   **External AI SDKs:** (e.g., Google.Cloud.AIPlatform.V1, Azure.AI.OpenAI) for specific analysis tasks.
+*   **External AI SDKs:** (e.g., Google.Cloud.AIPlatform.V1) as invoked via `IChatClient` based on config.
 
 ## 7. Knowledge Framework: Pedagogical and Tautological Trees
 
-The Educator persona operates with a sophisticated understanding of child development and learning, codified within two distinct knowledge frameworks:
+(Content unchanged - remains valid description of the framework referenced in the configuration)
 
-1.  **Pedagogical Tree:** Maps learning activities and artifacts to specific subject domains and genuine skill acquisition (e.g., mastering algebraic concepts, understanding historical timelines, developing artistic techniques).
-2.  **Tautological Tree:** Maps the same activities to underlying cognitive, social-emotional, and physical developmental processes (e.g., logical reasoning, collaborative problem-solving, fine motor control), often aligning with formal educational standards or reporting requirements.
-
-This dual-lens approach allows the Educator to analyze learning comprehensively, supporting authentic skill development while also facilitating necessary documentation and reporting.
-
-For a detailed explanation of this framework and links to the age-specific knowledge breakdowns (Ages 5-18), please see:
-
-*   **[Educator Persona Knowledge Trees](./Educator/ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md)**
+...
 
 ## 8. Next Steps
 
-1.  **Implement `EducatorPersona.cs`:** Create the concrete class implementing [`IPersona`](cci:2://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPersona.cs:0:0-0:0) within a `Nucleus.Personas` project.
-2.  **Define `EduFlowAnalysis`:** Finalize the C# record/class structure for the analysis data within `Nucleus.Abstractions`.
-3.  **Implement `IPersonaKnowledgeRepository<EduFlowAnalysis>`:** Develop the specific repository interface (planned for `Nucleus.Abstractions`) and implementation (planned for `Nucleus.Infrastructure`/`Persistence`) for storing/retrieving educator knowledge entries.
-4.  **Integrate AI Services:** Connect the persona logic to the chosen AI services for analysis and generation.
-5.  **Develop Query Logic:** Implement the RAG pattern for handling user queries.
-6.  **Unit & Integration Testing:** Thoroughly test analysis and query pathways.
-
----
-
-*Previous detailed tree definitions removed and consolidated into the linked document.*
+1.  **Define Formal Educator Configuration(s):** Create the actual configuration entries (e.g., in `appsettings.json` or database) for specific Educator personas (e.g., `Educator_Grade5`) according to the `PersonaConfiguration` schema, including custom properties for prompts and framework references.
+2.  **Ensure Runtime Support:** Verify the generic Persona Runtime can correctly load and execute the Educator configuration, including accessing the `EduFlow_v1KnowledgeContainer` and using Educator-specific prompts.
+3.  **Implement `IPersonaKnowledgeRepository<EduFlowAnalysis>`:** Develop the repository for educator knowledge entries if not already present.
+4.  **Develop Query/Analysis Logic (within Runtime):** Ensure the Runtime's logic can handle the steps implied by the Educator configuration (metadata search, ephemeral content request, AI synthesis using specific prompts).
+5.  **Refine Prompts:** Develop and test Educator-specific prompts to be included in the configuration.
+6.  **Testing:** Test interaction flows thoroughly with the Runtime using Educator configurations.
+7.  **(Deprecation):** Remove any old `EducatorPersona.cs` class attempting to implement core logic directly.

@@ -1,7 +1,9 @@
 namespace Nucleus.Abstractions.Models.Configuration;
 
 /// <summary>
-/// Configuration options for the Google AI (Gemini) client.
+/// Represents the configuration options specifically for Google AI services (e.g., Gemini).
+/// Used for binding values from `appsettings.json` (typically under the "AI:GoogleAI" section).
+/// <seealso cref="../../../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
 /// </summary>
 public class GoogleAiOptions
 {

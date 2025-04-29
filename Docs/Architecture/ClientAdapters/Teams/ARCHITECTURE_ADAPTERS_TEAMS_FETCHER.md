@@ -1,13 +1,14 @@
 ---
 title: "Nucleus Teams Adapter: Graph File Fetcher (Reference Gathering)"
-description: "Architecture details for the component responsible for fetching file attachments from Microsoft Teams using the Microsoft Graph API."
-version: 1.1
-date: 2025-04-24
+description: "Architecture details for the component responsible for gathering file attachment references from Microsoft Teams for API processing."
+version: 1.2
+date: 2025-04-27
+parent: ../ARCHITECTURE_ADAPTERS_TEAMS.md
 ---
 
 ## Overview
 
-**Note:** Under the API-First architecture ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the responsibility for **fetching** file content using Graph has moved to the central `Nucleus.Services.Api`. Direct file fetching by client adapters like the Teams Adapter is **deprecated**.
+**Note:** Under the API-First architecture, the responsibility for **fetching** file content using Graph has moved to the central `Nucleus.Services.Api`. Direct file fetching by client adapters like the Teams Adapter is **deprecated**.
 
 This document now describes the *modified* role of the component within the Teams Adapter, which is focused on **gathering attachment references** (like Drive IDs, Item IDs, or potentially temporary download URLs) from Teams platform events. These references are then passed to the `Nucleus.Services.Api` via the `InteractionRequest` DTO (see [API Client Interaction Pattern](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)) for the actual content retrieval by the service.
 
@@ -27,9 +28,11 @@ This document now describes the *modified* role of the component within the Team
 
 ## Dependencies
 
--   **`GraphClientService`:** Provides the authenticated Microsoft Graph client instance and helper methods for API calls (e.g., `DownloadDriveItemContentStreamAsync`).
--   **`Nucleus.Abstractions`:** Defines the `IPlatformAttachmentFetcher` interface and related models like `PlatformAttachmentReference`. *(Note: `IPlatformAttachmentFetcher` may be deprecated or refactored in the adapter context)*.
--   **Microsoft Graph API:** The underlying service used to access Teams file data. Requires appropriate application permissions (e.g., `Files.Read.All`, `Sites.Read.All`).
+-   **`GraphClientService`:** Provides the authenticated Microsoft Graph client instance needed *within the adapter* if temporary download URLs or specific metadata needs resolving before creating the `ArtifactReference`. Found in [`GraphClientService.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/GraphClientService.cs).
+-   **`Nucleus.Abstractions`:** Defines models like [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) which is used to package the references for the API.
+-   **Microsoft Graph API:** The underlying service used to access Teams file data.
+
+*Self-Note: The interface [`IPlatformAttachmentFetcher`](../../../src/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs) defines the contract for actually **fetching content**. This is implemented and used by the **API Service**, not the Teams Adapter itself.*
 
 ## Implementation Details
 
@@ -39,9 +42,8 @@ This document now describes the *modified* role of the component within the Team
 
 ## Code Links
 
--   **Implementation:** [../../../src/Adapters/Nucleus.Adapters.Teams/TeamsGraphFileFetcher.cs](cci:7://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsGraphFileFetcher.cs) *(Requires refactoring to align with reference gathering role)*
--   **Interface:** [../../../src/Abstractions/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs](cci:7://file:///d:/Projects/Nucleus/src/Abstractions/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs)
-    *(Note: This interface as implemented by adapters may be deprecated/refactored)*
+-   **Reference Gathering Implementation:** Logic integrated into [`TeamsAdapterBot.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs), specifically within the `ExtractAttachmentReferences` static method.
+-   **Core DTO:** Uses [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs).
 
 ## Related Documents
 

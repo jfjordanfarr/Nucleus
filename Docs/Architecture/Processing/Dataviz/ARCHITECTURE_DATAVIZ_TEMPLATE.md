@@ -1,8 +1,8 @@
 ---
 title: Data Visualization Template
 description: Specifies a skill that can be performed by personas, which involves writing structured data and simple visualization code snippets into a template pyodide-based static HTML page.
-version: 1.2
-date: 2025-04-22
+version: 1.3
+date: 2025-04-27
 parent: ../ARCHITECTURE_PROCESSING_DATAVIZ.md
 ---
 
@@ -422,4 +422,4 @@ This architecture provides a robust method for delivering AI-generated, interact
 
 ---
 
-_Metadata last updated: 2025-04-22_
+_Metadata last updated: 2025-04-27_

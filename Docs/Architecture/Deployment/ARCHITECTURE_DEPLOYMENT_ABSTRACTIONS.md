@@ -1,15 +1,16 @@
 ---
 title: Architecture - Deployment Abstractions
-description: Defines the core abstract components required for deploying the Nucleus OmniRAG system, independent of specific cloud providers.
-version: 1.1
-date: 2025-04-22
+description: Defines the core abstract components required for deploying the Nucleus system, independent of specific cloud providers.
+version: 1.2
+date: 2025-04-27
+parent: ../07_ARCHITECTURE_DEPLOYMENT.md
 ---
 
-# Nucleus OmniRAG: Deployment Abstractions
+# Nucleus: Deployment Abstractions
 
 ## 1. Introduction
 
-This document outlines the fundamental, abstract components required to deploy and operate the Nucleus OmniRAG system, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). The goal is to define the necessary capabilities in a provider-agnostic way, allowing for flexibility in choosing deployment targets based on factors like cost, performance, existing infrastructure, or specific features.
+This document outlines the fundamental, abstract components required to deploy and operate the Nucleus system, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). The goal is to define the necessary capabilities in a provider-agnostic way, allowing for flexibility in choosing deployment targets based on factors like cost, performance, existing infrastructure, or specific features.
 
 While specific implementations will leverage provider-specific services (detailed in separate documents like [Azure Deployment](./Hosting/ARCHITECTURE_HOSTING_AZURE.md) and [Cloudflare Deployment](./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md)), understanding these core abstractions is crucial for maintaining architectural consistency and enabling potential portability.
 
@@ -33,7 +34,7 @@ The Nucleus system fundamentally requires the following types of infrastructure 
         *   Decoupling of publishers and consumers/subscribers.
         *   Support for competing consumers (for scaling queue processing).
     *   **Examples:**
-        *   Azure Service Bus Queues & Topics (Current implementation uses a Queue via [`AzureServiceBusPublisher<T>`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/AzureServiceBusPublisher.cs:23:0-99:1))
+        *   Azure Service Bus Queues & Topics (The *current* API Service implementation uses a Queue via [`AzureServiceBusPublisher<T>`](cci:2://file:///d:/Projects/Nucleus/Nucleus.ApiService/Infrastructure/Messaging/AzureServiceBusPublisher.cs:23:0-99:1))
         *   Google Cloud Pub/Sub
         *   RabbitMQ (using Direct or Topic exchanges)
         *   NATS / NATS JetStream

@@ -1,0 +1,5 @@
+This is a test document containing pseudo-sensitive information.
+SSN: PII_SSN=999-88-7777
+Project Code: CONFIDENTIAL_PROJECT_CODE=ProjectUnicorn
+Email: SENSITIVE_EMAIL=top.secret@example.com
+This information should NOT appear in the ArtifactMetadata.

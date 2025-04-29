@@ -10,6 +10,12 @@ namespace Nucleus.Abstractions.Models;
 /// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#2-key-metadata-structure-artifactmetadata
 /// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#3-artifactmetadatacontainer-schema
 /// </summary>
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
 public record ArtifactMetadata
 {
     /// <summary>

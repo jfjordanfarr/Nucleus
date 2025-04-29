@@ -1,15 +1,16 @@
 ---
 title: Architecture - CI/CD Strategy for Open Source
-description: Outlines the Continuous Integration and Continuous Delivery/Deployment strategy tailored for the Nucleus OmniRAG open-source project.
-version: 1.2
-date: 2025-04-22
+description: Outlines the Continuous Integration and Continuous Delivery/Deployment strategy tailored for the Nucleus open-source project.
+version: 1.3
+date: 2025-04-27
+parent: ../07_ARCHITECTURE_DEPLOYMENT.md
 ---
 
-# Nucleus OmniRAG: CI/CD Strategy (Open Source Context)
+# Nucleus: CI/CD Strategy (Open Source Context)
 
 ## 1. Introduction
 
-This document details the Continuous Integration (CI) and Continuous Delivery (CD) strategy for the Nucleus OmniRAG project, as part of the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). As an open-source project, the focus of CI/CD is less on deploying to a specific production environment and more on:
+This document details the Continuous Integration (CI) and Continuous Delivery (CD) strategy for the Nucleus project, as part of the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). As an open-source project, the focus of CI/CD is less on deploying to a specific production environment and more on:
 
 *   **Validating Code Quality:** Ensuring code builds, passes tests, and adheres to standards.
 *   **Creating Consumable Artifacts:** Building versioned Docker images and potentially example deployment configurations (like `docker-compose.yml` files) that users can easily deploy in their own environments ([Azure](./Hosting/ARCHITECTURE_HOSTING_AZURE.md), [Cloudflare](./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md), [Self-Hosted](./Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md)).
@@ -19,6 +20,7 @@ This document details the Continuous Integration (CI) and Continuous Delivery (C
 ## 2. Platform and Tooling
 
 *   **CI/CD Platform:** **GitHub Actions** - Chosen due to its tight integration with GitHub repositories, generous free tier for public repositories, and extensive marketplace of actions.
+    *   *(Implementation Note: Workflow definition files (`*.yml`) are expected to reside in the [`.github/workflows/`](../../../../.github/workflows/) directory of the repository.)*
 *   **Container Registry:** **GitHub Container Registry (ghcr.io)** or **Docker Hub** - For hosting the publicly accessible, versioned Docker images of Nucleus components (`Nucleus.Api`, workers, etc.).
 *   **Code Scanning/SAST (Optional):** GitHub Advanced Security (CodeQL), SonarCloud - For identifying potential security vulnerabilities and code quality issues.
 *   **Container Scanning (Optional):** Trivy, Snyk, Dependabot - For scanning Docker images for known vulnerabilities in base images or dependencies.
@@ -76,6 +78,6 @@ The primary outputs of the CD process for consumers will be:
 *   **Versioned Docker Images:** Available on GitHub Container Registry or Docker Hub.
 *   **Example Deployment Files (Optional):** Versioned `docker-compose.yml` files or potentially Helm charts attached to GitHub Releases, demonstrating how to run the Nucleus components together for different scenarios (e.g., self-hosting).
 
-This CI/CD strategy aims to provide confidence in code quality and streamline the release process, making it easier for users to adopt and deploy Nucleus OmniRAG in their chosen environments.
+This CI/CD strategy aims to provide confidence in code quality and streamline the release process, making it easier for users to adopt and deploy Nucleus in their chosen environments.
 
 ---

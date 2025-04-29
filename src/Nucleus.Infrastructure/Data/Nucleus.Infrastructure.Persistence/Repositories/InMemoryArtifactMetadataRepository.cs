@@ -11,8 +11,13 @@ using System.Threading.Tasks;
 namespace Nucleus.Infrastructure.Data.Persistence.Repositories;
 
 /// <summary>
-/// Simple in-memory implementation of <see cref="IArtifactMetadataRepository"/> for testing and development.
+/// In-memory implementation of the <see cref="IArtifactMetadataRepository"/>.
+/// Used primarily for testing or local development scenarios where a persistent database is not required.
+/// Note: Partition keys are ignored in this implementation.
 /// </summary>
+/// <seealso cref="../../../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public class InMemoryArtifactMetadataRepository : IArtifactMetadataRepository
 {
     // NOTE: PartitionKey is ignored in this in-memory implementation.

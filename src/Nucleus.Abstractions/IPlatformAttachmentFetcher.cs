@@ -13,6 +13,7 @@ namespace Nucleus.Abstractions;
 /// Implementations will use the appropriate platform SDKs (e.g., MS Graph, File IO) based on the
 /// context provided in the <see cref="PlatformAttachmentReference"/>.
 /// See: ../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
+/// <seealso cref="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </summary>
 public interface IPlatformAttachmentFetcher
 {

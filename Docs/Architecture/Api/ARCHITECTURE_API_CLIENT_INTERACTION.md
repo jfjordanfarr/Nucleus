@@ -1,32 +1,35 @@
 ---
 title: Architecture - API Client Interaction Pattern
-description: Defines how Nucleus Client Adapters should interact with the Nucleus API Service, including request construction, response handling (sync/async), and polling.
-version: 0.2
-date: 2025-04-25
+description: Defines how Nucleus Client Adapters should interact with the Nucleus API Service using AdapterRequest and ArtifactReferences, including request construction, response handling (sync/async), and polling.
+version: 0.3
+date: 2025-04-27
 parent: ../10_ARCHITECTURE_API.md
 ---
 
 # API Client Interaction Pattern
 
+**Version:** 0.3
+**Date:** 2025-04-27
+
 ## 1. Introduction
 
 This document details the standard pattern Client Adapters (e.g., Teams, Console, Email) **must** follow when interacting with the central `Nucleus.Services.Api`. It acts as the bridge between platform-specific logic within an adapter and the core processing capabilities exposed by the API.
 
-This pattern specifically covers message-based interactions submitted via the primary `/interactions` endpoint. Dedicated ingestion endpoints (e.g., for path-based file ingestion) may have slightly different request structures, detailed in [ARCHITECTURE_API_INGESTION.md](./ARCHITECTURE_API_INGESTION.md).
+This pattern covers all interactions submitted via the primary `POST /api/v1/interactions` endpoint, utilizing the `AdapterRequest` DTO which includes `ArtifactReference` objects for context.
 
 Adherence to this pattern ensures consistency and leverages the API-First architecture effectively.
 
-## 2. Constructing the `InteractionRequest`
+## 2. Constructing the `AdapterRequest`
 
-*   **Purpose:** Translating a platform-specific event (message, command) into the standardized `InteractionRequest` DTO.
-*   **Key Fields to Populate:**
+*   **Purpose:** Translating a platform-specific event (message, command, file share) into the standardized `AdapterRequest` DTO.
+*   **Key Fields to Populate (Refer to [`AdapterRequest.cs`](../../../src/Nucleus.Abstractions/Models/AdapterRequest.cs) for definitive structure):**
     *   `PlatformType` (e.g., "Teams", "Console", "Email").
     *   `UserId` (Platform-specific user identifier).
     *   `ConversationId` (Platform-specific channel/chat/session identifier).
-    *   `MessageId` (Platform-specific message identifier).
-    *   `Content` (Primary textual content).
+    *   `MessageId` (Platform-specific message identifier, if applicable).
+    *   `Prompt` (Primary textual content or command from the user).
     *   `Timestamp`.
-    *   `SourceArtifactUris` (List of platform URIs for attachments/references).
+    *   **`ArtifactReferences` (List<`ArtifactReference`>):** A list containing zero or more `ArtifactReference` objects. Each object describes an artifact relevant to the interaction (e.g., a shared file, a referenced document) providing details like `ReferenceType`, `SourceUri`, `SourceIdentifier`, `DisplayName` etc., enabling the API service to fetch content via `IArtifactProvider` if needed. See [`ArtifactReference.cs`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs).
     *   **`PlatformContext` (CRITICAL):** Dictionary or structured object containing platform-specific metadata crucial for Activation Checks, especially reply context:
         *   Teams: `ReplyToActivityId` (from `Conversation.Id` or `ReplyToId`).
         *   Discord: `ReferenceMessageId`.
@@ -84,11 +87,20 @@ Once the status is `Completed`:
 *   This is the reverse of Step 2.
 *   Take the `InteractionResponse` (or other result format) from the API (received synchronously or via async result retrieval).
 *   Format it appropriately for the target platform (e.g., create a Teams Activity, format console output, compose an email).
-*   Handle potential artifact links or generated files as required by the platform.
+*   Handle potential artifact links or generated files as required by the platform, noting that generated artifacts are also saved back to the user's source system via the API and adapters.
 
 ## 8. Related Documents
 
 *   [API Architecture Overview](../10_ARCHITECTURE_API.md)
 *   [API Asynchronous Processing Pattern](../10_ARCHITECTURE_API.md#6-asynchronous-processing-pattern)
-*   [API Activation & Routing](./ARCHITECTURE_ORCHESTRATION_ROUTING.md)
-*   *(Link to API DTO Definitions document)*
+*   [API Activation & Routing](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md)
+*   [`AdapterRequest.cs`](../../../src/Nucleus.Abstractions/Models/AdapterRequest.cs) (Source Code)
+*   [`ArtifactReference.cs`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) (Source Code)
+
+## 9. Implementation Examples
+
+*   **Console Adapter:**
+    *   Request Construction/Sending: [`Program.cs#HandleInteractiveAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs)
+    *   API Agent: [`NucleusApiServiceAgent.cs#SendInteractionAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Services/NucleusApiServiceAgent.cs)
+*   **Teams Adapter:**
+    *   Request Construction/Sending: [`TeamsAdapterBot.cs#OnMessageActivityAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs)

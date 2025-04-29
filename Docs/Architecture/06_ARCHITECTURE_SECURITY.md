@@ -1,14 +1,14 @@
 ---
 title: Nucleus OmniRAG Security Architecture & Data Governance
 description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus OmniRAG platform.
-version: 1.4
-date: 2025-04-24
+version: 1.5
+date: 2025-04-27
 ---
 
 # Nucleus OmniRAG: Security Architecture & Data Governance
 
-**Version:** 1.4
-**Date:** 2025-04-24
+**Version:** 1.5
+**Date:** 2025-04-27
 
 ## 1. Introduction
 
@@ -16,22 +16,26 @@ Security and responsible data governance are paramount for the Nucleus OmniRAG p
 
 ## 2. Data Governance & Boundaries
 
-Nucleus is designed to process user data, not to be its primary custodian.
+Nucleus is designed to process user data, not to be its primary custodian. The core principle is **Zero Trust for User File Content**: The Nucleus backend infrastructure (API Service, databases, queues) **MUST NEVER** store, persist, or have direct access to the raw byte content of user files.
 
-*   **Primary Data Source:** Original user files (documents, images, etc.) **always reside in the user's designated cloud storage** (e.g., Personal OneDrive/GDrive for Individuals, Team SharePoint/Shared Drives for Teams - see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)). Nucleus interacts with these sources via API, respecting the permissions granted by the user/organization.
+*   **Primary Data Source:** Original user files (documents, images, etc.) **always reside exclusively in the user's designated, secure cloud storage** (e.g., Personal OneDrive/GDrive for Individuals, Team SharePoint/Shared Drives for Teams - see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)).
+*   **API File Interaction:**
+    *   The Nucleus API Service (`Nucleus.Services.Api`) **DOES NOT support direct file uploads**. This capability has been explicitly removed to minimize attack surface and enforce the zero-trust principle.
+    *   The API interacts with files **only** through secure `ArtifactReference` objects provided within API request payloads. These references point to content in the user's controlled storage.
+    *   The [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations are responsible for resolving these references and retrieving content *ephemerally* when requested by a persona during processing.
 *   **Nucleus ArtifactMetadata:**
     *   Stored within the **Nucleus [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md)**.
-    *   Contain metadata *about* the source file (identifiers, hashes, timestamps, content type, [processing](./01_ARCHITECTURE_PROCESSING.md) status, originating context, etc.).
-    *   **Policy:** ArtifactMetadata should avoid storing sensitive PII directly from the source document. Fields like `displayName` are acceptable.
+    *   Contains sanitized metadata *about* the source file (identifiers, hashes, timestamps, content type, [processing](./01_ARCHITECTURE_PROCESSING.md) status, originating context, etc.). Crucially, this metadata serves as a **Secure Index** for personas to understand available knowledge without accessing raw content.
+    *   **Policy:** ArtifactMetadata **must not** store sensitive PII directly from the source document. Fields like `displayName` are acceptable.
 *   **Nucleus Database (Cosmos DB):**
     *   Stores [`PersonaKnowledgeEntry`](./04_ARCHITECTURE_DATABASE.md) documents.
     *   Contains: **Derived knowledge, salient text snippets, and vector embeddings** (derived data), [persona-specific](./02_ARCHITECTURE_PERSONAS.md) analysis (`TAnalysisData`), `sourceIdentifier` linking back to the ArtifactMetadata, timestamps.
-    *   **PII Consideration:** Text previews or `TAnalysisData` fields *might* contain sensitive information derived from the source. [Personas](./02_ARCHITECTURE_PERSONAS.md) generating this data should be designed with potential sensitivity in mind. Redaction/scrubbing strategies are persona-specific implementation details.
+    *   **PII Consideration:** Text previews or `TAnalysisData` fields *might* contain sensitive information derived from the source. [Personas](./02_ARCHITECTURE_PERSONAS.md) generating this data must be designed with potential sensitivity in mind. Redaction/scrubbing strategies are persona-specific implementation details.
 *   **Chat Logs:**
-    *   Inbound chat messages are inspected for salience and may be processed by Nucleus components ([Functions/Workers](./01_ARCHITECTURE_PROCESSING.md)) to generate responses.
+    *   Inbound chat messages are inspected for salience and may be processed by Nucleus components to generate responses.
     *   Salient portions of chat may be bundled into an artifact and placed into the user's long-term storage as an artifact that could be later retrieved for specifics.
     *   The Nucleus backend **does not persist raw chat conversation logs**.
-*   **Data Flow:** Data fetched from user [storage](./03_ARCHITECTURE_STORAGE.md) is processed transiently by Nucleus components ([Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)). Only derived metadata, embeddings, previews, and analysis are persisted in the Nucleus [Database](./04_ARCHITECTURE_DATABASE.md). Original content is not duplicated or stored by Nucleus; while Self-Hosted [deployments](./07_ARCHITECTURE_DEPLOYMENT.md) might integrate external organizational caching, the core Nucleus system remains ephemeral regarding source content.
+*   **Data Flow:** User-provided `ArtifactReference` objects are passed to the API. When required during processing, the relevant `IArtifactProvider` uses the reference to fetch content *transiently* from the user's [storage](./03_ARCHITECTURE_STORAGE.md). This content flows ephemerally through Nucleus components. Only derived metadata, embeddings, previews, and analysis are persisted in the Nucleus [Database](./04_ARCHITECTURE_DATABASE.md). Original content is never stored by Nucleus.
 
 ### Data Flow & Security Boundaries Diagram
 
@@ -75,14 +79,13 @@ graph TD
     *   [Persona Modules](./02_ARCHITECTURE_PERSONAS.md) perform specialized analysis.
     *   The [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md) stores only derived metadata and knowledge.
     *   Key Vault secures credentials.
-    *   **`Nucleus.Services.Api`** orchestrates interactions, manages OAuth flows, and securely retrieves secrets.
+    *   **[`Nucleus.Services.Api`](../../../src/Nucleus.Services/Nucleus.Services.Api/Program.cs)** orchestrates interactions, manages OAuth flows (if applicable for storage providers), retrieves secrets, and handles `ArtifactReference` objects.
 *   **Interactions:**
     *   Adapters authenticate primarily with their respective platforms (e.g., Teams Bot authentication).
     *   The **`Nucleus.Services.Api`** authenticates with Key Vault to retrieve secrets for core backend services (Database, AI, etc.).
-    *   The **API service orchestrates** interactions with external storage. It may direct adapters on how to interact (e.g., providing specific tokens or parameters obtained securely) or handle the interaction directly.
-    *   Data flows ephemerally through processing and persona layers.
-    *   Only derived metadata/knowledge is persisted to the Nucleus Database.
-*   Access to user data is governed by the permissions granted during the OAuth flow, respecting the source system's controls.
+    *   The **API service orchestrates** interactions with external storage *via `ArtifactReference` resolution*. It may direct adapters on how to interact (e.g., providing specific tokens or parameters obtained securely) or handle the interaction directly via [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations within the context of the [`OrchestrationService`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs).
+    *   Data flows ephemerally through processing and persona layers only when content retrieval is explicitly requested based on an `ArtifactReference`.
+*   Access to user data is governed by the permissions granted during the OAuth consent flow, respecting the source system's controls.
 
 ### Where Sensitive Information is Okay
 
@@ -134,7 +137,7 @@ All sensitive configuration values must be managed securely.
 *   **Secure Storage:** Use secure secret management solutions appropriate for the [deployment](./07_ARCHITECTURE_DEPLOYMENT.md) environment:
     *   **Cloud-Hosted:** Azure Key Vault, integrated with App Services/Functions via Managed Identity.
     *   **Self-Hosted:** Azure Key Vault, HashiCorp Vault, Kubernetes Secrets (with appropriate backend), secure environment variables.
-*   **Primary Consumer:** The **`Nucleus.Services.Api`** is the primary consumer of secrets for core backend services (Database, AI, Queues, OAuth Client Secrets for storage providers). Adapters should only require secrets specific to their platform integration (e.g., Teams Bot ID/Password, Slack Bot Token), which should also be stored securely.
+*   **Primary Consumer:** The **[`Nucleus.Services.Api`](../../../src/Nucleus.Services/Nucleus.Services.Api/Program.cs)** is the primary consumer of secrets for core backend services (Database, AI, Queues, OAuth Client Secrets for storage providers). Adapters should only require secrets specific to their platform integration (e.g., Teams Bot ID/Password, Slack Bot Token), which should also be stored securely.
 *   **Policy:** **NO hardcoded secrets** in source code or configuration files checked into version control.
 
 ## 5. Infrastructure Security
@@ -150,7 +153,7 @@ Leverage platform capabilities and best practices.
 
 *   **Provider Safeguards:** Rely primarily on the **built-in safety features and content filters** provided by the chosen AI service providers (e.g., Azure OpenAI Content Filters, Google Gemini Safety Settings). Configure these appropriately according to policy and use case.
 *   **Input Handling:** While provider filters are the main defense, basic input sanitization on user prompts can add a layer of defense against simple injection attempts.
-*   **Data Minimization:** [Personas](./02_ARCHITECTURE_PERSONAS.md) should be designed to only send necessary context (**retrieved snippets/derived data**, query) to the AI provider, minimizing exposure of potentially sensitive data.
+*   **Data Minimization:** [Personas](./02_ARCHITECTURE_PERSONAS.md) should be designed to only send necessary context to the AI provider. The **Secure Metadata Index** helps identify relevant artifacts, and **Rich Ephemeral Context Retrieval** allows personas to fetch *only* the required full content transiently, minimizing unnecessary data exposure to the LLM.
 
 ## 7. Compliance & Auditing
 

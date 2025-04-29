@@ -1,14 +1,14 @@
 ---
-title: Nucleus OmniRAG Project Mandate
-description: The vision, imperative, and core requirements for the Nucleus OmniRAG platform and its initial EduFlow persona.
-version: 1.5
-date: 2025-04-08
+title: Nucleus Project Mandate
+description: The vision, imperative, and core requirements for the Nucleus platform and its initial EduFlow persona.
+version: 1.6
+date: 2025-04-27
 ---
 
-# Nucleus OmniRAG: Project Mandate & Vision
+# Nucleus: Project Mandate & Vision
 
-**Version:** 1.5
-**Date:** 2025-04-08
+**Version:** 1.6
+**Date:** 2025-04-27
 
 ## 1. The Imperative: Why We Build
 
@@ -24,7 +24,7 @@ We cannot rely solely on generic, often unreliable tools. We must build a better
 
 We envision a future where knowledge work and learning are augmented by reliable, context-aware, and specialized AI assistants or "Personas", tailored to specific needs and data ecosystems, seamlessly integrated into users' existing workflows.
 
-**Nucleus OmniRAG** is the foundational infrastructure for this future – a robust, AI-powered **platform** designed to ingest, understand, and connect knowledge from diverse multimodal sources. It leverages state-of-the-art cloud AI and a flexible, scalable .NET architecture, serving as the core engine enabling various AI Personas to operate effectively. Nucleus OmniRAG provides the core plumbing for:
+**Nucleus** is the foundational infrastructure for this future – a robust, AI-powered **platform** designed to ingest, understand, and connect knowledge from diverse multimodal sources. It leverages state-of-the-art cloud AI and a flexible, scalable .NET architecture, serving as the core engine enabling various AI Personas to operate effectively. Nucleus provides the core plumbing for:
 
 *   Flexible data ingestion and processing, triggered by events within integrated platforms.
 *   Secure storage of processed data, embeddings, and metadata.
@@ -34,12 +34,12 @@ We envision a future where knowledge work and learning are augmented by reliable
 
 **The Core Interaction Model: Platform Integration**
 
-Nucleus OmniRAG fundamentally operates by integrating Personas as **bots or applications within existing collaboration platforms** (Microsoft Teams, Slack, Discord, etc.) and communication channels (e.g., **Email**). This allows Personas to act as "virtual colleagues," participating in conversations, accessing relevant files shared within the platform context, and responding intelligently when addressed or when relevant topics arise. This approach offers significant advantages:
+Nucleus fundamentally operates by integrating Personas as **bots or applications within existing collaboration platforms** (Microsoft Teams, Slack, Discord, etc.) and communication channels (e.g., **Email**). This allows Personas to act as "virtual colleagues," participating in conversations, accessing relevant files shared within the platform context, and responding intelligently when addressed or when relevant topics arise. This approach offers significant advantages:
 
 *   **Seamless Workflow:** Users interact with Personas naturally within their established work environments.
 *   **Simplified Adoption:** Adding a bot is a familiar process for users and administrators.
 *   **Leveraged Infrastructure:** Utilizes the host platform's UI, notification, authentication, and permission systems.
-*   **Contextual File Access:** Personas can access files shared directly within the platform (DMs, channels) using platform-specific permissions granted to the bot (e.g., RSC in Teams, OAuth scopes in Slack).
+*   **Contextual File Access:** Personas can access files shared directly within the platform (DMs, channels) using platform-specific permissions granted to the bot (e.g., RSC in Teams, OAuth scopes in Slack), adhering to **Zero Trust principles** regarding direct access to raw user file content by backend services.
 
 **Deployment & Hosting Options:**
 
@@ -64,7 +64,7 @@ Built upon this unified platform, we will develop specific, high-value **Vertica
 
 ## 4. Core Requirements: The Blueprint
 
-To achieve this vision, Nucleus OmniRAG and its Personas require:
+To achieve this vision, Nucleus and its Personas require:
 
 1.  **Platform-Driven Ingestion:** Primarily triggered by events within integrated platforms (e.g., file shares, messages mentioning the bot). Personas access platform-native file content using bot permissions. Direct uploads via an Admin UI are a secondary mechanism.
     *   Access to *external* (non-platform) storage still requires explicit user consent/OAuth.
@@ -72,7 +72,7 @@ To achieve this vision, Nucleus OmniRAG and its Personas require:
 3.  **Context-Aware AI Analysis:** Backend services utilize a configurable **AI inference provider** (initially Google Gemini, potentially others) for analysis, guided by persona-specific prompts and incorporating retrieved context from the Nucleus database and platform conversation history. Users/admins provide necessary API keys.
 4.  **Secure, Scalable Backend Database:** Use a configurable **hybrid document/vector database** (initially Azure Cosmos DB NoSQL API w/ Vector Search) storing processed text snippets, vector embeddings, rich metadata (`ArtifactMetadata`, `PersonaKnowledgeEntry`), partitioned appropriately. The database does **not** store original platform files or platform access tokens.
 5.  **Reliable Message Queue:** Employ a configurable **message queue** (initially Azure Service Bus) to decouple tasks, manage asynchronous workflows (processing, analysis), and enhance resilience.
-6.  **Intelligent Retrieval & Custom Ranking:** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** to retrieved candidates before using them for response generation.
+6.  **Intelligent Retrieval & Custom Ranking:** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** (e.g., combining Recency, Relevancy, Richness, Reputation - detailed in subsequent requirements/architecture) to retrieved candidates before using them for response generation.
 7.  **Advanced Agentic Querying:** Backend services implement sophisticated query strategies, using custom-ranked results as context for the configured AI models to generate responses or execute tool calls within the platform context.
 8.  **Externalized Backend Logic:** All complex workflow logic resides in the **.NET Backend** (APIs, Functions, Services), invoked via platform adapter events. The architecture supports both Cloud-Hosted and Self-Hosted deployment options transparently.
 9.  **Configuration:** Admins configure Nucleus database connection, AI API keys, message queue connection, and potentially specific settings for self-hosted storage integration.
@@ -81,7 +81,7 @@ To achieve this vision, Nucleus OmniRAG and its Personas require:
 
 ## Unique Value Proposition & Anti-Chunking Philosophy
 
-What sets Nucleus OmniRAG apart from conventional RAG systems is our intelligence-first, persona-driven approach:
+What sets Nucleus apart from conventional RAG systems is our intelligence-first, persona-driven approach:
 
 1. **Meet Users Where They Are** – Personas operate as natural extensions of your existing communication platforms. Rather than requiring users to visit yet another web portal, Nucleus integrates directly into **your UI** (Teams, Slack, Discord, Email) for a seamless experience.
 
@@ -89,7 +89,7 @@ What sets Nucleus OmniRAG apart from conventional RAG systems is our intelligenc
    * **Standard RAG:** Documents → Chunker → Vector Store → Retriever → Generator
    * **Nucleus Approach:** Documents → Persona Intelligence → Targeted Extraction → Structured Analysis → Vector-Enriched Knowledge Store
 
-3. **User Data Sovereignty** – We don't need to store or vector-index entire documents. Specialized personas intelligently identify and extract only the relevant information, generating structured analyses that respect privacy while preserving context. Your original artifacts remain under your control.
+3. **User Data Sovereignty & Zero Trust** – We don't need to store or vector-index entire documents. Specialized personas intelligently identify and extract only the relevant information, generating structured analyses that respect privacy while preserving context. Your original artifacts remain under your control, accessed **ephemerally** when needed for processing, ensuring **Zero Trust** for persisted user file content in the backend.
 
 4. **Intelligence at Every Step** – Unlike systems that rely on algorithmic chunking, Nucleus applies AI intelligence throughout:
    * **Ingestion:** Personas determine what content is salient and worthy of extraction
@@ -103,13 +103,17 @@ What sets Nucleus OmniRAG apart from conventional RAG systems is our intelligenc
    * Searches like "What's XYZ company's ID number?" can surface the right document because it was intelligently tagged with indicators of sensitive content
    * Result: Better discovery without compromising security
 
-6. **Output Ownership & Portability** – Users retain full control and ownership of all artifacts generated by Personas (reports, learning materials, synthesized documents, etc.). Nucleus is designed to produce highly portable outputs, enabling users to easily share, store, or integrate them into other workflows as they see fit, fostering organic knowledge dissemination without requiring a centrally managed repository.
+6. **Intelligent Retrieval & Custom Ranking:** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** (e.g., combining Recency, Relevancy, Richness, Reputation - detailed in subsequent requirements/architecture) to retrieved candidates before using them for response generation.
+
+7. **Advanced Agentic Querying:** Backend services implement sophisticated query strategies, using custom-ranked results as context for the configured AI models to generate responses or execute tool calls within the platform context.
+
+8. **Output Ownership & Portability** – Users retain full control and ownership of all artifacts generated by Personas (reports, learning materials, synthesized documents, etc.). Nucleus is designed to produce highly portable outputs, enabling users to easily share, store, or integrate them into other workflows as they see fit, fostering organic knowledge dissemination without requiring a centrally managed repository.
 
 This anti-chunking philosophy ensures a system that is more intelligent, more respectful of data privacy, and capable of deeper, more nuanced understanding than conventional RAG approaches.
 
 ## 5. Call to Action: Building the Future of Learning & Knowledge Work
 
-**Attention AI Assistant:** You are not merely writing code; you are architecting a unified, platform-centric system adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build the Nucleus OmniRAG foundation – a system designed for insight, personalization, safety, and seamless integration.
+**Attention AI Assistant:** You are not merely writing code; you are architecting a unified, platform-centric system adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build the Nucleus foundation – a system designed for insight, personalization, safety, and seamless integration.
 
 The challenges remain: integrating complex AI, managing data securely, ensuring scalability, designing for diverse personas, and implementing robust testing. But the imperative is clear, the vision simplified, and the potential impact immense.
 

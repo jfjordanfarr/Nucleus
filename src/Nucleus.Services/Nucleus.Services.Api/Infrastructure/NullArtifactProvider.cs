@@ -14,6 +14,7 @@ namespace Nucleus.Services.Api.Infrastructure;
 /// A null implementation of IArtifactProvider used in contexts (like the core API service)
 /// where direct artifact retrieval is not expected or supported. It fulfills DI requirements
 /// but logs a warning if its methods are invoked.
+/// <seealso cref="../../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
 /// </summary>
 public class NullArtifactProvider : IArtifactProvider
 {

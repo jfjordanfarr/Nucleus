@@ -1,8 +1,9 @@
 ---
 title: Architecture - Client Adapter Interaction Pattern
 description: Defines the standard interaction pattern for Nucleus Client Adapters (e.g., Console, Teams) within the API-First architecture.
-version: 2.0
-date: 2025-04-24
+version: 2.1
+date: 2025-04-27
+parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
 # Architecture: Client Adapter Interaction Pattern

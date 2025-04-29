@@ -50,12 +50,15 @@ public record UserQuery(string QueryText, string UserId, Dictionary<string, obje
 public record PersonaQueryResult(string ResponseText, List<string> SourceReferences, ArtifactReference? GeneratedArtifactReference = null);
 
 /// <summary>
-/// Defines the contract for a specialized AI assistant (Persona) within the Nucleus platform.
-/// Personas analyze content and handle user queries within a specific domain.
-/// Reference: Docs/Architecture/02_ARCHITECTURE_PERSONAS.md
+/// Base interface representing a distinct AI persona within Nucleus.
+/// Defines common properties like ID, name, and description.
 /// </summary>
-/// <typeparam name="TAnalysisData">The type of the structured analysis data this persona produces.</typeparam>
-public interface IPersona<TAnalysisData> where TAnalysisData : class
+/// <remarks>
+/// See: Docs/Architecture/02_ARCHITECTURE_PERSONAS.md
+/// </remarks>
+/// <seealso cref="../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+public interface IPersona
 {
     /// <summary>
     /// Gets the unique identifier for the persona (e.g., "edu-flow-analyzer").
@@ -71,7 +74,25 @@ public interface IPersona<TAnalysisData> where TAnalysisData : class
     /// Gets a description of the persona's purpose and capabilities.
     /// </summary>
     string Description { get; }
+}
 
+/// <summary>
+/// Represents a persona within the Nucleus system, capable of specialized analysis,
+/// knowledge retrieval, and interaction based on its defined role and configuration.
+/// This interface is central to the pluggable intelligence model of Nucleus.
+/// 
+/// Personas are expected to interact with underlying AI models (like Gemini) and potentially
+/// specialized knowledge repositories (like vector databases) to fulfill their tasks.
+/// </summary>
+/// <typeparam name="TAnalysisData">The type of structured data this persona generates.</typeparam>
+/// <seealso cref="ContentItem"/>
+/// <seealso cref="PersonaAnalysisResult{TAnalysisData}"/>
+/// <seealso cref="UserQuery"/>
+/// <seealso cref="PersonaQueryResult"/>
+/// <seealso cref="../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+public interface IPersona<TAnalysisData> : IPersona where TAnalysisData : class
+{
     /// <summary>
     /// Performs persona-specific analysis on the standardized content (e.g., Markdown)
     /// provided by the upstream processing pipeline, identifying relevant sections
@@ -101,14 +122,12 @@ public interface IPersona<TAnalysisData> where TAnalysisData : class
     /// See: [Architecture: AI Integration - Context Usage](~/../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md#3-contextual-query-post-apiquery)
     /// </summary>
     /// <param name="query">The user's query details.</param>
-    /// <param name="fetchedArtifactContent">Optional collection of artifact content fetched by the orchestrator based on the initial request's ArtifactReferences.</param>
+    /// <param name="extractedContents">Optional collection of extracted content results.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The result of the query, including the response text and any source references.</returns>
     /// <seealso cref="UserQuery"/>
     /// <seealso cref="PersonaQueryResult"/>
-    /// <seealso cref="ArtifactContent"/>
-    /// <seealso cref="Nucleus.Personas.Core.BootstrapperPersona.HandleQueryAsync"/>
-    Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, IEnumerable<ArtifactContent>? fetchedArtifactContent, CancellationToken cancellationToken = default);
+    Task<PersonaQueryResult> HandleQueryAsync(UserQuery query, IReadOnlyList<ArtifactContent> extractedContents, CancellationToken cancellationToken = default);
     
     /// <summary>
     /// (Optional) Allows the persona to load specific configuration during application startup.

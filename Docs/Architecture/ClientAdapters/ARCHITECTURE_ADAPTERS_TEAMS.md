@@ -1,29 +1,32 @@
 ---
 title: Client Adapter - Teams
 description: Describes a Bot Framework SDK client adapter to bring Nucleus personas into Microsoft Teams.
-version: 1.7
-date: 2025-04-24
+version: 1.8
+date: 2025-04-27
+parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
 # Client Adapter: Teams
 
 ## Overview
 
-The Teams Client Adapter (`Nucleus.Adapters.Teams`) serves as the bridge between the core Nucleus OmniRAG platform and the Microsoft Teams environment, as introduced in the main [Client Architecture document](../05_ARCHITECTURE_CLIENTS.md). It enables users to interact with Nucleus Personas through familiar Teams interfaces like chat messages, channel conversations, and potentially Adaptive Cards. The adapter leverages the Microsoft Bot Framework SDK and Microsoft Graph API to handle communication, file access, and presentation within Teams.
+The Teams Client Adapter (`Nucleus.Adapters.Teams`) serves as the bridge between the core Nucleus platform and the Microsoft Teams environment, as introduced in the main [Client Architecture document](../05_ARCHITECTURE_CLIENTS.md). It enables users to interact with Nucleus Personas through familiar Teams interfaces like chat messages, channel conversations, and potentially Adaptive Cards. The adapter leverages the Microsoft Bot Framework SDK and Microsoft Graph API to handle communication, file access, and presentation within Teams.
 
 As a pure client to the `Nucleus.Services.Api`, this adapter follows the interaction pattern described in [ARCHITECTURE_ADAPTER_INTERFACES.md](./ARCHITECTURE_ADAPTER_INTERFACES.md), translating between Teams/Bot Framework activities and API calls. It does not implement core logic itself.
+
+Implementation details for common interfaces are further specified in [ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md](./Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md).
 
 ## Auth
 
 *   **Bot Authentication:** Relies on standard Bot Framework authentication mechanisms (App ID/Password or Managed Identity) configured during bot registration in Azure Bot Service / Azure AD.
 *   **User Authentication:** User identity is typically derived from the Teams context provided in incoming activities.
-*   **Graph API Access:** Requires separate Azure AD App Registration with appropriate Microsoft Graph API permissions (e.g., `Sites.Selected`, `Files.ReadWrite`, `User.Read`, `ChannelMessage.Send`) granted via admin consent. Authentication uses client credentials flow or Managed Identity.
+*   **Graph API Access:** Requires separate Azure AD App Registration with appropriate Microsoft Graph API permissions (e.g., `Sites.Selected`, `Files.ReadWrite`, `User.Read`, `ChannelMessage.Send`) granted via admin consent. Authentication uses client credentials flow or Managed Identity. See implementation in [`GraphClientService.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/GraphClientService.cs).
 
 ## Interaction Handling & API Forwarding
 
-As per the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the Teams Adapter acts as a translator between the Bot Framework SDK and the central `Nucleus.Services.Api`.
+As per the API-First principle, the Teams Adapter acts as a translator between the Bot Framework SDK and the central `Nucleus.Services.Api`.
 
-1.  **Receive Activity:** The adapter's bot logic (e.g., implementing `IBot` or using `ActivityHandler`) receives an incoming `Activity` object from the Bot Framework for events like `message`, `messageReaction`, etc.
+1.  **Receive Activity:** The adapter's bot logic (e.g., implementing `IBot` or using `ActivityHandler` in [`TeamsAdapterBot.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs)) receives an incoming `Activity` object from the Bot Framework for events like `message`, `messageReaction`, etc.
 2.  **Extract Basic Context:** The adapter extracts standard information from the `Activity`:
     *   User ID, Name (`activity.From.Id`, `activity.From.Name`)
     *   Conversation ID, Type (`activity.Conversation.Id`, `activity.Conversation.ConversationType` - e.g., 'channel', 'personal')
@@ -40,13 +43,13 @@ As per the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88
     *   Crucially, if a parent `messageid` was extracted in the previous step, it is populated into a dedicated field in the `InteractionRequest` (e.g., `RepliedToPlatformMessageId`).
 5.  **Forward to API:** The adapter makes an authenticated HTTP POST request to the central Nucleus API endpoint (e.g., `POST /api/v1/interactions`) with the populated `InteractionRequest` object as the body.
 6.  **Handle API Response:**
-    *   **Synchronous (`HTTP 200 OK`):** The adapter receives the response DTO (e.g., `InteractionResponse`), which may contain text replies, structured data, or references to generated artifacts.
-    *   **Asynchronous (`HTTP 202 Accepted`):** The adapter receives a `jobId` and potentially an initial acknowledgment message.
-    *   **Errors (`HTTP 4xx/5xx`):** The adapter logs the error and sends an informative message back to the user.
+    *   **Synchronous:** If the API returns an immediate result (HTTP 200 OK + body), the adapter translates this back into a Teams message (text, Adaptive Card) and sends it using `TurnContext.SendActivityAsync`. Notification logic might be delegated to [`TeamsNotifier.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsNotifier.cs).
+    *   **Asynchronous:** If the API returns HTTP 202 Accepted, the adapter should send an acknowledgement (e.g., using `SendAcknowledgementAsync` from `TeamsNotifier`). It requires a mechanism (like the `IPlatformNotifier` interface implemented by `TeamsNotifier`) to receive the final result later and post it to the appropriate conversation.
+    *   **Errors:** The adapter logs the error and sends an informative message back to the user.
 
 ## Generated Artifact Handling
 
-Nucleus integrates with the **native storage mechanisms** of Microsoft Teams, primarily SharePoint Online for channel files and OneDrive for Business for chat files. Nucleus itself **does not persist raw user content** within its own managed storage (See Memory `08b60bec`). Instead, it interacts with the Team's designated storage location.
+Nucleus integrates with the **native storage mechanisms** of Microsoft Teams, primarily SharePoint Online for channel files and OneDrive for Business for chat files. Nucleus itself **does not persist raw user content** within its own managed storage, adhering to zero-trust principles regarding user data. Instead, it interacts with the Team's designated storage location.
 
 *   **Storing Outputs:** When the `Nucleus.Services.Api` generates output artifacts (e.g., summaries, reports, visualizations, logs) intended for persistent storage within the Team's context, the **`ApiService` itself writes these artifacts** to the appropriate location (typically the Team's SharePoint document library) using its own Graph permissions. The **API response then includes references** (e.g., SharePoint URLs, Graph Item IDs) to these already-stored artifacts. The adapter's role is simply to present these references to the user (e.g., as links in a message or an Adaptive Card), not to perform the write operation itself.
 
@@ -96,6 +99,8 @@ The `Nucleus.Services.Api` remains the source of truth for metadata ([Database A
     *   `threadSourceIdentifier`: For channel messages, this would typically be the *root message's* `sourceIdentifier` for all messages in that thread.
 
 ## Attachments
+
+Handles files uploaded by users in Teams messages. See also [ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md](./Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md) for details on how file *content* is retrieved.
 
 *   **Platform Representation:** Files uploaded to Teams chats/channels, stored in SharePoint or OneDrive.
 *   **Handling:** When a message activity contains attachments, the adapter extracts references to these attachments (e.g., Graph Download URL, SharePoint Item ID/URL via `activity.Attachments[n].Content.downloadUrl` or by querying Graph using IDs).

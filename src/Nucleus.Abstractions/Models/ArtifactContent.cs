@@ -8,12 +8,14 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Models;
 
 /// <summary>
-/// Represents the actual content retrieved from an artifact source,
-/// along with relevant metadata.
+/// Represents the retrieved content of an artifact along with essential details.
+/// This object is returned by <see cref="IArtifactProvider.GetContentAsync"/>.
+/// It is disposable to ensure the underlying stream is properly managed.
+/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md
 /// </summary>
-/// <remarks>
-/// Implements IDisposable to ensure the ContentStream is properly managed.
-/// </remarks>
+/// <seealso cref="IArtifactProvider"/>
+/// <seealso cref="ArtifactReference"/>
+/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
 public sealed class ArtifactContent : IDisposable
 {
     private bool _disposed;

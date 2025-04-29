@@ -7,9 +7,12 @@ namespace Nucleus.Abstractions.Orchestration;
 /// <summary>
 /// Defines the contract for resolving a canonical Persona ID based on
 /// platform-specific identifiers provided in an incoming request.
+/// <seealso cref="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </summary>
 /// <remarks>
 /// See architecture doc: [ARCHITECTURE_ORCHESTRATION_PERSONA_RESOLUTION.md](../../../../Docs/Architecture/Orchestration/ARCHITECTURE_ORCHESTRATION_PERSONA_RESOLUTION.md)
+/// See: ../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md
+/// See: ../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
 /// </remarks>
 public interface IPersonaResolver
 {

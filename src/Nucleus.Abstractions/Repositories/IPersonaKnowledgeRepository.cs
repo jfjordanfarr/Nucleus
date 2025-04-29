@@ -5,13 +5,31 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Repositories;
 
 /// <summary>
-/// Defines the contract for a repository responsible for managing PersonaKnowledgeEntry records
-/// specific to a particular Persona and its analysis data type.
-/// Implementations will typically interact with a dedicated {PersonaId}KnowledgeContainer in Cosmos DB.
-/// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#4-personaidknowledgecontainer-schema
-/// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#7-next-steps
+/// Enum representing the confidence level of the persona's analysis.
+/// @TODO: I'm not in love with this location for the enum definition. Anywhere that we can make this more globally available like NucleusConstants.cs?
 /// </summary>
-/// <typeparam name="TAnalysisData">The specific type of analysis data generated and stored by the Persona.</typeparam>
+public enum ConfidenceLevel
+{
+    Unknown = 0,
+    VeryLow = 1,
+    Low = 2,
+    Medium = 3,
+    High = 4,
+    VeryHigh = 5,
+    Certain = 6
+}
+
+/// <summary>
+/// Defines the contract for storing and retrieving persona-specific knowledge entries.
+/// These entries represent the processed output or analysis derived from artifacts by a specific persona.
+/// Implementations will typically interact with a persistent data store (e.g., Cosmos DB).
+/// </summary>
+/// <typeparam name="TAnalysisData">The type of the specific analysis data stored within the knowledge entry.</typeparam>
+/// <seealso cref="Models.PersonaKnowledgeEntry{TAnalysisData}"/>
+/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
 public interface IPersonaKnowledgeRepository<TAnalysisData>
 {
     /// <summary>
@@ -58,6 +76,9 @@ public interface IPersonaKnowledgeRepository<TAnalysisData>
 /// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#4-personaidknowledgecontainer-schema
 /// </summary>
 /// <typeparam name="TAnalysisData">The specific type of analysis data.</typeparam>
+/// <seealso cref="../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
 public record PersonaKnowledgeEntry<TAnalysisData>
 {
     /// <summary>
@@ -122,6 +143,7 @@ public record PersonaKnowledgeEntry<TAnalysisData>
 /// <summary>
 /// Represents a relevant text snippet extracted by a Persona, along with its embedding.
 /// </summary>
+/// <seealso cref="../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
 public record RelevantSnippet
 {
     /// <summary>

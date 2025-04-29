@@ -1,6 +1,7 @@
 using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Repositories;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Nucleus.Services.Api.IntegrationTests.Infrastructure;
@@ -11,6 +12,22 @@ namespace Nucleus.Services.Api.IntegrationTests.Infrastructure;
 /// </summary>
 public class NullArtifactMetadataRepository : IArtifactMetadataRepository
 {
+    /// <summary>
+    /// Tracks the number of times UpsertAsync was called.
+    /// Reset this before tests that need to check it.
+    /// </summary>
+    private int _upsertAsyncCalledCount = 0;
+
+    public int UpsertAsyncCalledCount => _upsertAsyncCalledCount;
+
+    /// <summary>
+    /// Resets the counter for UpsertAsync calls.
+    /// </summary>
+    public void Reset()
+    {
+        _upsertAsyncCalledCount = 0;
+    }
+
     public Task<ArtifactMetadata?> GetByIdAsync(string id, string partitionKey)
     {
         // Always return null as if the item doesn't exist
@@ -24,10 +41,23 @@ public class NullArtifactMetadataRepository : IArtifactMetadataRepository
         return Task.FromResult<ArtifactMetadata?>(null);
     }
 
-    public Task<IEnumerable<ArtifactMetadata>> GetAllAsync(string partitionKey)
+    /// <summary>
+    /// Gets all artifact metadata asynchronously. Returns an empty list for the null implementation.
+    /// Note: CA1822 warning is expected here as this mock doesn't access instance data.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>An empty list of artifact metadata.</returns>
+    public Task<IEnumerable<ArtifactMetadata>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        // Always return an empty list
         return Task.FromResult(Enumerable.Empty<ArtifactMetadata>());
+    }
+
+    public Task UpsertAsync(ArtifactMetadata metadata, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(metadata);
+        Interlocked.Increment(ref _upsertAsyncCalledCount); // Use Interlocked for potential future parallel tests
+        // No actual persistence
+        return Task.CompletedTask;
     }
 
     public Task<ArtifactMetadata> SaveAsync(ArtifactMetadata metadata)

@@ -38,22 +38,35 @@ public enum OrchestrationStatus
 public record OrchestrationResult(OrchestrationStatus Status, AdapterResponse? Response);
 
 /// <summary>
-/// Defines the contract for the central service responsible for orchestrating
-/// the processing of incoming ingestion requests.
-/// This includes session management, persona selection, routing, and invoking specific processing steps.
-/// See: ../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md
-/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
-/// See: ../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md
+/// Defines the central service responsible for orchestrating the processing of incoming interactions.
+/// This acts as the primary entry point into the Nucleus backend logic after the initial API reception.
+/// It handles activation checks, determines processing mode (sync/async), resolves personas, and routes requests.
 /// </summary>
+/// <remarks>
+/// This service embodies the core API-First principle of the Nucleus architecture.
+/// </remarks>
+/// <seealso cref="Models.AdapterRequest"/>
+/// <seealso cref="Models.NucleusIngestionRequest"/>
+/// <seealso cref="OrchestrationResult"/>
+/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public interface IOrchestrationService
 {
     /// <summary>
     /// Processes an incoming interaction request, handling activation checks, routing, and initiating processing (sync or async).
     /// </summary>
     /// <param name="request">The adapter request containing interaction details.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>An OrchestrationResult indicating the outcome (ProcessedSync, AcceptedAsync, Ignored, Error) and the corresponding AdapterResponse.</returns>
-    Task<OrchestrationResult> ProcessInteractionAsync(AdapterRequest request, CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Optional cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation, yielding an OrchestrationResult.</returns>
+    Task<OrchestrationResult> ProcessInteractionAsync(
+        AdapterRequest request,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Handles an interaction request that has been dequeued from the background task queue for asynchronous processing.

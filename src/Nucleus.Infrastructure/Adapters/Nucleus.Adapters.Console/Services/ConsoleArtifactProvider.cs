@@ -15,6 +15,7 @@ namespace Nucleus.Infrastructure.Adapters.Console.Services;
 /// <summary>
 /// Provides artifact content for local files referenced by the Console adapter.
 /// See: Docs/Architecture/ClientAdapters/Console/ARCHITECTURE_ADAPTERS_CONSOLE_INTERFACES.md
+/// <seealso cref="../../../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </summary>
 public class ConsoleArtifactProvider : IArtifactProvider
 {

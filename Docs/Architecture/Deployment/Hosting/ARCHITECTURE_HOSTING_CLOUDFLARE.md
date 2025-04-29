@@ -1,15 +1,16 @@
 ---
 title: Architecture - Hosting Strategy: Cloudflare
-description: Outlines a potential strategy for deploying the Nucleus OmniRAG system using Cloudflare services.
-version: 1.2
-date: 2025-04-22
+description: Outlines a potential strategy for deploying the Nucleus system using Cloudflare services.
+version: 1.3
+date: 2025-04-27
+parent: ../07_ARCHITECTURE_DEPLOYMENT.md
 ---
 
-# Nucleus OmniRAG: Cloudflare Deployment Strategy
+# Nucleus: Cloudflare Deployment Strategy
 
 ## 1. Introduction
 
-This document explores a potential architecture for deploying the Nucleus OmniRAG system leveraging Cloudflare's developer platform, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). This strategy is particularly attractive for scenarios prioritizing cost-efficiency (generous free tiers), simplified security management, and global performance via Cloudflare's edge network.
+This document explores a potential architecture for deploying the Nucleus system leveraging Cloudflare's developer platform, situated within the overall [Deployment Architecture](../07_ARCHITECTURE_DEPLOYMENT.md). This strategy is particularly attractive for scenarios prioritizing cost-efficiency (generous free tiers), simplified security management, and global performance via Cloudflare's edge network.
 
 It builds upon the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) and offers an alternative to the [Azure Deployment Strategy](./ARCHITECTURE_HOSTING_AZURE.md).
 

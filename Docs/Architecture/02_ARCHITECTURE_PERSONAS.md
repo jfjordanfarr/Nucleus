@@ -1,20 +1,21 @@
 ---
 title: Architecture - Personas & Multi-Platform Interaction
 description: Details the architecture for Personas, including multi-platform identities, interaction patterns, and persona-to-persona communication, all within the API-First model.
-version: 1.7
-date: 2025-04-24
+version: 2.2
+date: 2025-04-28
 ---
 
 # Nucleus OmniRAG: Persona Architecture
 
-**Version:** 1.7
-**Date:** 2025-04-24
+**Version:** 2.2
+**Date:** 2025-04-28
 
-This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate across multiple communication platforms, all coordinated via the `Nucleus.Services.Api`.
+This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate as **agentic entities** coordinated via the `Nucleus.Services.Api`, leveraging **ephemeral content retrieval** based on **artifact references** executed by a central **Persona Runtime/Engine** based on configuration.
 
 *   **Related Architecture:**
     *   [Overall System Architecture](./00_ARCHITECTURE_OVERVIEW.md)
     *   [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)
+    *   [Security Architecture](./06_ARCHITECTURE_SECURITY.md)
     *   [Client Architecture](./05_ARCHITECTURE_CLIENTS.md) (and specific adapters in `../ClientAdapters/`)
     *   [Processing Orchestration](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
     *   [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)
@@ -22,187 +23,93 @@ This document details the architecture for implementing specialized AI assistant
 
 ## 1. Core Concept: Personas as Specialized Agents
 
-Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, analysis capabilities, and interaction patterns, leveraging the core platform's infrastructure for data ingestion, processing (see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)), storage (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), and retrieval from the [Database](./04_ARCHITECTURE_DATABASE.md).
+Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, **agentic reasoning capabilities (operating through iterative, multi-step processing loops)**, analysis methods, and interaction patterns, **all defined via configuration and executed by the Persona Runtime/Engine**. They leverage the core platform's infrastructure for **secure metadata indexing (querying sanitized, derived knowledge stored in the database)**, processing (see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)), **ephemeral artifact content retrieval (fetching full content transiently from user storage via `IArtifactProvider` when needed)** using `ArtifactReference` (adhering to **strict security principles like Zero Trust for user content**), storage of derived knowledge ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), and retrieval from the [Database](./04_ARCHITECTURE_DATABASE.md).
 
 A key design principle is that a Persona exists as an abstraction *above* specific communication platforms. The same "Professional Colleague" persona, with its unique knowledge and capabilities, should be accessible via Teams, Email, Slack, etc., if configured.
 
-## 2. The `IPersona` Interface
+## 2. Conceptual Responsibilities (Handled by Runtime)
 
-The foundation of the persona system is the `IPersona<TAnalysisData>` interface, which serves as the essential contract for all personas. It ensures consistent integration with the core platform for tasks like content analysis and query handling.
+While previously embodied in an `IPersona` interface (now deprecated, see Section 11.5), the core *functions* performed by the Persona Runtime, guided by configuration, include:
 
-**Authoritative Definition:** The precise C# definition of `IPersona<TAnalysisData>` and its related types (e.g., `ContentItem`, `PersonaAnalysisResult`, `UserQuery`, `PersonaQueryResult`) resides within the `Nucleus.Abstractions` project (specifically, likely in [`IPersona.cs`](../../../Nucleus.Abstractions/IPersona.cs)). Refer to the source code and its XML documentation for the exact method signatures and type definitions.
+*   **Identification:** Using the `PersonaId` from the configuration to log and potentially tailor behavior.
+*   **Contextual Interpretation:** Understanding the user's query and the provided `InteractionContext`.
+*   **Agentic Reasoning & Planning:** Based on the configured `AgenticStrategy`, determining the steps needed to fulfill the request. This might involve:
+    *   Querying the **Secure Metadata Index** (`ArtifactMetadata`, `PersonaKnowledgeEntry` in the configured `TargetKnowledgeContainerId`) to identify relevant artifacts/knowledge.
+    *   Triggering **ephemeral content retrieval** for artifacts via `IArtifactProvider` using `ArtifactReference` to build **rich ephemeral context** when deeper analysis is required.
+    *   Potentially planning and executing **Tools** if configured.
+*   **LLM Interaction:** Communicating with the configured AI service (`IChatClient`) using the appropriate `SystemMessage` and context.
+*   **Knowledge Generation/Persistence:** Optionally generating structured insights (e.g., `PersonaKnowledgeEntry`) and requesting their persistence via repositories.
+*   **Response Formulation:** Crafting the final response according to configured `ResponseGuidelines`.
 
-Key responsibilities defined conceptually by `IPersona`:
-*   **Identification:** Provide unique ID and descriptive info.
-*   **Content Analysis:** Process the **standardized content (e.g., Markdown)** provided by the [Processing Pipeline](./01_ARCHITECTURE_PROCESSING.md), identify relevant sections *within that content*, and generate structured insights stored as `PersonaKnowledgeEntry` records in the [Database](./04_ARCHITECTURE_DATABASE.md).
-*   **Query Handling:** Respond to user queries (originating from [Clients](./05_ARCHITECTURE_CLIENTS.md)) within its domain.
-*   **Configuration:** Load persona-specific settings.
+{{ ... sections 3-10 unchanged ... }}
 
-## 3. Persona Profile & Multi-Platform Identities
+## 11. Configuration-Driven Model
 
-To bridge the gap between the abstract Persona and concrete platform accounts, each Persona requires a profile that links its canonical identity to its representation on various platforms.
+The architecture for Personas has been refactored to reflect a configuration-driven model executed by a generic Persona Runtime/Engine, rather than distinct IPersona implementations for each persona type.
 
-*   **Canonical Persona ID:** A unique, persistent identifier for the Persona within Nucleus (e.g., `professional-colleague`). This ID is used internally for routing, storage association, etc.
-*   **Platform Identities:** A collection mapping the Persona to specific user accounts or addresses on supported platforms. Each entry includes:
-    *   `PlatformType`: An enum identifying the platform (e.g., `Teams`, `Email`, `Discord`).
-    *   Platform-Specific Identifiers: The necessary ID(s) for that platform (e.g., `UserId`, `TenantId` for Teams; `Address` for Email; `UserId` for Discord).
-*   **Storage:** This profile information must be stored persistently and be accessible by the `Nucleus.Services.Api`. Potential stores include:
-    *   Configuration files (`appsettings.json`, dedicated persona config files).
-    *   A dedicated database table (e.g., in the [Operational Database](./04_ARCHITECTURE_DATABASE.md)).
-*   **Resolution:** A mechanism (e.g., an `IPersonaResolver` service) is needed to map an incoming request's platform-specific identifiers (`PlatformType`, `OriginatingUserId`) to the corresponding Canonical Persona ID, and vice-versa for outgoing messages.
+### 11.1 Overview
 
-**Example Persona Profile Structure (Conceptual JSON):**
+Instead of coding unique C# classes for each persona's core logic, personas are now primarily defined by **configuration data**. This configuration specifies the persona's identity, behavior, capabilities, prompts, and how it should interact with the system's resources.
 
-```json
-{
-  "PersonaId": "professional-colleague",
-  "DisplayName": "Professional Colleague",
-  "BasePrompt": "You are a helpful professional assistant...",
-  "KnowledgeFilterTags": ["work", "projects"],
-  "PlatformIdentities": [
-    { "PlatformType": "Teams", "UserId": "uuid-for-teams-user", "TenantId": "contoso.onmicrosoft.com" },
-    { "PlatformType": "Email", "Address": "colleague@contoso.com" },
-    { "PlatformType": "Discord", "UserId": "discord-snowflake-id" }
-    // Add other platforms as needed
-  ],
-  "Capabilities": ["web-search", "calendar-query"]
-}
-```
+A central **Persona Runtime/Engine** component reads this configuration and executes the necessary steps to handle a user interaction for the specified persona.
 
-## 4. Hybrid Project Structure
+**Benefits:**
+*   **Flexibility:** New personas or variations can be defined largely through configuration changes, reducing the need for recompilation and deployment.
+*   **Maintainability:** Core agentic logic (e.g., RAG process, tool execution flow) is centralized in the Runtime, making updates easier.
+*   **Consistency:** Ensures all personas adhere to the same core processing patterns and security protocols enforced by the Runtime.
 
-To promote modularity and separation of concerns, personas are implemented using a hybrid project structure:
+### 11.2 Persona Runtime/Engine
 
-*   **`Nucleus.Personas.Core` (Parent Project):**
-    *   Contains shared utilities, base classes, or common logic applicable across multiple personas.
-    *   May reference `Nucleus.Abstractions` and `Nucleus.Domain.Processing`.
-*   **Individual Persona Projects (e.g., `Nucleus.Personas.EduFlow`, `Nucleus.Personas.BusinessAssistant`):**
-    *   Each project implements a specific `IPersona`.
-    *   Contains persona-specific models (e.g., `LearningEvidenceAnalysis`), prompts, configuration, and logic.
+The **Persona Runtime/Engine** is a central component, implemented as one or more C# services within the **`Nucleus.Personas.Core`** project. It is responsible for:
 
-This structure allows new personas to be added relatively independently.
+1.  **Loading Configuration:** Retrieving and parsing a specific `PersonaConfiguration` based on the `PersonaId` determined during [Routing](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md).
+2.  **Executing Agentic Loop:** Orchestrating the interaction lifecycle based on the loaded configuration's parameters (e.g., prompts, knowledge scope, agentic strategy, enabled tools).
+3.  **Interfacing with Services:** Communicating with necessary services like `IChatClient`, `IArtifactMetadataRepository`, `IPersonaKnowledgeRepository<T>`, and triggering content retrieval via the orchestrator.
 
-## 5. Initial & Planned Verticals/Personas
+This engine acts as the executor for the behavior defined *in* the configuration.
 
-Based on the [Project Mandate](../Requirements/00_PROJECT_MANDATE.md) and existing project structure, the following are initial or planned persona categories:
+### 11.3 Persona Configuration
 
-### 5.1 Professional Colleague (Initial Vertical)
+Defines *what* a persona is and *how* it should behave. Key elements are outlined in detail in [Persona Configuration](./Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md) and include:
 
-*   **Detailed Architecture:** [./Personas/ARCHITECTURE_PERSONAS_PROFESSIONAL.md](./Personas/ARCHITECTURE_PERSONAS_PROFESSIONAL.md)
+*   **Core Identification:** `PersonaId`, `DisplayName`, `Description`
+*   **Operational Settings:** `ShowYourWork`
+*   **Activation Rules:** `ActivationTriggers`, `ContextScope`
+*   **Capability Settings:**
+    *   `LlmConfiguration`: Provider, Models, Parameters
+    *   `EnabledTools`: List of allowed tools
+    *   `KnowledgeScope`: Strategy, Collections, `TargetKnowledgeContainerId`, Limits
+*   **Prompt Configuration:** `SystemMessage`, `ResponseGuidelines`
+*   **Agentic Strategy Configuration:** `StrategyType`, `MaxIterations`
+*   **Custom Properties:** Flexible key-value pairs for persona-specific data (e.g., `PedagogicalTreeRef` for Educator)
 
-*   **Goal:** Simulates a professional colleague to provide insights, assistance, and perform tasks within a specific work context (e.g., IT Helpdesk, domain-specific knowledge Q&A).
-*   **Target Deployment:** Often self-hosted or within enterprise environments (e.g., integrated with Teams) where access to internal knowledge bases is required.
-*   **Key Functionality:**
-    *   Implements `IPersona`.
-    *   Leverages RAG against authorized company/domain-specific knowledge sources.
-    *   May integrate with specific enterprise tools or APIs via client adapters.
+### 11.4 Core Responsibilities (Executed by Runtime based on Config)
 
-### 5.2 EduFlow OmniEducator (Initial Vertical)
+{{ ... }}
 
-*   **Detailed Architecture:** [./Personas/ARCHITECTURE_PERSONAS_EDUCATOR.md](./Personas/ARCHITECTURE_PERSONAS_EDUCATOR.md)
+### 11.5 Specific Persona Configurations
 
-*   **Target Deployment:** Cloud-Hosted Service (Ephemeral user sessions).
-*   **Goal:** Observe, document, and provide insights on authentic learning activities (e.g., analyzing Scratch projects, documents, web browsing related to a project).
-*   **Key Functionality:**
-    *   Implements `IPersona`.
-    *   Defines specific analysis schemas (e.g., `LearningEvidenceAnalysis` record) for structuring insights.
-    *   Uses AI (via `IChatClient`/Semantic Kernel) with tailored prompts to generate educational observations based on salient content.
-    *   Focuses on processing artifacts accessed via ephemeral user tokens (Google Drive, potentially browser extensions).
-    *   Analysis results are stored in the backend DB associated with the user's session/temporary identifier.
+While the core logic resides in the generic Runtime, specific behaviors are defined via configurations detailed in linked documents:
 
-### 5.3 Other Planned Personas (Likely Cloud-Hosted Targets)
+*   **[Bootstrapper](./Personas/ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md):** Configuration for basic interaction, fallback, and testing.
+*   **[Educator](./Personas/ARCHITECTURE_PERSONAS_EDUCATOR.md):** Configuration focused on analyzing educational artifacts and tracking learning progress.
+*   **[Professional Colleague](./Personas/ARCHITECTURE_PERSONAS_PROFESSIONAL.md):** Configuration for assisting with workplace tasks, information retrieval, potentially integrating with enterprise tools.
+    *   Example Deployment: [Azure .NET IT Helpdesk](./Personas/Professional/ARCHITECTURE_AZURE_DOTNET_HELPDESK.md)
 
-These represent other areas identified for potential persona development, primarily targeting individual users:
+*(Note: The previously mentioned `IPersona` interface and specific implementations like `BootstrapperPersona.cs`, `EducatorPersona.cs`, `ProfessionalPersona.cs` are now considered **deprecated** in favor of this configuration-driven Runtime model. Code references should be updated accordingly in future refactoring.)*
 
-*   **HealthSpecialist:** Intended to process personal health data (e.g., fitness tracker logs, health records accessed via user permission) and provide health-related insights or summaries.
-*   **PersonalAssistant:** Designed to manage personal tasks, appointments, deadlines, potentially integrating with calendars or task lists via user permission.
-*   _(Others like PersonalFinance, WorldModeler could also be considered)_.
+### 11.6 Key Design Considerations
 
-## 6. Interaction Patterns (API-Orchestrated)
+*   **Statelessness:** The Persona Runtime should aim to be stateless, relying on the `InteractionContext` and retrieved data for processing each request. State, if needed, should be managed externally (e.g., in a cache or database) or passed explicitly.
+*   **Configuration Schema:** A well-defined and versioned schema for `PersonaConfiguration` is crucial for stability and extensibility.
+*   **Runtime Extensibility:** The Runtime might need mechanisms to load custom logic or tools referenced in configurations, potentially via dependency injection or plugins.
+*   **Security:** All interactions involving content retrieval and AI processing must strictly adhere to the [Security Architecture](./06_ARCHITECTURE_SECURITY.md).
 
-Personas interact with the platform and external systems through well-defined patterns, **orchestrated by the `Nucleus.Services.Api` layer.** The API service leverages Dependency Injection (DI) to provide necessary services to the persona logic when it's invoked during request processing (either synchronously or asynchronously). Internal helper services, like a potential `OrchestrationService`, assist the API layer in managing these flows.
+### 11.7 Next Steps
 
-*   **Content Analysis (`AnalyzeContentAsync`):** As stated before, persona logic invoked by the API service receives **standardized content** (e.g., Markdown) within the `ContentItem` from the processing pipeline for initial analysis.
-
-*   **Fetching Original Artifacts (Targeted Fetch):**
-    *   If a Persona, during its execution managed by the API service, requires the original artifact binary (e.g., for deeper analysis not possible from the synthesized Markdown), it signals this need.
-    *   The API service (potentially using an `OrchestrationService` helper) identifies the required `PlatformType` and `ContentSourceUri` from the context (e.g., `NucleusIngestionRequest` data associated with the current job).
-    *   The API service resolves the appropriate `IPlatformAttachmentFetcher` implementation for that specific `PlatformType`.
-    *   It then calls the fetcher with the `ContentSourceUri`.
-    *   **Crucially, the fetch is targeted based on known source information provided in the initial API request.**
-
-*   **Sending Outgoing Notifications (Targeted Send):**
-    *   When a Persona's logic (executed via the API service) determines a need to send a notification or message:
-    *   The API service (potentially using an `OrchestrationService` helper) determines the target `PlatformType` and recipient identity.
-        *   This might be back to the original user (requiring profile lookup via `IPersonaResolver`).
-        *   Or it might be to another user/persona (see Persona-to-Persona below).
-    *   The API service resolves the correct `IPlatformNotifier` for the target `PlatformType`.
-    *   It invokes the notifier with the message content and target details.
-
-*   **Other Services:** Access to `IFileStorage`, `IRepository<T>`, `IChatClient`, `IEmbeddingGenerator`, etc., remains available via DI as needed by the Persona logic during its execution within the API service's processing flow.
-
-## 7. Persona-to-Persona Communication (API-Mediated)
-
-Direct, tightly coupled communication between personas is discouraged to maintain modularity. Instead, interactions are mediated via the `Nucleus.Services.Api` layer:
-
-1.  **Initiation:** Persona A, during its execution managed by the API service, determines a need to involve Persona B.
-2.  **Trigger:** Persona A's logic signals this intent to the API service layer.
-3.  **API Action:** The API service layer then takes appropriate action:
-    *   **Option A (New API Request):** It might formulate and execute a *new internal API request* targeting Persona B's relevant endpoint.
-    *   **Option B (Enqueue Task):** It might enqueue a *new background task* specifically instructing Persona B to perform an action, passing necessary context.
-4.  **Processing:** Persona B's logic is invoked via the standard API processing flow (synchronous or asynchronous) triggered by the API request or dequeued task.
-5.  **Response/Result:** Persona B's results are handled via the standard API response mechanisms (returned in the API call or stored for async retrieval).
-
-This ensures the API service remains the central point of control and interaction, even between personas.
-
-## 8. Persona-Specific Analysis Schemas
-
-A key aspect is the ability for personas to generate structured analysis outputs.
-
-*   **C# Records:** Define specific C# record types within the persona's project (e.g., `Nucleus.Personas.EduFlow.Models.LearningEvidenceAnalysis`).
-*   **Semantic Kernel / Function Calling:** Leverage Semantic Kernel and LLM function calling (or JSON mode) to instruct the AI model to generate outputs conforming to the JSON schema derived from these records (as outlined in Memory `b62d4c46`).
-*   **Implementation:** Personas use `IChatClient` from `Microsoft.Extensions.AI` (not a custom `IAiClient` abstraction) for LLM interactions, potentially wrapped in Semantic Kernel for structured output generation.
-*   **Persistence:** These structured results are stored alongside the relevant text snippet in the database, allowing for targeted querying and aggregation later.
-
-## 9. Configuration
-
-Persona behavior can be configured via standard .NET mechanisms (`appsettings.json`, environment variables, Aspire configuration).
-
-*   Persona-specific API keys or endpoints (if using unique external services).
-*   Prompts and templates.
-*   Feature flags or behavior toggles (e.g., `ShowYourWork`).
-*   Thresholds (e.g., salience scores).
-*   Activation Rules.
-*   Allowed Tools.
-
-The `IPersona.ConfigureAsync` method provides a hook for personas to load their specific configuration sections.
-
-**For a detailed breakdown of the configuration schema and available settings, see: [Persona Configuration](./Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md).**
-
-## 10. Next Steps
-
-1.  **Refine `IPersona` Interface:** Ensure consistency with analysis flow.
-2.  **Implement Persona Profile Store:** Decide on and implement storage (config/DB).
-3.  **Implement Persona Resolver:** Create service to map between canonical and platform IDs.
-4.  **Update OrchestrationService:** Implement profile lookup, targeted fetching logic, and **targeted notification sending logic**.
-5.  **Implement DI for Platform Services:** Ensure `IPlatformAttachmentFetcher` and `IPlatformNotifier` can be resolved by `PlatformType` (e.g., keyed services or factory pattern).
-6.  **Create Project Structure:** Continue setting up persona projects.
-7.  **Implement Personas:** Refactor EduFlow, develop Business Assistant.
-8.  **DI Registration:** Ensure personas and related services are registered.
-9.  **Integration Tests:** Test multi-platform flows.
-
----
-
-_This architecture document provides the blueprint for personas, emphasizing multi-platform operation, targeted fetching, **targeted notification sending**, and standardized persona-to-persona communication._
-
-### Key Services and Abstractions (Relevant to Multi-Platform)
-
-These services act as **components utilized by the `Nucleus.Services.Api` layer** to handle platform-specific operations:
-
-*   **`IPlatformAttachmentFetcher`**: Used by the API Service/Orchestrator for **targeted** fetching of original artifacts based on `PlatformType` from the request context.
-*   **`IPlatformNotifier`**: Used by the API Service/Orchestrator for sending outgoing messages/notifications, typically to a **single targeted platform** based on profile lookups and context.
-*   **`IPersonaResolver` (Proposed)**: Service used by the API Service/Orchestrator to map between canonical Persona IDs and platform-specific identities.
-*   **Persona Profile Store (Conceptual)**: Persistent storage for the mapping defined above, accessed via services.
-*   **`IOrchestrationService` (Internal Helper)**: A potential internal component used by the `Nucleus.Services.Api` to help manage complex multi-step workflows involving multiple platforms or personas, but not directly exposed externally.
-
-(Other services like `IArtifactMetadataService`, `IContentExtractor`, `IPersona`, `IChatClient`, `IEmbeddingGenerator`, `IPersonaKnowledgeRepository` remain relevant as described previously, accessed via DI during API-managed processing).
+1.  **(DONE)** ~~Finalize & Implement `PersonaConfiguration` Schema: Ensure the C# class matches the documentation and integrate it into the configuration loading mechanism.~~
+2.  **Implement Persona Runtime/Engine:** Develop the core service(s) in `Nucleus.Personas.Core` responsible for loading configurations and executing the agentic loop based on the defined strategies (`SimpleRag`, `MultiStepReasoning`, `ToolUsing`).
+3.  **Refactor Existing Code:** Adapt `OrchestrationService` and related components to invoke the Runtime with the appropriate `PersonaConfiguration` instead of resolving and calling specific `IPersona` implementations.
+4.  **(DONE)** ~~Update Specific Persona Docs: Modify `_BOOTSTRAPPER`, `_EDUCATOR`, `_PROFESSIONAL` docs to reflect their status as configurations, removing references to direct C# implementation of core logic.~~
+5.  **Define Configuration Storage/Loading:** Decide how configurations will be stored (e.g., `appsettings.json`, database) and implement the loading mechanism for the Runtime/API Service.
+6.  **Implement Agentic Strategies:** Build out the logic within the Runtime to handle the different `StrategyType` options.

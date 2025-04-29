@@ -1,82 +1,84 @@
 using Microsoft.Extensions.DependencyInjection; // Keep for potential future use, though removing GetKeyedService here
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models; // ADDED for AdapterResponse, PersonaConfiguration, InteractionContext, SalienceCheckResult etc.
 using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
+using Nucleus.Abstractions.Repositories; // Added for IArtifactProvider and IArtifactMetadataRepository
 using Nucleus.Abstractions; // Corrected namespace for IPersona<>
+using Nucleus.Domain.Personas.Core; // Ensure this using exists for EmptyAnalysisData
 // using Nucleus.Personas.Core; // May be needed later for implementation types, but not IPersona interface
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Nucleus.Abstractions.Extraction; // Added for ContentExtractionResult
 
 namespace Nucleus.Domain.Processing;
 
 /// <summary>
 /// Default implementation of <see cref="IPersonaManager"/> that acts as a basic router
 /// using keyed service resolution based on PersonaTypeId. It does not maintain any state itself.
+/// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </summary>
 public class DefaultPersonaManager : IPersonaManager
 {
-    private readonly string _personaId;
     private readonly ILogger<DefaultPersonaManager> _logger;
-    private readonly IPersona<object> _managedPersona; 
+    private readonly IServiceProvider _serviceProvider; // To resolve the actual IPersona
+    private readonly IPersona _managedPersona; 
     private readonly IEnumerable<IArtifactProvider> _artifactProviders;
+    private readonly IArtifactMetadataRepository _artifactMetadataRepository; // Added
+    private readonly IOptions<List<PersonaConfiguration>> _personaConfigurations; // Added
+
+    // TODO: Refactor key to use NucleusConstants
+    public const string DefaultPersonaTypeId = "Default_v1";
+
+    // Implementation for IPersonaManager
+    public string ManagedPersonaTypeId => DefaultPersonaTypeId;
+
+    // Implementation for IPersonaManager
+    public PersonaConfiguration Configuration { get; }
 
     /// <summary>
-    /// Gets the configuration settings associated with this specific persona instance.
+    /// Initializes a new instance of the <see cref="DefaultPersonaManager"/> class.
     /// </summary>
-    public PersonaConfiguration Configuration { get; private set; }
-
-    /// <inheritdoc />
-    public string ManagedPersonaTypeId => _personaId; 
-
+    /// <param name="logger">Logger instance.</param>
+    /// <param name="serviceProvider">Service provider for resolving keyed services.</param>
+    /// <param name="personaConfigurations">All registered persona configurations.</param> // Added
+    /// <param name="artifactMetadataRepository">Repository for artifact metadata.</param> // Added
+    /// <param name="managedPersona">Managed persona instance.</param>
+    /// <param name="artifactProviders">Artifact providers.</param>
     public DefaultPersonaManager(
-        string personaId, 
         ILogger<DefaultPersonaManager> logger,
-        IOptionsMonitor<List<PersonaConfiguration>> personaConfigsOptions,
-        IPersona<object> managedPersona,
-        IEnumerable<IArtifactProvider> artifactProviders
-        /* Inject other dependencies here */)
+        IServiceProvider serviceProvider,
+        IOptions<List<PersonaConfiguration>> personaConfigurations, // Added
+        IArtifactMetadataRepository artifactMetadataRepository, // Added
+        IPersona managedPersona,
+        IEnumerable<IArtifactProvider> artifactProviders)
     {
-        _personaId = personaId ?? throw new ArgumentNullException(nameof(personaId));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        ArgumentNullException.ThrowIfNull(personaConfigsOptions);
-        _managedPersona = managedPersona ?? throw new ArgumentNullException(nameof(managedPersona)); 
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _personaConfigurations = personaConfigurations ?? throw new ArgumentNullException(nameof(personaConfigurations)); // Added
+        _artifactMetadataRepository = artifactMetadataRepository ?? throw new ArgumentNullException(nameof(artifactMetadataRepository)); // Added
+        _managedPersona = managedPersona ?? throw new ArgumentNullException(nameof(managedPersona));
         _artifactProviders = artifactProviders ?? throw new ArgumentNullException(nameof(artifactProviders));
 
-        // Find the configuration for this specific persona instance
-        var personaConfigs = personaConfigsOptions.CurrentValue ?? new List<PersonaConfiguration>();
-#pragma warning disable CS8601 // Null check and default assignment handle this case
-        Configuration = personaConfigs.FirstOrDefault(p => 
-                            p.PersonaId.Equals(_personaId, StringComparison.OrdinalIgnoreCase));
-#pragma warning restore CS8601
+        // Find the specific configuration for this manager instance
+        Configuration = _personaConfigurations.Value.FirstOrDefault(p => p.PersonaId == ManagedPersonaTypeId)
+                        ?? throw new InvalidOperationException($"Configuration for persona '{ManagedPersonaTypeId}' not found.");
 
-        if (Configuration == null)
-        {            
-            _logger.LogWarning("Configuration for PersonaId '{PersonaId}' not found. Using default configuration.", _personaId);
-            // Create a default configuration if not found
-            Configuration = new PersonaConfiguration { PersonaId = _personaId };
-        }
-        else
-        {
-            _logger.LogInformation("Loaded configuration for PersonaId '{PersonaId}'. Processing Preference: {Preference}", 
-                _personaId, Configuration.ProcessingPreference);
-        }
-
-        // TODO: Add listener for configuration changes if needed using personaConfigsOptions.OnChange
+        _logger.LogDebug("DefaultPersonaManager initialized for PersonaTypeId: {PersonaId}", ManagedPersonaTypeId);
     }
 
     /// <inheritdoc />
-    public virtual Task<SalienceCheckResult> CheckSalienceAsync(InteractionContext context, CancellationToken cancellationToken = default)
+    public Task<SalienceCheckResult> CheckSalienceAsync(InteractionContext context, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        // DefaultPersonaManager doesn't manage state, so interactions are never salient to it directly.
-        _logger.LogInformation("DefaultPersonaManager ({ManagedPersonaTypeId}) CheckSalienceAsync called. Defaulting to NotSalient.", ManagedPersonaTypeId);
-        // Explicitly specify type argument for Task.FromResult and CALL NotSalient() method
-        return Task.FromResult<SalienceCheckResult>(SalienceCheckResult.NotSalient());
+        _logger.LogDebug("CheckSalienceAsync called for Persona '{PersonaId}'. Returning NotSalient by default.", ManagedPersonaTypeId);
+        // Basic implementation: Default manager doesn't handle ongoing sessions or salience.
+        // A real implementation might query session state based on context.OriginalRequest.ConversationId
+        return Task.FromResult(SalienceCheckResult.NotSalient()); // Call factory method
     }
 
     /// <inheritdoc />
@@ -95,72 +97,30 @@ public class DefaultPersonaManager : IPersonaManager
     public async Task<AdapterResponse> InitiateNewSessionAsync(InteractionContext context, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
-        _logger.LogInformation("Initiating new session processing via DefaultPersonaManager for PersonaId '{PersonaId}' (Conversation: {ConversationId})",
-            _personaId, context.OriginalRequest.ConversationId);
+        _logger.LogInformation("Initiating new session for persona {PersonaId} based on interaction from user {UserId}.",
+            ManagedPersonaTypeId, context.OriginalRequest.UserId);
 
         try
         {
-            // Use the injected _managedPersona instance directly
-            var persona = _managedPersona;
-            // Removed incorrect GetService/GetKeyedService calls
+            // Content extraction is now handled upstream by OrchestrationService.
+            // The extracted content is available in context.ExtractedContents.
 
-            // Extract UserQuery components from context
-            var queryText = context.OriginalRequest.QueryText ?? string.Empty;
-            var userId = context.OriginalRequest.UserId ?? "UnknownUser"; // Provide a default if UserId is null
-            var userQuery = new UserQuery(queryText, userId, new Dictionary<string, object>());
+            // Resolve the actual IPersona instance using the injected one directly.
+            // This manager acts as a pass-through or simple state manager for *a single* persona type.
+            var persona = _managedPersona; // Use the injected instance
 
-            // Fetch content based on ArtifactReferences
-            List<ArtifactContent>? fetchedContents = null;
-            if (context.OriginalRequest.ArtifactReferences?.Any() == true)
-            {
-                _logger.LogInformation("Found {Count} artifact references to process.", context.OriginalRequest.ArtifactReferences.Count);
-                fetchedContents = new List<ArtifactContent>();
-                foreach (var artifactRef in context.OriginalRequest.ArtifactReferences)
-                {
-                    if (artifactRef == null) continue;
+            // Construct UserQuery from InteractionContext
+            var userQuery = new UserQuery(
+                QueryText: context.OriginalRequest.QueryText ?? string.Empty,
+                UserId: context.OriginalRequest.UserId ?? "UnknownUser",
+                Context: context.OriginalRequest.Context ?? new Dictionary<string, object>()
+            );
 
-                    var provider = _artifactProviders.FirstOrDefault(p => 
-                        p.SupportedReferenceTypes.Contains(artifactRef.ReferenceType, StringComparer.OrdinalIgnoreCase));
-
-                    if (provider != null)
-                    {
-                        try
-                        {
-                            _logger.LogInformation("Attempting to fetch content for ReferenceType '{Type}' using provider {ProviderType}.", 
-                                artifactRef.ReferenceType, provider.GetType().Name);
-                            var content = await provider.GetContentAsync(artifactRef, cancellationToken);
-                            if (content != null)
-                            {
-                                fetchedContents.Add(content);
-                                _logger.LogInformation("Successfully fetched content for ReferenceType '{Type}'. Size: {Size} bytes.", 
-                                    artifactRef.ReferenceType, content.ContentStream?.Length ?? -1);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Provider {ProviderType} returned null content for ReferenceType '{Type}'.", 
-                                    provider.GetType().Name, artifactRef.ReferenceType);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Error fetching artifact content for ReferenceType '{Type}' with provider {ProviderType}. ReferenceId: {ReferenceId}", 
-                                artifactRef.ReferenceType, provider.GetType().Name, artifactRef.ReferenceId);
-                            // Decide if we should continue processing other artifacts or fail the whole request
-                            // For now, log and continue
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No IArtifactProvider found for ReferenceType '{Type}'. Skipping artifact.", artifactRef.ReferenceType);
-                    }
-                }
-            }
-
-            // Call HandleQueryAsync with UserQuery object and fetched contents
-            var personaResponse = await persona.HandleQueryAsync(userQuery, fetchedContents, cancellationToken);
+            // Call HandleQueryAsync with UserQuery and the ExtractedContents from the context
+            var personaResponse = await persona.HandleQueryAsync(userQuery, context.ExtractedContents, cancellationToken);
 
             // Log ResponseText
-            _logger.LogInformation("Persona {PersonaId} handled query. Response Text: {ResponseText}", _personaId, personaResponse.ResponseText ?? "<null>");
+            _logger.LogInformation("Persona {PersonaId} handled query. Response Text: {ResponseText}", ManagedPersonaTypeId, personaResponse.ResponseText ?? "<null>");
 
             // Return the response text generated by the underlying persona
             var response = new AdapterResponse(
@@ -173,7 +133,7 @@ public class DefaultPersonaManager : IPersonaManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while persona {PersonaId} handled query.", _personaId);
+            _logger.LogError(ex, "Error occurred while persona {PersonaId} handled query.", ManagedPersonaTypeId);
             return new AdapterResponse(Success: false, ResponseMessage: "Error occurred during query handling.", ErrorMessage: ex.Message);
         }
     }

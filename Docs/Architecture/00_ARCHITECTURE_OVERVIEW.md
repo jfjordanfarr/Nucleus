@@ -1,15 +1,15 @@
 ---
 title: Nucleus OmniRAG System Architecture Overview
-description: A high-level overview of the Nucleus OmniRAG platform architecture, components, deployment models, and codebase structure, emphasizing an API-First approach.
-version: 1.1
-date: 2025-04-24
+description: A high-level overview of the Nucleus OmniRAG platform architecture, components, deployment models, and codebase structure, emphasizing an API-First approach with reference-based, ephemeral data processing.
+version: 1.3
+date: 2025-04-27
 ---
 
 # Nucleus OmniRAG: System Architecture Overview
 
 ## 1. Introduction & Vision
 
-Nucleus OmniRAG is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized AI assistants ("Personas"). It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central `Nucleus.Services.Api` project orchestrates all interactions and core logic.
+Nucleus OmniRAG is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized **agentic AI assistants ("Personas")**. It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central `Nucleus.Services.Api` project orchestrates all interactions and core logic. **Crucially, Nucleus adheres to strict, non-negotiable security principles**: *It maintains Zero Trust for user file content, meaning the backend never stores or persists raw user files. Instead, files remain in user-controlled storage (e.g., OneDrive, local disk) and the API interacts with them solely via secure `ArtifactReference` objects.* Content is retrieved ephemerally only when necessary for processing ([Security](./06_ARCHITECTURE_SECURITY.md), [Processing](./01_ARCHITECTURE_PROCESSING.md), [Personas](./02_ARCHITECTURE_PERSONAS.md)).
 
 **Core Goal:** To serve as the central "nucleus" processing information provided by users ("mitochondria") using configured resources (AI models, compute budget/"ATP") to produce insightful outputs ("transcriptome"), as outlined in the [Project Mandate](../Requirements/00_PROJECT_MANDATE.md).
 
@@ -51,7 +51,7 @@ This section provides links to detailed architecture documents for major compone
 
 ## 3. High-Level System Architecture
 
-This diagram illustrates the primary components and their interactions, emphasizing the central role of the `Nucleus.Services.Api`.
+This diagram illustrates the primary components and their interactions, emphasizing the central role of the `Nucleus.Services.Api` in orchestrating reference-based, ephemeral processing.
 
 ```mermaid
 graph LR
@@ -63,31 +63,36 @@ graph LR
         UserEmail[User via Email]
     end
 
-    subgraph Nucleus Platform
+    subgraph Nucleus Platform (Managed by API Service)
         ApiService[Nucleus.Services.Api]
 
-        subgraph Internal Components (Managed by API Service)
-            Orchestrator[Processing Orchestrator (e.g., Durable Functions)]
-            PersonaManager[Persona Logic]
-            DataService[Data Access Layer]
+        subgraph Internal Components
+            Orchestrator[Processing Orchestrator]
+            PersonaManager[Persona Logic (Agentic)]
+            ProviderResolver[IArtifactProvider Resolver]
+            DataService[Data Access Layer (Metadata/Knowledge)]
             AIService[AI Model Integration]
             InternalQueue[Internal Task Queue (Optional, for async)]
         end
 
         subgraph Data Stores
-            DB[(Cosmos DB / Metadata Store)]
-            SourceStore[(Blob Storage / Source Content)]
+            DB[(Cosmos DB / Metadata & Knowledge Store)]
+            %% SourceStore is external, accessed via Provider
         end
 
-        subgraph External Services
+        subgraph External Services & Data
             AIModels[External AI Services (OpenAI, Gemini)]
+            UserStorage[(User-Controlled Storage - OneDrive, Local, etc.)]
         end
 
         Orchestrator -- Triggers / Uses --> PersonaManager
         PersonaManager -- Uses --> AIService
         PersonaManager -- Accesses --> DataService
+        PersonaManager -- Requests Fetch via --> Orchestrator
+        Orchestrator -- Uses --> ProviderResolver
+        ProviderResolver -- Provides --> IArtifactProviderImplementations
+        IArtifactProviderImplementations -- Fetches Ephemerally --> UserStorage
         DataService -- Interacts --> DB
-        DataService -- Interacts --> SourceStore
         AIService -- Calls --> AIModels
         ApiService -- Manages/Invokes --> Orchestrator
         ApiService -- Manages/Invokes --> PersonaManager
@@ -97,29 +102,29 @@ graph LR
         Orchestrator -- Uses (Optional) --> InternalQueue
     end
 
-    UserConsole -- REST/gRPC --> ApiService
-    UserTeams -- Bot Framework / REST --> ApiService
-    UserSlack -- Slack Events API / REST --> ApiService
-    UserDiscord -- Discord API / REST --> ApiService
-    UserEmail -- Email Polling / REST --> ApiService
+    UserConsole -- API Request (AdapterRequest w/ ArtifactReferences) --> ApiService
+    UserTeams -- API Request (AdapterRequest w/ ArtifactReferences) --> ApiService
+    UserSlack -- API Request (AdapterRequest w/ ArtifactReferences) --> ApiService
+    UserDiscord -- API Request (AdapterRequest w/ ArtifactReferences) --> ApiService
+    UserEmail -- API Request (AdapterRequest w/ ArtifactReferences) --> ApiService
 ```
 
 **Key Components:**
 
-*   **User Interaction Channels:** Users interact via various thin clients (Console App, Platform Bots, Email integration). **These clients ONLY communicate with the `Nucleus.Services.Api`.** They handle platform-specific protocols and translate user input/output.
-*   **`Nucleus.Services.Api` (ASP.NET Core):** The central hub and single entry point for all external interactions. It handles authentication, authorization, request validation, routing, and orchestrates calls to internal components. It exposes a well-defined API contract (e.g., REST, gRPC).
+*   **User Interaction Channels:** Users interact via various thin clients (Console App, Platform Bots, Email integration). **These clients ONLY communicate with the `Nucleus.Services.Api`, sending `AdapterRequest` payloads that include `ArtifactReference` objects for any relevant files.** They handle platform-specific protocols and translate user input/output.
+*   **`Nucleus.Services.Api` (ASP.NET Core):** The central hub and single entry point. It handles authentication, authorization, request validation (including `ArtifactReference`s), routing, and orchestrates calls to internal components. **It does NOT accept direct file uploads.**
 *   **Internal Components (Managed by API):**
-
-    *   **Processing Orchestrator:** Manages complex, potentially long-running workflows (e.g., multi-step ingestion, analysis using Durable Functions or similar). Invoked and managed by the API service.
-    *   **Persona Logic:** Encapsulates the core reasoning, analysis, and response generation capabilities specific to each Persona. Called by the Orchestrator or directly by the API service for simpler tasks.
-    *   **Data Access Layer:** Provides an abstraction for interacting with data stores. Used by Personas and the API service.
-    *   **AI Model Integration:** Handles communication with external AI services (embeddings, completions, etc.). Used by Personas.
-    *   **Internal Task Queue (Optional):** For decoupling long-running tasks initiated by the API (e.g., Azure Queue Storage).
+    *   **Processing Orchestrator:** Manages complex, potentially long-running **agentic workflows** (e.g., multi-step analysis). Invoked by the API service, it coordinates persona logic, metadata access, and **triggers ephemeral content retrieval** via `IArtifactProvider`s when requested by persona logic.
+    *   **Persona Logic (Agentic):** Encapsulates the core reasoning, analysis, and response generation capabilities. Operates in potentially multi-step loops, requesting artifact content fetches from the Orchestrator as needed.
+    *   **`IArtifactProvider` Resolver & Implementations:** Selects and uses the correct `IArtifactProvider` (e.g., for Graph, local files via Console Adapter) based on the `ArtifactReference.ReferenceType` to **ephemerally fetch content directly from `UserStorage`**.
+    *   **Data Access Layer:** Provides abstraction for interacting with the **metadata/knowledge store (`DB`)**. Used by Personas and the Orchestrator.
+    *   **AI Model Integration:** Handles communication with external `AIModels`. Used by Personas.
+    *   **Internal Task Queue (Optional):** For decoupling long-running tasks.
 *   **Data Stores:**
-
-    *   **Database (e.g., Cosmos DB):** Stores metadata, derived knowledge (PersonaKnowledgeEntry), configuration, user data, etc. Accessed via the Data Access Layer.
-    *   **Source Storage (e.g., Azure Blob Storage):** Where the actual content of source files/attachments is stored securely. Accessed via the Data Access Layer.
-*   **External AI Services:** External models providing core capabilities, accessed via the AI Model Integration layer.
+    *   **Database (e.g., Cosmos DB):** Stores **only derived metadata (`ArtifactMetadata`) and knowledge (`PersonaKnowledgeEntry`)** (the **Secure Index**), configuration, etc. Does **NOT** store raw user file content.
+*   **External Services & Data:**
+    *   **External AI Services:** Models providing core AI capabilities.
+    *   **User-Controlled Storage:** Where the actual source file content resides (e.g., OneDrive, SharePoint, local disk via Console). Accessed ephemerally and securely by `IArtifactProvider` implementations.
 
 ## 4. Technology Stack (Illustrative)
 
@@ -135,133 +140,87 @@ graph LR
 
 ## 6. Architectural Principles
 
-*   **API-First:** The `Nucleus.Services.Api` is the definitive contract and central point of interaction. Clients (Adapters) are thin.
+*   **API-First:** The `Nucleus.Services.Api` is the definitive contract. Clients (Adapters) are thin and interact solely via the API, typically sending `AdapterRequest` payloads.
+*   **Zero Trust for User File Content:** The Nucleus backend **never** stores or persists raw user file content. Interaction is strictly through `ArtifactReference` objects.
+*   **Reference-Based Interaction:** All file operations are initiated using `ArtifactReference` objects pointing to data in user-controlled storage.
+*   **Ephemeral Content Retrieval:** File content is fetched *only when needed* by persona logic during processing, using `IArtifactProvider` implementations, and is not persisted by the backend.
+*   **Agentic Personas:** Personas operate as agents, performing multi-step reasoning. *This typically involves an iterative loop: analyzing context, querying the secure metadata index to identify relevant artifacts, and triggering ephemeral fetches of full artifact content to build a rich understanding before generating a high-quality response.* ([Personas](./02_ARCHITECTURE_PERSONAS.md), [Processing](./01_ARCHITECTURE_PROCESSING.md)).
+*   **Secure Metadata Index:** Derived metadata and knowledge (`ArtifactMetadata`, `PersonaKnowledgeEntry`) stored in the database serve as a secure index for efficient retrieval without exposing raw content. *This index allows personas to quickly determine "what they know" about a topic before deciding if ephemeral retrieval of full content is needed.* ([Processing](./01_ARCHITECTURE_PROCESSING.md), [Security](./06_ARCHITECTURE_SECURITY.md)).
 *   **Modular:** Components are designed for clear separation of concerns.
-*   **Persona-Centric:** The architecture is designed to support multiple, specialized AI Personas, each with its own data (`PersonaKnowledgeEntry`) and logic.
-*   **Flexibility:** Supports both Cloud-Hosted and Self-Hosted deployment models with configuration adjustments.
-*   **Extensibility:** Designed for adding new personas and content sources with minimal friction.
-*   **Scalability:** Leverages serverless and PaaS components for elastic scaling.
-*   **Intelligence-Driven:** Rejects simplistic chunking; relies on AI personas for relevance extraction and analysis, orchestrated via the API.
-*   **Efficiency:** Utilizes LLM provider-level prompt/context caching (**Planned for Phase 2+**, driven by efficiency requirements likely detailed in [Phase 2 Requirements](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)) where available (e.g., Gemini, Azure OpenAI) to minimize redundant processing of large contexts, reducing cost and latency.
+*   **Flexibility:** Supports both Cloud-Hosted and Self-Hosted deployment models.
+*   **Extensibility:** Designed for adding new personas, `IArtifactProvider`s, and client adapters.
+*   **Scalability:** Leverages serverless and PaaS components.
 
 ## Data Processing Approach Comparison (Nucleus vs. Standard RAG)
 
-**Purpose:** Contrasts the Nucleus system's data processing and retrieval method with standard RAG techniques, highlighting the focus on structured understanding and API-mediated interaction.
+**Purpose:** Contrasts the Nucleus system's agentic, reference-based processing with standard RAG, highlighting the focus on structured understanding, ephemeral full-content access, and API-mediation.
 
 ```mermaid
 graph TD
     subgraph "User & Source Data"
-        A["User Query"]
-        B["Source Documents (e.g., Knowledge Bases, Files)"]
+        A["User Query / Interaction (via Adapter)"]
+        B["Source Documents (In User-Controlled Storage)"]
     end
 
     subgraph "Traditional RAG (Simplified)"
         direction LR
         C["User Query Vector"]
-        D["Vector Index"]
+        D["Vector Index (Pre-computed Chunks)"]
         E{"Vector Similarity Search"}
         F["Retrieved Relevant KB Chunks"]
         G["LLM Prompt (Query + Retrieved Chunks)"]
-        H["LLM Generates Answer"]
+        H["LLM Generates Answer (Based on Chunks)"]
     end
 
     subgraph "Nucleus OmniRAG Enhancement"
         direction LR
-        AA["Client Adapter (e.g., Teams)"]
-        BB[Nucleus API]
-        I["Persona Analyzes Source (via API Call)"]
-        J["Creates Structured Knowledge (PersonaKnowledgeEntry in Cosmos DB, via API)"]
-        K["Enriched Context (Query + Structured Knowledge + Optional Source Snippets, retrieved via API)"]
-        L["LLM Prompt (Constructed by Persona Logic within API/Orchestrator)"]
-        M["LLM Generates More Accurate/Contextual Answer (Returned via API)"]
+        AA["Client Adapter"] --> BB["Nucleus API (Receives AdapterRequest w/ ArtifactReferences)"]
+        subgraph "API-Orchestrated Agentic Flow"
+            CC["1. Query Secure Index (Metadata/Knowledge)"]
+            DD{"2. Need Full Content?"}
+            EE["3. Trigger Ephemeral Fetch (IArtifactProvider uses Reference)"]
+            FF["4. Process Ephemeral Full Content (Optional Extract/Synthesize)"]
+            GG["5. Build Rich Context (Metadata + Ephemeral Content)"]
+            HH["6. LLM Prompt (Persona Logic + Rich Context)"]
+            II["7. LLM Generates High-Quality Answer"]
+            JJ["8. Store Derived Knowledge (Optional)"]
+        end
+        BB --> CC
+        CC --> DD
+        DD -- Yes --> EE
+        EE -- Fetches From --> B
+        EE -- Ephemeral Stream --> FF
+        FF -- Standardized Content --> GG
+        DD -- No --> GG
+        CC -- Metadata/Knowledge --> GG
+        GG -- Context --> HH
+        HH --> II
+        II -- Knowledge --> JJ
+        II -- Response --> BB
+        JJ -- Stores In --> DB[(Metadata/Knowledge DB)]
     end
 
     A -- User Input --> AA
-    AA -- API Request --> BB
 
+    %% Traditional Flow Links
     A --> C
     C --> E
-    B --> D
     D --> E
+    B -- Pre-Processing --> D
     E --> F
     A --> G
     F --> G
     G --> H
 
-    BB -- Triggers Analysis --> I
-    B -- Data Input --> I
-    I -- Stores Knowledge --> J
-    BB -- Retrieves Knowledge --> J
-    BB -- Constructs Context --> K
-    BB -- Generates Prompt --> L
-    L -- Sends to LLM --> M
-    M -- Returns Response --> BB
+    %% Nucleus Response Path
     BB -- API Response --> AA
     AA -- Formats Output --> A
 ```
 
-**Explanation:** This illustrates a key difference from standard RAG. Typical systems perform generic text chunking and rely solely on text similarity. The Nucleus approach uses an **API** as the central gateway. Client adapters send requests to the API. The API service then orchestrates the processing: Personas analyze content contextually (extracting structured data), storing results via the API's data layer. Retrieval uses both semantic search and structured data (queried via the API) to build a richer context for the LLM, leading to more precise answers delivered back through the API to the client.
+**Key Differences from Standard RAG:**
 
-```mermaid
-graph LR
-    subgraph User & Source Data
-        A["User Query"]
-        B["Source Documents (e.g., Knowledge Bases, Files)"]
-    end
-
-    subgraph Traditional RAG
-        direction LR
-        C["User Query Vector"]
-        D["Vector Index"]
-        E{"Vector Similarity Search"}
-        F["Retrieved Relevant KB Chunks"]
-        G["LLM Prompt (Query + Retrieved Chunks)"]
-        H["LLM Generates Answer"]
-    end
-
-    subgraph "Nucleus OmniRAG Enhancement (API-Centric)"
-        direction LR
-        AA["Client Adapter"] -- API Request --> BB[Nucleus API]
-        BB -- Triggers Analysis --> I["Persona Analyzes Source"]
-        I -- Stores Knowledge --> J["Structured Knowledge Store (Cosmos DB)"]
-        BB -- Retrieves Knowledge --> J
-        BB -- Constructs Context --> K["Enriched Context"]
-        BB -- Generates Prompt --> L["LLM Prompt"]
-        L -- Sends to LLM --> M["LLM Generates Answer"]
-        M -- Returns Response --> BB
-        BB -- API Response --> AA
-    end
-
-    A --> AA
-    B --> I
-
-    A --> C
-    C --> E
-    B -- (Initial Indexing) --> D
-    D --> E
-    E --> F
-    A --> G
-    F --> G
-    G --> H
-```
-
-```mermaid
-graph LR
-    A["User Interaction (e.g., Teams/Console)"] --> ClientAdapter[Client Adapter]
-    ClientAdapter -- API Call --> B(Nucleus API)
-    B --> C{Orchestrator (within API Service)}
-    C -- "Identify/Invoke Relevant Persona(s)" --> D["Persona Logic (within API Service)"]
-    D -- "Request/Receive Data" --> DataService[Data Service (within API)]
-    DataService -- "Interact" --> E([Cosmos DB])
-    DataService -- "Interact" --> SourceStore[(Blob Storage)]
-
-    D -- "Request External AI Call" --> AIService[AI Service (within API)]
-    AIService -- "Call External Model" --> H([LLM / AI Models])
-    H -- "Result" --> AIService
-    AIService -- "Return Result" --> D
-
-    D -- "Analysis Result / Formulate Response" --> C
-    C --> B
-    B -- "API Response" --> ClientAdapter
-    ClientAdapter -- "Deliver Response" --> A
-```
+*   **No Direct Uploads/Pre-Chunking:** Nucleus relies on `ArtifactReference`s passed via the API, not direct uploads or pre-ingestion chunking into a vector store.
+*   **Secure Metadata Index:** Retrieval often starts by querying structured knowledge and metadata (`PersonaKnowledgeEntry`, `ArtifactMetadata`), not just a vector index of raw chunks.
+*   **Ephemeral Full Content Retrieval:** When deeper context is needed, Nucleus (via `IArtifactProvider`) fetches the *full content* of relevant documents ephemerally using the `ArtifactReference`, rather than relying solely on potentially out-of-context pre-computed chunks. *This ability to access rich, full documents transiently enables higher-quality analysis and responses compared to systems limited by chunked data.*
+*   **Agentic Processing:** Personas can perform multi-step reasoning, deciding *when* and *which* full documents to retrieve ephemerally based on the evolving context of the interaction.
+*   **API-Centric:** All steps are orchestrated and mediated through the `Nucleus.Services.Api`.

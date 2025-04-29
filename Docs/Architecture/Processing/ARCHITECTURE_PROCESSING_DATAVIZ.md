@@ -1,16 +1,18 @@
 ---
 title: Processing Architecture - Data Visualization
 description: Describes a skill that can be performed by personas, which involves writing structured data and simple visualization code snippets into a template pyodide-based static HTML page.
-version: 1.0
-date: 2025-04-22
-parent: ../05_ARCHITECTURE_PROCESSING.md
+version: 1.2
+date: 2025-04-28
+parent: ../01_ARCHITECTURE_PROCESSING.md
+seealso:
+  - ../Personas/Educator/NumeracyAndTimelinesWebappConcept.md
 ---
 
 # Processing Architecture: Data Visualization ('Dataviz')
 
 ## 1. Overview
 
-The Data Visualization (Dataviz) capability represents a "skill" that Nucleus OmniRAG Personas can invoke to present data-driven insights interactively to users within their client platform (e.g., Teams, Slack). It allows a Persona to dynamically generate small, interactive data visualizations powered by Python libraries (like Plotly, Seaborn, Matplotlib) running client-side via Pyodide.
+The Data Visualization (Dataviz) capability represents a "skill" that Nucleus Personas can invoke to present data-driven insights interactively to users within their client platform (e.g., Teams, Slack). It allows a Persona to dynamically generate small, interactive data visualizations powered by Python libraries (like Plotly, Seaborn, Matplotlib) running client-side via Pyodide.
 
 This architecture emphasizes separation of concerns:
 
@@ -32,9 +34,14 @@ The Persona's response payload should indicate a desire to generate a visualizat
 
 ## 3. Artifact Generation Process (`viz.html`)
 
-Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component** (implemented by the `Nucleus.Processing.Services.DatavizHtmlBuilder` class - see [`cci:2://file:///d:/Projects/Nucleus/src/Processing/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Processing/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0)) performs the following steps to generate the self-contained `viz.html` artifact:
+Upon receiving a response payload containing a visualization request from a Persona, the **responsible Processing component** (implemented by the `Nucleus.Processing.Services.DatavizHtmlBuilder` class - see [`cci:2://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Services/DatavizHtmlBuilder.cs:25:0-173:1`](cci:2://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Services/DatavizHtmlBuilder.cs:25:0-173:1)) performs the following steps to generate the self-contained `viz.html` artifact:
 
-1.  **Load Templates:** Reads the content of the standard template files (`dataviz_template.html`, `dataviz_styles.css`, `dataviz_script.js`, `dataviz_plotly_script.py`, `dataviz_worker.js`) located within the Processing service's resources.
+1.  **Load Templates:** Reads the content of the standard template files located within the Processing service's resources:
+    *   [`dataviz_template.html`](cci:7://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Resources/Dataviz/dataviz_template.html:0:0-0:0)
+    *   [`dataviz_styles.css`](cci:7://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Resources/Dataviz/dataviz_styles.css:0:0-0:0)
+    *   [`dataviz_script.js`](cci:7://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Resources/Dataviz/dataviz_script.js:0:0-0:0)
+    *   [`dataviz_plotly_script.py`](cci:7://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Resources/Dataviz/dataviz_plotly_script.py:0:0-0:0)
+    *   [`dataviz_worker.js`](cci:7://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/Resources/Dataviz/dataviz_worker.js:0:0-0:0)
 2.  **Inject Python Script:**
     *   Retrieves the Python code snippet provided by the Persona.
     *   **Escapes** the snippet appropriately for embedding within a JavaScript multiline template literal (e.g., escaping backticks, backslashes, `${` sequences) within the `dataviz_script.js` content placeholder.
@@ -91,4 +98,6 @@ Security is handled through multiple layers inherent in the design:
 
 ## 6. Relationship to Client Adapters
 
-While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer, the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0), [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0)) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).
+While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer (`DatavizHtmlBuilder`), the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0), [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0)) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).
+
+**Note (Discrepancy):** As of 2025-04-28, a code search indicates that neither the Console nor the Teams adapter currently utilizes `DatavizHtmlBuilder` or explicitly handles its output. The implementation details of how adapters present this HTML remain to be defined.

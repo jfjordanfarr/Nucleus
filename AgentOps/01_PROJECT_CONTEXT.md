@@ -1,7 +1,7 @@
 ---
 title: AgentOps - Nucleus Project Context
 description: High-level project context including vision, goals, tech stack, and links to detailed architecture.
-version: 3.1 # Refactored based on DRY pass
+version: 3.1 
 date: 2025-04-18
 ---
 
@@ -66,7 +66,7 @@ See the [System Architecture Overview](../../Docs/Architecture/00_ARCHITECTURE_O
 
 ## - Project Structure & File Census
 
-This section provides a comprehensive listing of the files and directories within the Nucleus project, derived from the `tree_gitignore.py` script output as of **2025-04-25**. It serves as a persistent context for the AI, detailing the purpose of each significant file and project component based on the refactored structure.
+This section provides a comprehensive listing of the files and directories within the Nucleus project, derived from the `tree_gitignore.py` script output as of **2025-04-27**. It serves as a persistent context for the AI, detailing the purpose of each significant file and project component based on the refactored structure.
 
 *   **Root Directory:** `Nucleus/` (D:\Projects\Nucleus)
 
@@ -82,9 +82,7 @@ This section provides a comprehensive listing of the files and directories withi
 *   `_LocalData/`: Directory for storing local data, potentially large files (likely gitignored).
 *   `AgentOps/`: Files related to AI agent operations, methodology, and context management.
     *   `Archive/`:
-        *   `refactoring_checklist.md`: Checklist related to refactoring efforts.
         *   `STORY_*.md`: Narrative logs of previous sessions.
-        *   `tmp_currentplan.md`: Temporary plan document for the current agent session.
     *   `Scripts/`:
         *   `codebase_to_markdown.py`
         *   `csharp_code_analyzer.csx`
@@ -92,10 +90,10 @@ This section provides a comprehensive listing of the files and directories withi
     *   `00_START_HERE_METHODOLOGY.md`: Core methodology document.
     *   `01_PROJECT_CONTEXT.md`: **This file.**
     *   `02_CURRENT_SESSION_STATE.md`: Current session state tracking.
-    *   `03_PROJECT_PLAN_KANBAN.md`: Project plan/backlog.
-    *   `04_AGENT_TO_AGENT_CONVERSATION.md`: Agent meta-conversation log.
+    *   `03_AGENT_TO_AGENT_CONVERSATION.md`: Agent meta-conversation log.
     *   `CodebaseDump.md`: Raw dump or snapshot of the codebase structure/content.
     *   `README.md`: AgentOps directory readme.
+    *   `tmp_currentplan.md`: Temporary plan document for the current agent session.
 *   `Docs/`: Project documentation.
     *   `Architecture/`: Contains markdown files describing the system architecture.
         *   `Api/`: Architecture related to the central API service.
@@ -297,8 +295,6 @@ This section provides a comprehensive listing of the files and directories withi
                     *   `LocalFileArtifactProvider.cs`
                 *   `Messaging/`
                     *   `AzureServiceBusPublisher.cs`
-                    *   `NullMessageQueuePublisher.cs`
-                    *   `ServiceBusQueueConsumerService.cs`
                 *   `NullArtifactProvider.cs`
             *   `Properties/`
                 *   `launchSettings.json`
@@ -307,18 +303,22 @@ This section provides a comprehensive listing of the files and directories withi
             *   `appsettings.json`
             *   `Nucleus.Services.Api.csproj`
             *   `Program.cs`
+            *   `WebApplicationBuilderExtensions.cs`
 
 ### Testing (`tests/`)
 
 *   `tests/`: Root directory for all test projects.
     *   `Integration/`: Integration test projects.
-        *   `Nucleus.Infrastructure.Adapters.Console.Tests/`: (Placeholder/Legacy tests for Console Adapter - Verify content).
         *   `Nucleus.Services.Api.IntegrationTests/`: Integration tests for the `Nucleus.Services.Api`.
+            *   `Infrastructure/`: Test-specific infrastructure mocks/stubs.
+                *   `NullArtifactMetadataRepository.cs`: A test double repository that does nothing, used to isolate tests from real persistence.
             *   `TestData/`: Sample data for tests.
-                *   `test_context.txt`: Sample context data for testing.
-            *   `ApiIntegrationTests.cs`: Tests using `HttpClient` against the API.
+                *   `test_artifact.txt`: Sample artifact file for testing
+            *   `TestResults/`: (Typically gitignored) Output from test runs.
+            *   `ApiIntegrationTests.cs`: Tests using `HttpClient` against the API via `WebApplicationFactory`.
             *   `Nucleus.Services.Api.IntegrationTests.csproj`: C# project file.
-            *   `*.ps1`: Test scripts.
+            *   `test_ingest_agent_api.ps1`: Script for testing ingestion (Potentially obsolete).
+            *   `test_query_agent_api.ps1`: Script for testing query endpoint.
 
 ### Root Files
 

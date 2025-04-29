@@ -17,11 +17,18 @@ using System.Threading.Tasks;
 namespace Nucleus.Services.Api.Infrastructure.Messaging;
 
 /// <summary>
-/// Background service that listens to the configured Azure Service Bus queue
-/// for NucleusIngestionRequest messages and initiates processing via the IOrchestrationService.
-/// See: ../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md
-/// See: ../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md
+/// A background service that consumes messages from an Azure Service Bus queue.
+/// It processes received messages by invoking the core orchestration logic within a dedicated scope.
 /// </summary>
+/// <remarks>
+/// This service integrates with Azure Service Bus as an alternative to the in-memory queue,
+/// suitable for scaled-out deployments. It handles message processing, error handling, and completion.
+/// Configuration is driven by <see cref="AzureServiceBusSettings"/>.
+/// </remarks>
+/// <seealso cref="IMessageQueuePublisher{T}"/>
+/// <seealso cref="IOrchestrationService"/>
+/// <seealso cref="NucleusIngestionRequest"/>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 public class ServiceBusQueueConsumerService : IHostedService, IAsyncDisposable
 {
     private readonly ILogger<ServiceBusQueueConsumerService> _logger;

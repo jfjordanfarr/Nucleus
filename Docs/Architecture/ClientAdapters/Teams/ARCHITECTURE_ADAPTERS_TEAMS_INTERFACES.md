@@ -1,15 +1,18 @@
 ---
 title: Architecture - Teams Adapter Interface Mapping
-description: Details how the common client adapter interfaces (IPersonaInteractionContext, IPlatformMessage, etc.) are implemented within the Teams adapter using Bot Framework SDK and Microsoft Graph.
-version: 1.1
-date: 2025-04-24
+description: Details how the Teams adapter maps Bot Framework Activity data to the InteractionRequest DTO for the Nucleus API Service in the API-First model.
+version: 1.2
+date: 2025-04-27
+parent: ../ARCHITECTURE_ADAPTERS_TEAMS.md
 ---
 
 # Teams Adapter: Interface Mapping
 
-**Note:** Under the API-First architecture ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the Teams adapter acts purely as a translator between the Bot Framework and the `Nucleus.Services.Api`. It **does not** directly implement interfaces like `ISourceFileReader` or `IOutputWriter` for file content I/O using Graph. Those responsibilities belong to the central `ApiService`.
+**Note:** Under the API-First architecture, the Teams adapter acts purely as a translator between the Bot Framework and the `Nucleus.Services.Api`. It **does not** directly implement interfaces like `ISourceFileReader` or `IOutputWriter` for file content I/O using Graph. Those responsibilities belong to the central `ApiService`.
 
 This document focuses on how the Teams adapter maps information from a Bot Framework `Activity` object into the `InteractionRequest` DTO sent to the `Nucleus.Services.Api` (as defined in [API Client Interaction Pattern](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)).
+
+The primary implementation of this mapping logic resides within the [`TeamsAdapterBot.OnMessageActivityAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs#L66) method.
 
 ## 1. `IPlatformMessage` Implementation
 

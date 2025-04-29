@@ -29,6 +29,7 @@ public class NucleusApiServiceAgent // Rename class
     /// </summary>
     /// <param name="request">The AdapterRequest containing interaction details.</param>
     /// <returns>The AdapterResponse from the API, or null if the request failed or the response couldn't be parsed.</returns>
+    /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/>
     public async Task<AdapterResponse?> SendInteractionAsync(AdapterRequest request)
     {
         if (request == null)

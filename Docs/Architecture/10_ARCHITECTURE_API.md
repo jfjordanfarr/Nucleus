@@ -1,19 +1,23 @@
 ---
 title: Architecture - Nucleus API Service
-description: Overview of the API-First design principles, core responsibilities, endpoint structure, security model, and interaction patterns for the Nucleus API service.
-version: 0.3
-date: 2025-04-25
+description: Overview of the API-First design principles, core responsibilities, endpoint structure, security model, and reference-based interaction patterns for the Nucleus API service.
+version: 0.5
+date: 2025-04-28
 parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
 ---
 
 # Nucleus API Service Architecture
 
+**Version:** 0.5
+**Date:** 2025-04-28
+
 ## 1. Introduction & Principles
 
-*   Purpose of the API Service (Central interaction point)
-*   API-First Principle recap (Adapters as translators, logic centralized)
+*   Purpose of the API Service (Central interaction point for all backend functionality)
+*   API-First Principle recap ([Adapters](./05_ARCHITECTURE_CLIENTS.md) translate platform events/commands into standardized API calls; core logic is centralized)
+*   **Reference-Based Interaction:** The API exclusively uses `ArtifactReference` objects to interact with user content stored in external systems. **Direct file uploads are not supported.** (See [Storage Architecture](./03_ARCHITECTURE_STORAGE.md))
 *   Design Goals (Statelessness, RESTful patterns, Security, Scalability, Observability)
-*   Key Consumers (Client Adapters, Internal Services, Testing Harnesses)
+*   Key Consumers ([Client Adapters](./05_ARCHITECTURE_CLIENTS.md), Internal Services, Testing Harnesses)
 
 ## 2. Core Responsibilities
 
@@ -29,28 +33,28 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
 ## 3. Endpoint Design & Structure
 
 *   Base URL Path (e.g., `/api/v1/`)
-*   Resource Naming Conventions (e.g., `/interactions`, `/personas`, `/artifacts`?)
-*   Common HTTP Verbs (POST for interactions, GET for status/data, etc.)
+*   Resource Naming Conventions (e.g., `/interactions`, `/personas`)
+*   Common HTTP Verbs (POST for interactions, GET for status/data)
 *   Example Endpoint Definitions (High-level):
-    *   `POST /interactions` (Primary ingestion endpoint)
-    *   `GET /interactions/{jobId}/status` (For async tasks)
-    *   `GET /personas` (Example data endpoint)
-*   Versioning Strategy
+    *   `POST /interactions` (Primary endpoint for all interaction processing requests)
+        *   **Implementation:** [`InteractionController.cs`](../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
+    *   `GET /interactions/{jobId}/status` (For async task status)
+    *   `GET /interactions/{jobId}/result` (For async task results)
+    *   `GET /personas` (Example metadata/configuration endpoint)
+*   Versioning Strategy (e.g., `/v1/` in path)
 
 ## 4. Data Formats & Contracts
 
-*   Standard Request/Response format (e.g., JSON)
-*   Key Data Transfer Objects (DTOs) - High level description. Precise definitions and usage patterns are detailed in specific contract documents:
-    *   **Client Message Interactions:** Handled primarily by the `POST /api/v1/interactions` endpoint using the `InteractionRequest` DTO. See:
+*   Standard Request/Response format: JSON
+*   Key Data Transfer Objects (DTOs) - Precise definitions reside in `Nucleus.Abstractions`. High-level descriptions:
+    *   **`AdapterRequest`:** The primary input DTO for the `POST /interactions` endpoint. Contains all necessary context from the client adapter, including user information, the prompt/command, and a list of `ArtifactReference` objects pointing to relevant external content. See:
         *   [API Client Interaction Pattern](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)
-    *   **Direct Content Ingestion:** Handled by dedicated `/ingest/...` endpoints (e.g., `POST /api/v1/ingest/path`). See:
-        *   [API Ingestion Endpoints](./Api/ARCHITECTURE_API_INGESTION.md)
-    *   **Common DTOs (Examples):**
-        *   `InteractionRequest` (Input for message interactions)
-        *   `IngestionRequestPath` (Input for path ingestion)
-        *   `InteractionResponse` (Synchronous result)
-        *   `AsyncJobStatus` (Response from status endpoint)
-*   Error Handling (Standard HTTP status codes, error response body structure)
+        *   [`AdapterRequest`](../../../Nucleus.Abstractions/Models/AdapterRequest.cs) (Source Code)
+    *   **`ArtifactReference`:** Contained within `AdapterRequest`. Provides details needed by the API service's `IArtifactProvider` to locate and ephemerally fetch content from the user's source system. See:
+        *   [`ArtifactReference`](../../../Nucleus.Abstractions/Models/ArtifactReference.cs) (Source Code)
+    *   **`InteractionResponse`:** The typical synchronous response DTO (or asynchronous result) containing processing output, status, and potentially references to generated artifacts.
+    *   **`AsyncJobStatus`:** Response from the status polling endpoint (`GET /interactions/{jobId}/status`), indicating the job's current state (`Queued`, `Processing`, `Completed`, `Failed`).
+*   Error Handling (Standard HTTP status codes, structured JSON error response body)
 
 ## 5. Authentication & Authorization
 
@@ -125,7 +129,10 @@ When an API request (e.g., `POST /interactions`) triggers processing expected to
 
 ## 7. Related Documents
 
+*   [API Client Interaction Pattern](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)
 *   [API Interaction Lifecycle](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)
 *   [API Activation & Routing](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md)
-*   [Client Adapters Overview](./ClientAdapters/ARCHITECTURE_CLIENT_ADAPTERS.md) (Needs update)
-*   [Testing Strategy](./Testing/ARCHITECTURE_TESTING.md) (Needs update)
+*   [Client Adapters Overview](./05_ARCHITECTURE_CLIENTS.md)
+*   [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)
+*   [Security Architecture](./06_ARCHITECTURE_SECURITY.md)
+*   [Testing Strategy](./09_ARCHITECTURE_TESTING.md)

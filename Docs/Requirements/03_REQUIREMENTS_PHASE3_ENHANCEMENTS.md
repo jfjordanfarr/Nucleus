@@ -1,18 +1,18 @@
 ---
 title: "Requirements: Phase 3 - API Enhancements & Advanced Personas"
-description: Requirements for enhancing the Nucleus.Services.Api with advanced persona capabilities, improved querying, caching, configuration, and testing.
-version: 1.2
-date: 2025-04-24
+description: Requirements for enhancing the Nucleus API with advanced persona capabilities, the 4 R ranking system, caching, configuration, and testing.
+version: 1.3
+date: 2025-04-27
 ---
 
 # Requirements: Phase 3 - API Enhancements & Advanced Personas
 
-**Version:** 1.2
-**Date:** 2025-04-24
+**Version:** 1.3
+**Date:** 2025-04-27
 
 ## 1. Goal
 
-To significantly enhance the Nucleus OmniRAG platform's backend capabilities, primarily within the `Nucleus.Services.Api`, by implementing advanced persona logic, improving query mechanisms, introducing caching and robust configuration, and establishing a solid testing foundation.
+To significantly enhance the Nucleus platform's backend capabilities, primarily within the `Nucleus.Services.Api`, by implementing advanced agentic persona logic, improving query mechanisms (including the 4 R ranking system), introducing caching and robust configuration, and establishing a solid testing foundation.
 
 ## 2. Scope
 
@@ -32,17 +32,23 @@ To significantly enhance the Nucleus OmniRAG platform's backend capabilities, pr
 
 ### 3.1. Advanced Querying & Retrieval (Backend API & Services)
 
-*   **REQ-P3-API-001:** The `Nucleus.Services.Api` project MUST expose secure endpoints through which *all* client interactions (Console App, Platform Bots) flow for performing queries.
-*   **REQ-P3-API-002:** The `IRetrievalService` implementation MUST be enhanced to support more sophisticated query strategies beyond basic vector similarity search (e.g., hybrid search, re-ranking, filtering by metadata like source platform or time).
-*   **REQ-P3-API-003:** The backend MUST support queries that potentially synthesize information from multiple `PersonaKnowledgeEntry` documents to answer complex user questions.
-*   **REQ-P3-API-004:** Query responses MUST include sufficient metadata for clients to display results with clear source attribution.
+*   **REQ-P3-API-001:** The `Nucleus.Services.Api` project MUST expose secure endpoints through which *all* client interactions (Console App, Platform Bots) flow for performing queries via the unified `/api/v1/interactions` endpoint.
+*   **REQ-P3-API-002:** The `IRetrievalService` implementation MUST be enhanced to support more sophisticated query strategies beyond basic vector similarity search, including:
+    *   Hybrid search (combining vector and keyword/metadata search).
+    *   Metadata filtering (e.g., source platform, time range, artifact type).
+    *   Re-ranking of initial candidates using the **4 R Ranking System (Recency, Relevancy, Richness, Reputation)** to prioritize artifacts for ephemeral context retrieval.
+*   **REQ-P3-API-003:** The backend persona processing MUST support synthesizing information from multiple sources to answer complex user questions. This synthesis relies on:
+    *   Structured knowledge retrieved from `PersonaKnowledgeEntry` records.
+    *   Rich contextual understanding derived from the **ephemerally fetched full content** of the top-ranked source artifacts (identified by `REQ-P3-API-002` and retrieved via `IArtifactProvider`).
+*   **REQ-P3-API-004:** Query responses MUST include sufficient metadata (e.g., `ArtifactReference` identifiers) for clients to display results with clear source attribution, enabling features like "Show Your Work".
 
 ### 3.2. Advanced Persona Capabilities
 
-*   **REQ-P3-PER-001:** The `IPersona` interface and/or its implementations SHOULD be enhanced to support more complex analysis tasks. *(Note: Phase 3 focuses on defining these capabilities within the API service; complex orchestration for stateful/tool-use workflows is deferred to Phase 4)*. Examples include:
-    *   **Stateful Processing:** Ability for a persona to maintain state across multiple interactions or processing steps for a single artifact (potentially requiring orchestration later - *See Phase 4*).
-    *   **Tool Use:** Ability for a persona to invoke predefined tools (internal or external APIs) as part of its analysis process (leveraging AI model function calling capabilities).
-    *   **Refined Structured Output:** Generating more complex or nested structured data based on analysis.
+*   **REQ-P3-PER-001:** The `IPersona` interface and/or its implementations MUST be enhanced to support **agentic processing patterns** involving potentially multiple steps of reasoning and action based on the retrieved structured knowledge and ephemeral context. Examples include:
+    *   **Internal State:** Ability for a persona to maintain internal state *during* a single complex interaction or analysis task.
+    *   **Tool Use Logic:** Ability for a persona's internal logic to determine when to invoke predefined tools (internal services like `IRetrievalService` again, or external APIs via dedicated providers) as part of its analysis process, potentially leveraging AI model function calling capabilities.
+    *   **Refined Structured Output:** Generating more complex or nested structured data (e.g., `PersonaKnowledgeEntry` updates, analysis reports) based on the agentic processing.
+    *(Note: While Phase 3 implements the core agentic logic within personas, complex multi-turn conversations or long-running, stateful workflows requiring external orchestration are deferred to Phase 4)*.
 *   **REQ-P3-PER-002:** Personas SHOULD be configurable with more detailed instructions or operational parameters (potentially via Admin UI or configuration files - *Admin UI targeted for Phase 4*).
 
 ### 3.3. Caching Implementation
@@ -64,7 +70,7 @@ To significantly enhance the Nucleus OmniRAG platform's backend capabilities, pr
 *   **REQ-P3-TEST-003:** Mechanisms for emulating dependencies (e.g., Testcontainers for Cosmos DB) MUST be integrated for integration tests.
 *   **REQ-P3-TEST-004:** Initial unit and integration tests covering core functionalities MUST be implemented.
 *   **REQ-P3-TEST-005:** Test execution MUST be integrated into the CI pipeline.
-*   **REQ-P3-TEST-006:** Testing strategies MUST prioritize direct interaction with the `Nucleus.Services.Api` endpoints (e.g., using `HttpClient` in test projects) to validate API contracts and behavior.
+*   **REQ-P3-TEST-006:** Testing strategies MUST prioritize direct interaction with the `Nucleus.Services.Api` endpoints (e.g., using `HttpClient` in test projects) to validate API contracts and behavior, including scenarios involving `ArtifactReference` objects and simulated `IArtifactProvider` responses.
 
 ### 3.6. (Optional) Enhanced Platform Integration
 
@@ -78,7 +84,7 @@ To significantly enhance the Nucleus OmniRAG platform's backend capabilities, pr
 ## 4. Non-Goals (Phase 3)
 
 *   User-facing Web Application.
-*   Full implementation of Workflow Orchestration (focus is on backend processing enhancements).
-*   Full implementation of Rich Bot Interactions (focus is on backend processing enhancements).
+*   Full implementation of external Workflow Orchestration engines (e.g., Durable Functions) for long-running stateful tasks.
+*   Full implementation of Rich Bot Interactions (e.g., Adaptive Cards) beyond basic responses.
 *   Integrating *new* communication platforms beyond Email, Teams, Discord, Slack.
 *   Significant Admin UI development (basic configuration APIs are in scope, but full UI is Phase 4).

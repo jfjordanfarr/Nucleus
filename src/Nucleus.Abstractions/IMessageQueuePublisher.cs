@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions;
 
 /// <summary>
-/// Defines a contract for publishing messages to a queue or topic.
-/// This abstraction supports decoupling components using asynchronous messaging patterns,
-/// aligning with the principles outlined in the deployment architecture.
+/// Defines the contract for a service that publishes messages to a message queue or topic.
+/// This is used for decoupling tasks, particularly for asynchronous processing.
 /// See: ../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
 /// </summary>
-/// <typeparam name="T">The type of the message payload to be published.</typeparam>
+/// <typeparam name="T">The type of the message payload.</typeparam>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 public interface IMessageQueuePublisher<in T>
 {
     /// <summary>

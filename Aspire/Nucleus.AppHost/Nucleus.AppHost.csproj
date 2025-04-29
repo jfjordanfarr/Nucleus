@@ -9,6 +9,7 @@
     <Nullable>enable</Nullable>
     <UserSecretsId>3c06ff0a-9445-48a1-8972-8e5f33a55272</UserSecretsId>
     <IsAspireHost>true</IsAspireHost>
+    <NoWarn>$(NoWarn);ASPIRECOSMOSDB001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -21,6 +22,7 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.2.0" />
     <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="9.2.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="9.2.0" /> 
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.0" />
   </ItemGroup>
 

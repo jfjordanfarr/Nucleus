@@ -22,9 +22,9 @@ using System.Text.Json; // Added for JsonSerializerOptions, JsonSerializerDefaul
 namespace Nucleus.Infrastructure.Adapters.Teams
 {
     /// <summary>
-    /// Handles incoming message activities from Microsoft Teams.
-    /// Validates mentions, extracts relevant information, constructs an <see cref="AdapterRequest"/>,
-    /// sends it to the backend API via HTTP, and provides an initial acknowledgement using <see cref="IPlatformNotifier"/>.
+    /// Represents the core logic for the Nucleus Teams Adapter, handling incoming activities,
+    /// interaction with the Nucleus backend API, and basic conversation management.
+    /// It uses the Bot Framework SDK ActivityHandler as its base.
     /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
     /// </summary>
     public class TeamsAdapterBot : ActivityHandler
@@ -64,6 +64,21 @@ namespace Nucleus.Infrastructure.Adapters.Teams
             _logger.LogInformation("TeamsAdapterBot initialized.");
         }
 
+        /// <summary>
+        /// Handles incoming message activities from Microsoft Teams.
+        /// Validates mentions, extracts relevant information, constructs an <see cref="AdapterRequest"/>,
+        /// sends it to the backend API via HTTP, and provides an initial acknowledgement using <see cref="IPlatformNotifier"/>.
+        /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
+        /// <seealso cref="d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\Teams\ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md"/>
+        /// </summary>
+        /// <param name="turnContext">The context object for this turn.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
+        /// <returns>A task that represents the work queued to execute.</returns>
+        /// <remarks>
+        /// This method extracts user prompts, attachment references, and critical context like ReplyToActivityId,
+        /// then constructs and sends the <see cref="AdapterRequest"/> to the Nucleus API.
+        /// </remarks>
+        /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/>
         protected override async Task OnMessageActivityAsync(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken)
         {
             ArgumentNullException.ThrowIfNull(turnContext);
@@ -203,6 +218,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
         /// <summary>
         /// Extracts file attachment information from the activity and creates ArtifactReference objects.
         /// Focuses on hints needed by the API, avoids complex local parsing.
+        /// <seealso cref="d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\Teams\ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
         /// </summary>
         private static List<ArtifactReference>? ExtractAttachmentReferences(
             IMessageActivity activity, 

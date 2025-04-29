@@ -1,8 +1,9 @@
 ---
 title: Client Adapter - Slack
 description: Describes a client adapter which enables the interaction with Nucleus personas in Slack
-version: 1.3
-date: 2025-04-23
+version: 1.4
+date: 2025-04-27
+parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
 # Client Adapter: Slack
@@ -18,7 +19,7 @@ Requires a Slack Bot Token obtained from the Slack App administration interface.
 
 ## Interaction Handling & API Forwarding
 
-In line with the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the Slack Adapter serves as a bridge between the Slack APIs (Events API, Web API, potentially RTM) and the central `Nucleus.Services.Api`.
+In line with the API-First principle, the Slack Adapter serves as a bridge between the Slack APIs (Events API, Web API, potentially RTM) and the central `Nucleus.Services.Api`.
 
 1.  **Receive Message Event:** The adapter receives incoming message events (e.g., `message.channels`, `message.groups`, `message.im`) via the configured method (typically Slack Events API subscription).
 2.  **Extract Basic Context:** The adapter parses the event payload to extract key information:
@@ -43,7 +44,13 @@ In line with the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36e
 ## Generated Artifact Handling
 
 *   **Conversations & Files:** Slack stores message history and uploaded files persistently based on workspace plan/settings.
-*   **Generated Artifacts:** Personas generate artifacts (files, reports, visualization images/data). The Slack Adapter **must** use the Slack API (`files.upload` or newer methods) to upload these artifacts back into the relevant channel or thread. Nucleus then creates `ArtifactMetadata` for the uploaded file using the identifiers (`id`, `permalink`) returned by the Slack API.
+*   **Generated Artifacts (Outputs):** Personas generate artifacts (files, reports, visualization images/data). The flow is:
+    1.  The `Nucleus.Services.Api` generates the artifact content.
+    2.  The API response (`InteractionResponse`) sent back to the Slack Adapter includes this generated content (or a way to retrieve it).
+    3.  The **Slack Adapter** receives the response and uses the Slack API (`files.upload` or newer methods) to **upload the received artifact content** into the relevant Slack channel/thread.
+    4.  Upon successful upload, the Slack API provides details about the uploaded file (e.g., file ID, `permalink`).
+    5.  The adapter (potentially via a follow-up call or async job completion) informs the `Nucleus.Services.Api` of the successful upload and provides the Slack file identifiers.
+    6.  The `Nucleus.Services.Api` then creates the canonical `ArtifactMetadata` record for the generated artifact (the uploaded file), using the provided Slack identifiers for `sourceIdentifier` and `sourceUri`.
 
 ## Messaging
 
@@ -79,20 +86,22 @@ Manages the context of Workspaces, Channels, and Threads.
     *   `replyToSourceIdentifier`: Not explicitly a Slack concept like email, but could potentially identify the message being replied to if it's the start of a thread (using `thread_ts`).
     *   `threadSourceIdentifier`: Set to the *thread root message's* `sourceIdentifier` (e.g., `slack://message/CHANNEL_ID/THREAD_ROOT_TS`) for all messages within that thread (including the root message itself).
 
-## Attachments
+## Attachments (Inputs/Ingestion)
 
-Handles files uploaded to Slack.
+Handles files uploaded by users in Slack messages.
 
-*   **Platform Representation:** File objects, associated with channels or messages.
-*   **Nucleus `ArtifactMetadata` Mapping:**
-    *   Each File gets its own `ArtifactMetadata` record.
+*   **Platform Representation:** File objects included in the `files` array of an incoming message event.
+*   **Adapter Action:** When a message event contains files (`event.files`), the adapter extracts a reference for each file.
+    *   This is typically the **Slack File ID** (`file.id`). The adapter may also need to retrieve a temporary download URL using the Slack Web API (`files.info` and the bot token, respecting `url_private_download`).
+*   **API Request:** The adapter includes these **file identifiers or private download URLs** in the `SourceArtifactUris` field of the `InteractionRequest` DTO sent to the `Nucleus.Services.Api`.
+*   **API Service Action:** The **`Nucleus.Services.Api`** receives these references. It uses the File ID or URL (along with the bot token if necessary for private URLs) to fetch the actual file content directly from Slack for ingestion and processing.
+*   **Nucleus `ArtifactMetadata` Mapping (for Source File):**
+    *   Each File processed gets its own `ArtifactMetadata` record.
     *   `sourceSystemType`: Set to `Slack`.
     *   `sourceIdentifier`: Slack File ID (e.g., `slack://file/FABCDEF`).
-    *   `sourceUri`: Slack permalink for the file.
-    *   `parentSourceIdentifier`:
-        *   File uploaded directly to channel: Channel `sourceIdentifier`.
-        *   File attached to a message: Message `sourceIdentifier`.
-    *   `displayName`: Filename.
+    *   `sourceUri`: Slack permalink for the file (`file.permalink`).
+    *   `parentSourceIdentifier`: The `sourceIdentifier` of the message the file was attached to.
+    *   `displayName`: Filename (`file.name`).
 
 ## Rich Presentations and Embedded Hypermedia
 

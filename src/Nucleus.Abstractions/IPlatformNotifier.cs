@@ -11,6 +11,8 @@ namespace Nucleus.Abstractions;
 /// Defines a contract for sending notifications or responses back to the originating platform.
 /// Implementations will use the appropriate platform SDKs (e.g., Bot Framework, Slack API).
 /// See: ../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md"/>
+/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
 /// </summary>
 public interface IPlatformNotifier
 {

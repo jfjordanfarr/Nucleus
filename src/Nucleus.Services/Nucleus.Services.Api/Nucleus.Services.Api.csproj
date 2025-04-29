@@ -12,6 +12,7 @@
     <ProjectReference Include="..\..\..\Aspire\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
     <ProjectReference Include="..\..\Nucleus.Domain\Nucleus.Domain.Processing\Nucleus.Domain.Processing.csproj" />
+    <ProjectReference Include="..\..\Nucleus.Domain\Personas\Nucleus.Personas.Core\Nucleus.Domain.Personas.Core.csproj" />
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" />
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" />
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Data\Nucleus.Infrastructure.Persistence\Nucleus.Infrastructure.Data.Persistence.csproj" /> 
@@ -33,6 +34,7 @@
     <PackageReference Include="Microsoft.TeamsFx" Version="2.5.0" /> <!-- Corrected package -->
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.0" /> <!-- Added version -->
     <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.49.0" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
   </ItemGroup>
 
   <ItemGroup>

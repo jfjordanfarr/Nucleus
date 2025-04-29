@@ -1,8 +1,8 @@
 ---
 title: Ingestion Architecture - Plaintext Files
 description: Describes the innermost layer of the ingestion pipeline, handling raw text or text outputs from other processors.
-version: 1.0
-date: 2025-04-22
+version: 1.1
+date: 2025-04-27
 parent: ../ARCHITECTURE_PROCESSING_INGESTION.md
 ---
 
@@ -19,7 +19,7 @@ Its core responsibility is to **convert the incoming textual data into a canonic
 
 ## 2. Processing Steps
 
-1.  **Receive Text Input:** Accepts input as:
+1.  **Receive Text Input:** Accepts input typically provided by the orchestrating service (e.g., `OrchestrationService`) which has either fetched the content stream via `IArtifactProvider.GetContentAsync` based on an `ArtifactReference`, or received it from an upstream processor. The input can be:
     *   A single text stream or string with format hints (e.g., `source=xml`).
     *   **A bundle of multiple related text streams/strings** (e.g., XML components + LLM descriptions from an unpacked [File Collection](./ARCHITECTURE_INGESTION_FILECOLLECTIONS.md)) along with a **synthesis instruction** (e.g., "Synthesize a coherent Markdown document from these components representing the original source artifact").
 2.  **Convert/Synthesize to Structured Markdown:**

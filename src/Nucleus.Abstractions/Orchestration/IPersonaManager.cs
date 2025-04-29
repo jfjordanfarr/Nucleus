@@ -10,6 +10,7 @@ namespace Nucleus.Abstractions.Orchestration;
 
 /// <summary>
 /// Manages the lifecycle and interaction processing for a specific type of Persona.
+/// <seealso cref="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// </summary>
 public interface IPersonaManager
 {

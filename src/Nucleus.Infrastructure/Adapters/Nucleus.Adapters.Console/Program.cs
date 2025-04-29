@@ -21,6 +21,11 @@ using Microsoft.Extensions.ServiceDiscovery;
 using Microsoft.Extensions.ServiceDiscovery.Http; 
 using System.Text.RegularExpressions; // Added for regex parsing
 
+/// <summary>
+/// Main entry point for the Nucleus Console Client application.
+/// Configures services, command-line parsing (using System.CommandLine), and command handlers.
+/// </summary>
+/// <seealso cref="Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
 public class Program
 {
     // --- Application Entry Point ---
@@ -89,7 +94,11 @@ public class Program
     }
 
     // --- Command Configuration --- 
-    // Modify BuildRootCommand to accept IServiceProvider
+    /// <summary>
+    /// Configures the command-line structure using System.CommandLine.
+    /// Defines 'ingest' and 'interactive' commands and their handlers.
+    /// </summary>
+    /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md"/>
     private static RootCommand BuildRootCommand(IServiceProvider serviceProvider) 
     {
         var rootCommand = new RootCommand("Nucleus Console Interface - Interact with the Nucleus engine.");
@@ -146,6 +155,14 @@ public class Program
 
     // --- Static Handler Methods ---
 
+    /// <summary>
+    /// Handles the 'ingest' command logic.
+    /// Constructs an AdapterRequest for ingestion (sending only the file path) and sends it via the NucleusApiServiceAgent.
+    /// </summary>
+    /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/> 
+    /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/> 
+    /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md"/> 
+    /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_INGESTION.md"/> 
     private static async Task HandleIngestAsync(FileInfo fileInfo, ILogger<Program> logger, NucleusApiServiceAgent apiAgent)
     {
         var sessionId = Guid.NewGuid().ToString();
@@ -189,6 +206,14 @@ public class Program
         }
     }
 
+    /// <summary>
+    /// Handles the 'interactive' command logic.
+    /// Runs a loop to get user input, parse it, construct AdapterRequests (potentially with ArtifactReferences based on file paths),
+    /// and sends them via the NucleusApiServiceAgent.
+    /// </summary>
+    /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/> 
+    /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/> 
+    /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md"/> 
     private static async Task HandleInteractiveAsync(ILogger<Program> logger, NucleusApiServiceAgent apiAgent)
     {
         logger.LogInformation("Nucleus Console Adapter started. Type 'exit' to quit.");

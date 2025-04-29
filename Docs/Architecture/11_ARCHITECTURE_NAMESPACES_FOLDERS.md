@@ -1,8 +1,8 @@
 ---
 title: Architecture - Namespaces and Folder Structure
 description: Defines the standard namespace and folder structure for the Nucleus project, following .NET Aspire conventions and Clean Architecture principles.
-version: 1.1
-date: 2025-04-25
+version: 2.0
+date: 2025-04-28
 parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
@@ -48,45 +48,47 @@ The project root follows the standard .NET Aspire convention:
 *   **`src/`**: Contains all core source code for the Nucleus application, organized by architectural layer.
 *   **`tests/`**: Contains all automated test projects. Currently focused on Integration tests, with Unit and End-to-End tests planned for the future.
 
-## 3. `src/` Layer Structure & Responsibilities
+## 3. `src/` Layer Structure
 
-The `src/` directory is organized according to Clean Architecture layers:
+The `src/` directory is organized according to Clean Architecture principles, generally flowing from `Abstractions` -> `Domain` -> `Application` -> `Infrastructure` / `Services`. Detailed responsibilities for each project are documented in the specific files linked in the [Project Breakdown](#4-project-breakdown) section below.
 
-*   **`Nucleus.Abstractions/`**:
-    *   **Purpose:** Defines core interfaces, DTOs (Data Transfer Objects), enums, exceptions, and base types shared across multiple layers. Contains no implementation logic.
-    *   **Dependencies:** None (or minimal external framework abstractions like `Microsoft.Extensions.Logging.Abstractions`).
-*   **`Nucleus.Domain/`**:
-    *   **Purpose:** Contains the core business logic, entities, aggregates, value objects, domain events, and core behavioral definitions. Represents the heart of the application and should be independent of infrastructure concerns.
-    *   **Dependencies:** `Nucleus.Abstractions`.
-    *   **Sub-folders / Projects:** Organized logically, e.g.:
-        *   `Nucleus.Domain.Processing/`: Core processing logic.
-        *   `Personas/Nucleus.Personas.Core/`: Base implementations for Personas.
-*   **`Nucleus.Application/`**:
-    *   **Purpose:** Orchestrates use cases by coordinating Domain entities and Infrastructure services. Defines application-specific interfaces (e.g., `IOrchestrationService`) potentially implemented by Infrastructure. Contains application logic but not business rules (those are in Domain). **(Currently a placeholder directory).**
-    *   **Dependencies:** `Nucleus.Abstractions`, `Nucleus.Domain`.
-*   **`Nucleus.Infrastructure/`**:
-    *   **Purpose:** Contains implementations for external concerns: data access, external service clients, message queue interactions, caching, and platform adapters. Implements interfaces defined in `Application` or `Abstractions`.
-    *   **Dependencies:** `Nucleus.Abstractions`, `Nucleus.Application`. May also depend on `Nucleus.Services.Api` *specifically for Adapters* following the API-First principle.
-    *   **Sub-folders / Projects:** Organized by concern, e.g.:
-        *   `Adapters/Nucleus.Adapters.Console/`: Console client adapter.
-        *   `Adapters/Nucleus.Adapters.Teams/`: Teams client adapter.
-        *   `Data/Nucleus.Infrastructure.Persistence/`: Data persistence implementations (repositories).
-*   **`Nucleus.Services/`**:
-    *   **Purpose:** The entry point / hosting layer. Contains API projects (`Nucleus.Services.Api`), background worker services, etc. Responsible for exposing application functionality and handling hosting concerns (ASP.NET Core setup, DI configuration).
-    *   **Dependencies:** `Nucleus.Abstractions`, `Nucleus.Application`, `Nucleus.Infrastructure`. (Note: `Nucleus.Services.Api` depends on `Nucleus.ServiceDefaults` located in `Aspire/`).
+## 4. Project Breakdown
 
-## 4. Naming Conventions
+This section lists the individual projects within the Nucleus solution and links to their detailed architecture documents.
+
+*   **[`Nucleus.Abstractions`](./Namespaces/NAMESPACE_ABSTRACTIONS.md)** (`src/Nucleus.Abstractions/`)
+    *   Defines core interfaces, DTOs, and base types shared across the application.
+*   **[`Nucleus.Domain.Processing`](./Namespaces/NAMESPACE_DOMAIN_PROCESSING.md)** (`src/Nucleus.Domain/Nucleus.Domain.Processing/`)
+    *   Core domain logic for interaction processing and orchestration.
+*   **[`Nucleus.Personas.Core`](./Namespaces/NAMESPACE_PERSONAS_CORE.md)** (`src/Nucleus.Domain/Personas/Nucleus.Personas.Core/`)
+    *   Core domain logic for Personas, including the **Persona Runtime engine** responsible for executing configurations and agentic strategies.
+*   **(Placeholder for `Nucleus.Application`)** *(Currently empty)*
+*   **[`Nucleus.Infrastructure.Persistence`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PERSISTENCE.md)** (`src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/`)
+    *   Data persistence implementation (Cosmos DB Repositories).
+*   **[`Nucleus.Adapters.Console`](./Namespaces/NAMESPACE_ADAPTERS_CONSOLE.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/`)
+    *   Console client adapter.
+*   **[`Nucleus.Adapters.Teams`](./Namespaces/NAMESPACE_ADAPTERS_TEAMS.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/`)
+    *   Microsoft Teams client adapter (Bot).
+*   **[`Nucleus.Services.Api`](./Namespaces/NAMESPACE_SERVICES_API.md)** (`src/Nucleus.Services/Nucleus.Services.Api/`)
+    *   Main backend HTTP API service.
+*   **[`Nucleus.AppHost`](./Namespaces/NAMESPACE_APP_HOST.md)** (`Aspire/Nucleus.AppHost/`)
+    *   .NET Aspire AppHost for development orchestration.
+*   **[`Nucleus.ServiceDefaults`](./Namespaces/NAMESPACE_SERVICE_DEFAULTS.md)** (`Aspire/Nucleus.ServiceDefaults/`)
+    *   Shared configurations (Telemetry, Health Checks) for Aspire services.
+*   **(Placeholder for `Nucleus.Services.Api.IntegrationTests`)** (`tests/Integration/Nucleus.Services.Api.IntegrationTests/`)
+
+## 5. Naming Conventions
 
 *   **Namespaces:** Follow the folder structure precisely. Example: `Nucleus.Infrastructure.Adapters.Teams`.
 *   **Project Files:** `.csproj` files should match the primary namespace and folder name. Example: `src/Infrastructure/Adapters/Nucleus.Adapters.Teams/Nucleus.Infrastructure.Adapters.Teams.csproj`.
 
-## 5. Dependency Rules
+## 6. Dependency Rules
 
 *   **Direction:** Dependencies flow inwards: `Services` -> `Infrastructure` -> `Application` -> `Domain`. `Abstractions` can be referenced by any layer except `Domain` (which only references `Abstractions`).
 *   **API-First:** Client Adapters located in `Infrastructure` explicitly depend on and call `Nucleus.Services.Api`. This is an intentional pattern.
 *   **No Circular Dependencies:** Direct circular dependencies between layers (e.g., `Domain` depending on `Application`) are forbidden.
 
-## 6. Dependency Graph
+## 7. Dependency Graph
 
 ```mermaid
 graph LR
@@ -183,7 +185,13 @@ graph LR
 
 ```
 
-## 7. Related Documents
+## 8. Testing (`tests/`)
+
+*   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md) (Placeholder).
+*   **`tests/Unit/`**: Planned for unit tests, currently not implemented.
+*   **`tests/EndToEnd/`**: Planned for end-to-end tests, currently not implemented.
+
+## 9. Related Documents
 
 *   [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
 *   [10_ARCHITECTURE_API.md](./10_ARCHITECTURE_API.md)

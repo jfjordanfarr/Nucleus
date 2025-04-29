@@ -1,68 +1,83 @@
 ---
 title: Ingestion Architecture - File Collections
-description: Describes the conversion of multiple files, from a zip archive or other container, into and complete textual representations. Recursively leverages multimedia and plaintext ingestion mechanisms as needed and ensures metadata indicates file relationships.
-version: 1.0
-date: 2025-04-22
+description: Describes how container artifacts (e.g., zip, docx) are unpacked, their components identified, processed via appropriate processors coordinated by the orchestrator, and finally synthesized into a single textual representation.
+version: 1.2
+date: 2025-04-28
 parent: ../ARCHITECTURE_PROCESSING_INGESTION.md
 ---
 
-# Ingestion Architecture: File Collections (e.g., Zip Archives)
+# Ingestion Architecture: File Collections (e.g., Zip Archives, Docx)
 
 ## 1. Role and Overview
 
-The File Collections processor handles artifacts that represent containers holding multiple individual files, such as Zip archives (`.zip`), Tarballs (`.tar.gz`, `.tgz`), or potentially other package formats. Its primary goal is to unpack the container and recursively process each constituent file using the appropriate ingestion processor ([Plaintext](./ARCHITECTURE_INGESTION_PLAINTEXT.md), [Multimedia](./ARCHITECTURE_INGESTION_MULTIMEDIA.md), etc.), ensuring that the relationships between the container and its contents are preserved in the metadata.
+The File Collections processor handles artifacts that represent containers holding multiple individual files, such as Zip archives (`.zip`) or Office Open XML formats like `.docx`. Its primary responsibility is to **unpack** the container and **identify** its constituent files.
 
-This processor adheres to the overall ingestion principles ([ARCHITECTURE_PROCESSING_INGESTION.md](../ARCHITECTURE_PROCESSING_INGESTION.md)) by ensuring each contained file ultimately results in a faithful textual representation stored without premature chunking.
+The [**Orchestration Service**](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) coordinates the subsequent processing. It takes the list of identified components from this processor, routes each component to the appropriate ingestion processor ([Plaintext](./ARCHITECTURE_INGESTION_PLAINTEXT.md), [Multimedia](./ARCHITECTURE_INGESTION_MULTIMEDIA.md), etc.), collects the resulting textual representations, and finally invokes the **Plaintext Processor** to synthesize a single, coherent Markdown document representing the original container.
 
-## 2. Processing Steps
+This ensures adherence to the overall ingestion principles ([ARCHITECTURE_PROCESSING_INGESTION.md](../ARCHITECTURE_PROCESSING_INGESTION.md)), ultimately yielding a faithful ephemeral textual representation derived from all components.
 
-1.  **Receive Collection:** Accepts the container artifact (e.g., zip file stream/bytes).
-2.  **Create Container Metadata Stub:** Creates an initial [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record for the container artifact itself (e.g., the zip file). This marks the container as 'Processing'.
-3.  **Unpack Contents:** Extracts the constituent files from the container into a temporary location.
-4.  **Process Multimedia & Collect Components:** Iterates through the extracted files:
-    *   **If Multimedia:** Dispatches to the **Multimedia** processor ([ARCHITECTURE_INGESTION_MULTIMEDIA.md](./ARCHITECTURE_INGESTION_MULTIMEDIA.md)). Waits for the LLM-generated text description and stores it temporarily (in memory or temp variable).
-    *   **If Text/XML/Relevant:** Reads the file content into a temporary variable (e.g., reads `word/document.xml` content).
-    *   Collects all relevant raw text/XML content strings and all generated multimedia description strings.
-5.  **Dispatch Bundle for Synthesis:** Bundles *all* collected relevant XML/text content strings and *all* generated multimedia descriptions together. Dispatches this entire bundle to the **Plaintext Processor** ([ARCHITECTURE_INGESTION_PLAINTEXT.md](./ARCHITECTURE_INGESTION_PLAINTEXT.md)) with a specific instruction (e.g., "Synthesize a single coherent Markdown document representing the original container artifact from these components").
-6.  **Await Synthesized Markdown & Update Metadata:** Waits for the Plaintext processor to return the synthesized Markdown content. Updates the *original container's* [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record to point directly to this synthesized Markdown content and marks the container's overall processing state as completed.
-7.  **Cleanup:** Removes the temporarily extracted files and intermediate component data.
+## 2. Processing Flow (Orchestrator-Centric)
+
+**Note:** While this document refers to specific conceptual processors like "FileCollections Processor", "Plaintext Processor", and "Multimedia Processor", a codebase search did not find dedicated interfaces or classes matching these exact names. The described logic might be implemented within other components or is planned for future development.
+
+1.  **Receive Collection & Initiate:** The [**Orchestration Service**](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) receives an `ArtifactReference` for a container file (e.g., a `.zip` or `.docx`). It retrieves the content stream via [`IArtifactProvider.GetContentAsync(collectionRef)`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) and updates the artifact's metadata status to 'Processing'.
+2.  **Invoke FileCollections Processor (Unpack & Identify):** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) passes the stream to the **FileCollections Processor**. This processor:
+    *   Unpacks the container's contents into a temporary, accessible location (e.g., ephemeral blob storage, temporary file system).
+    *   Iterates through the extracted items.
+    *   For each item, it determines its type (e.g., `text/xml`, `image/png`) and its path within the container.
+    *   It **returns a list of identified components** back to the Orchestration Service. Each entry includes:
+        *   Component Type (MIME type or inferred type)
+        *   Relative Path within the container
+        *   A handle/reference to the temporary unpacked content (e.g., a temporary URI or stream handle).
+3.  **Orchestrate Component Processing:** The [**Orchestration Service**](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) receives the component list. For each component:
+    *   Based on the **Component Type**, it determines the appropriate processor.
+    *   It prepares the necessary context (including the handle to the temporary content and any relevant metadata like relative path).
+    *   It invokes the target processor (e.g., **Multimedia Processor** for images, **Plaintext Processor** for XML/text) asynchronously.
+4.  **Collect Component Results:** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) waits for all invoked component processors to complete. Each processor returns its result, which is typically a **text string** (e.g., the description from the Multimedia processor, the raw content from a simple text file read by the Plaintext processor).
+5.  **Prepare Synthesis Bundle:** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) gathers all the returned text strings from the component processing steps into a **bundle**. This bundle might include structured information about the source of each text string (e.g., original file path within the container).
+6.  **Invoke Plaintext Processor (Synthesis):** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) sends the complete **bundle** to the **Plaintext Processor** with a specific instruction (e.g., "Synthesize a single coherent Markdown document representing the original container artifact `[Container Name]` from these components, preserving structure where possible.").
+7.  **Receive Synthesized Markdown:** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) receives the final, synthesized Markdown string from the Plaintext Processor.
+8.  **Finalize Metadata & Cleanup:** The [**Orchestration Service**](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs):
+    *   Updates the *original container's* [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record, marking processing as complete and indicating that the synthesized Markdown representation is available (e.g., via a signal or by storing a handle/reference, *not* the content itself in metadata).
+    *   Initiates cleanup of the temporary unpacked files and intermediate component data.
 
 ## 3. Key Principles & Considerations
 
-*   **Component Aggregation:** This processor acts primarily as an unpacker and aggregator of textual components (original text/XML + generated descriptions).
-*   **Delegated Synthesis:** The complex task of synthesizing a final document from components is delegated to the Plaintext processor's LLM.
-*   **Metadata Simplicity:** Focuses on linking the original container artifact directly to the synthesized Markdown content. Intermediate components might not have persistent metadata.
-*   **LLM Dependency:** The quality of the synthesized output heavily depends on the Plaintext processor's LLM's ability to interpret the bundled components and synthesis instructions correctly.
-*   **Error Handling:** Needs robust handling for corrupted archives, errors during multimedia processing, and potential failures during the final LLM synthesis step.
-*   **Nested Collections:** Can still handle nested archives by recursively invoking itself, but the final synthesis step happens at each level for the components within that specific container.
-*   **Resource Limits:** Still needs to manage resources for unpacking and holding intermediate components in memory/ephemeral container storage before the final synthesis dispatch.
-
-This processor ensures complex container artifacts are deconstructed, their essential textual/visual information is captured (via raw text or LLM descriptions), and then intelligently re-synthesized into a single, coherent Markdown representation by the Plaintext processor's LLM.
+*   **Separation of Concerns:** The FileCollections processor focuses solely on unpacking and identifying. The Orchestrator handles the complexity of routing, parallel processing, result collection, and final synthesis invocation.
+*   **Orchestration is Key:** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) is central to managing the lifecycle of processing complex, multi-part artifacts.
+*   **Component Processing:** Relies on other specialized processors (Multimedia, Plaintext) to handle individual component types.
+*   **Delegated Synthesis:** The final, complex task of synthesizing a coherent document from disparate parts is delegated to the Plaintext processor's LLM.
+*   **Ephemeral Output:** The ultimate result is the synthesized ephemeral Markdown, referenced by the original container's metadata.
+*   **Error Handling:** The Orchestrator must handle errors at each stage (unpacking, component processing, synthesis).
+*   **Resource Management:** The Orchestrator and temporary storage mechanism need to manage resources for unpacked files and intermediate results.
 
 ## 4. Example: Processing a Word Document (.docx)
 
-Microsoft Word `.docx` files illustrate this LLM-centric synthesis approach:
+Illustrating the orchestrator-centric flow:
 
-The processing flow:
+1.  **Receipt & Initiate:** Orchestrator receives `.docx` `ArtifactReference`, gets stream via [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs), updates metadata to 'Processing'.
+2.  **Invoke Unpack/Identify:** Orchestrator sends stream to FileCollections Processor.
+3.  **Return Components:** FileCollections Processor unpacks to temp location and returns list to Orchestrator:
+    *   { Type: `application/xml`, Path: `word/document.xml`, Handle: `temp_uri_1` }
+    *   { Type: `application/xml`, Path: `word/styles.xml`, Handle: `temp_uri_2` }
+    *   { Type: `image/png`, Path: `word/media/image1.png`, Handle: `temp_uri_3` }
+    *   { Type: `image/jpg`, Path: `word/media/image2.jpg`, Handle: `temp_uri_4` }
+    *   ...
+4.  **Orchestrate Components:** Orchestrator sees the list:
+    *   Invokes Plaintext Processor for `word/document.xml` (using `temp_uri_1`).
+    *   Invokes Plaintext Processor for `word/styles.xml` (using `temp_uri_2`).
+    *   Invokes Multimedia Processor for `image1.png` (using `temp_uri_3`).
+    *   Invokes Multimedia Processor for `image2.jpg` (using `temp_uri_4`).
+5.  **Collect Results:** Orchestrator awaits results:
+    *   Plaintext Proc -> `doc_xml_content` string.
+    *   Plaintext Proc -> `styles_xml_content` string.
+    *   Multimedia Proc -> `description1_text` string.
+    *   Multimedia Proc -> `description2_text` string.
+6.  **Prepare & Dispatch Bundle:** Orchestrator bundles (`doc_xml_content`, `styles_xml_content`, `description1_text`, `description2_text`, ...) with context.
+7.  **Invoke Synthesis:** Orchestrator sends bundle to Plaintext Processor: "Synthesize Markdown for Word doc `MyReport.docx` from these components..."
+8.  **Receive Synthesized Markdown:** Orchestrator gets the final Markdown string.
+9.  **Finalize Metadata & Cleanup:** Orchestrator updates `MyReport.docx` metadata (status: Complete, result available) and cleans up temporary files (`temp_uri_1` etc.).
 
-1.  **Receipt & Dispatch:** `.docx` received, identified as a File Collection, dispatched to this processor.
-2.  **Container Metadata:** Stub created for the `.docx` file.
-3.  **Unpack:** Archive unpacked:
-    *   `word/document.xml`
-    *   `word/styles.xml`
-    *   `word/media/image1.png`
-    *   `word/media/image2.jpg`
-    *   ...etc.
-4.  **Process Multimedia & Collect Components:**
-    *   `image1.png` -> Multimedia Processor -> LLM -> Returns `description1_text`.
-    *   `image2.jpg` -> Multimedia Processor -> LLM -> Returns `description2_text`.
-    *   Reads content of `document.xml` into `doc_xml_content` string.
-    *   Reads content of `styles.xml` into `styles_xml_content` string.
-    *   (Other relevant XML/text components collected similarly).
-5.  **Dispatch Bundle for Synthesis:** Sends a bundle containing (`doc_xml_content`, `styles_xml_content`, ..., `description1_text`, `description2_text`) to the **Plaintext Processor** with instruction: "Synthesize Markdown for Word doc from this XML and image descriptions."
-6.  **Await Synthesized Markdown & Update Metadata:** Plaintext processor uses its LLM with the bundle, generates synthesized Markdown content, and passes it back. The `.docx` container's [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) is updated to point directly to this synthesized Markdown content and marked complete.
-7.  **Cleanup:** Temporary files and component strings deleted.
+**Outcome:** The single `.docx` artifact is now represented by its `ArtifactMetadata`, indicating the availability of the synthesized ephemeral Markdown content. This synthesized content, intelligently generated by an LLM from the document's structure and content (including image descriptions), becomes the basis for Persona analysis and knowledge extraction (`PersonaKnowledgeEntry`).
 
-**Outcome:** The single `.docx` artifact is now represented by its metadata record pointing directly to **synthesized Markdown content**, intelligently generated by an LLM from the original document's core XML structure and LLM-generated descriptions of its embedded images. This synthesized Markdown content is now the basis for search and retrieval.
-
-This LLM-driven synthesis approach radically simplifies the pipeline by avoiding dedicated Office parsers, fully embracing the "common sense engine" capability of modern LLMs operating on large context windows.
+This LLM-driven synthesis, coordinated by the [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs), avoids dedicated Office parsers, leveraging the Plaintext processor's LLM for final representation generation.

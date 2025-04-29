@@ -4,13 +4,14 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Repositories;
 using Nucleus.Domain.Personas.Core;
 using Nucleus.Domain.Processing;
 using Nucleus.Infrastructure.Data.Persistence.Repositories; // Required for CosmosDbArtifactMetadataRepository
-using Nucleus.Services.Api.Infrastructure.Artifacts; // Required for LocalFileArtifactProvider
+using Nucleus.Services.Api.Infrastructure; // Corrected namespace
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,12 +41,18 @@ using Nucleus.Infrastructure.Adapters.Teams;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Serialization;
 using Microsoft.Extensions.AI; // ADDED for IChatClient
+using Nucleus.Infrastructure.Persistence.Configuration; // ADDED for InMemoryPersonaConfigurationProvider
 
 namespace Nucleus.Services.Api;
 
 /// <summary>
-/// Extension methods for configuring Nucleus services and endpoints.
+/// Adds Nucleus specific services to the dependency injection container.
 /// </summary>
+/// <remarks>
+/// This includes core domain services, repositories, AI client registration,
+/// messaging components, artifact providers, and persona managers.
+/// See: <seealso cref="../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
+/// </remarks>
 public static class WebApplicationBuilderExtensions
 {
     /// <summary>
@@ -66,13 +73,93 @@ public static class WebApplicationBuilderExtensions
         // === Configuration ===
         // Note: Configuration sources like AddJsonFile, AddEnvironmentVariables are typically added directly to builder.Configuration in Program.cs
         // We assume they are already configured before this method is called.
-        services.Configure<List<PersonaConfiguration>>(configuration.GetSection("Personas"));
+        services.Configure<List<PersonaConfiguration>>(configuration.GetSection(NucleusConstants.ConfigurationKeys.PersonasSection));
         services.Configure<GoogleAiOptions>(configuration.GetSection(GoogleAiOptions.SectionName));
         services.Configure<TeamsAdapterConfiguration>(configuration.GetSection("TeamsAdapter")); // For Teams Bot
 
         // --- Caching --- ADDED
         services.AddMemoryCache();
         logger.LogInformation("Registered IMemoryCache.");
+
+        // --- AI Services ---
+        logger.LogInformation("Configuring AI Services...");
+        var googleAiSection = configuration.GetSection("AI:GoogleAI");
+        if (googleAiSection.Exists())
+        {
+            var apiKey = googleAiSection["ApiKey"];
+            var modelId = googleAiSection["ModelId"];
+            if (!string.IsNullOrWhiteSpace(apiKey) && apiKey != "YOUR_API_KEY_HERE" && !string.IsNullOrWhiteSpace(modelId))
+            {
+                logger.LogInformation("Registering GeminiChatClient (Mscc.GenerativeAI.Microsoft) as IChatClient (Model: {ModelId})", modelId);
+                // Instantiate GeminiChatClient directly and register as singleton for IChatClient
+                services.AddSingleton<IChatClient>(provider => 
+                    new GeminiChatClient(apiKey!, modelId) // Use non-nullable assertion due to check above
+                );
+            }
+            else
+            {
+                logger.LogWarning("Google AI configuration found, but ApiKey or ModelId is missing or placeholder. Skipping IChatClient registration.");
+                // Consider registering a NullChatClient or throwing an error if an AI client is strictly required
+                // services.AddSingleton<IChatClient, NullChatClient>(); // Example fallback
+            }
+        }
+        else
+        {
+             logger.LogWarning("AI:GoogleAI configuration section not found. Skipping IChatClient registration.");
+             // Consider registering a NullChatClient or throwing an error if an AI client is strictly required
+             // services.AddSingleton<IChatClient, NullChatClient>(); // Example fallback
+        }
+
+        // --- Persistence (Cosmos DB / In-Memory) ---
+        string? cosmosConnectionString = configuration.GetConnectionString("cosmosdb"); // Get Aspire connection string
+        string? cosmosDatabaseName = configuration["CosmosDb:DatabaseName"]; // Keep using existing config for names
+        string cosmosContainerName = configuration.GetValue<string>("CosmosDb:ArtifactMetadataContainerName", CosmosDbArtifactMetadataRepository.ArtifactMetadataContainerName); // Default from constant
+
+        if (!string.IsNullOrWhiteSpace(cosmosConnectionString) && !string.IsNullOrWhiteSpace(cosmosDatabaseName))
+        {
+            logger.LogInformation("Cosmos DB connection string found. Configuring Cosmos DB Client and Container.");
+            try
+            {
+                // <seealso cref="../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+                // Use custom serializer options matching Aspire defaults
+                CosmosClientOptions clientOptions = new()
+                {
+                    SerializerOptions = new CosmosSerializationOptions
+                    {
+                        PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+                    }
+                };
+
+                // Register CosmosClient as Singleton
+                services.AddSingleton(sp => new CosmosClient(cosmosConnectionString, clientOptions));
+
+                // Register Container as Singleton, ensuring Database/Container exist.
+                // Note: Blocking on async calls during startup (GetAwaiter().GetResult()) is generally discouraged,
+                // but necessary here for synchronous registration. Consider async factories for complex scenarios.
+                services.AddSingleton(sp =>
+                {
+                    var client = sp.GetRequiredService<CosmosClient>();
+                    var databaseResponse = client.CreateDatabaseIfNotExistsAsync(cosmosDatabaseName).GetAwaiter().GetResult();
+                    // Use /partitionKey based on repository usage of ArtifactMetadata.PartitionKey property
+                    var containerResponse = databaseResponse.Database.CreateContainerIfNotExistsAsync(cosmosContainerName, "/partitionKey").GetAwaiter().GetResult();
+                    return containerResponse.Container;
+                });
+
+                // Register the Cosmos DB implementation
+                services.AddSingleton<IArtifactMetadataRepository, CosmosDbArtifactMetadataRepository>();
+                logger.LogInformation("Registered CosmosDbArtifactMetadataRepository using connection string from Aspire/Configuration.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to configure Cosmos DB from connection string. Falling back to in-memory repository.");
+                services.AddSingleton<IArtifactMetadataRepository, InMemoryArtifactMetadataRepository>();
+            }
+        }
+        else
+        {
+            logger.LogWarning("Cosmos DB connection string ('cosmosdb') or DatabaseName ('CosmosDb:DatabaseName') not found in configuration. Using InMemoryArtifactMetadataRepository.");
+            services.AddSingleton<IArtifactMetadataRepository, InMemoryArtifactMetadataRepository>();
+        }
 
         // --- Aspire Service Discovery --- (Configured in Program.cs)
 
@@ -108,44 +195,6 @@ public static class WebApplicationBuilderExtensions
         services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
         services.AddHostedService<QueuedInteractionProcessorService>();
 
-        // --- Cosmos DB --- 
-        var cosmosEndpointUrl = configuration["ConnectionStrings:cosmosdb_endpoint"]; // Correct key per appsettings
-        var cosmosAccountKey = configuration["ConnectionStrings:cosmosdb_key"];     // Correct key per appsettings
-        var cosmosDatabaseName = configuration["CosmosDb:DatabaseName"] ?? "NucleusDb";
-        var cosmosContainerName = configuration["CosmosDb:ArtifactMetadataContainerName"] ?? "ArtifactMetadata";
-
-        if (!string.IsNullOrWhiteSpace(cosmosEndpointUrl) && !string.IsNullOrWhiteSpace(cosmosAccountKey))
-        {
-            logger.LogInformation("Cosmos DB configuration found. Registering CosmosClient and Repository.");
-            // Use Endpoint+Key authentication
-            services.AddSingleton((provider) =>
-            {
-                var cosmosClientOptions = new CosmosClientOptions
-                {
-                    // ApplicationRegion = Regions.EastUS, // Optional: Set preferred region
-                    SerializerOptions = new CosmosSerializationOptions
-                    {
-                        PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
-                    }
-                };
-                // Use key-based auth
-                return new CosmosClient(cosmosEndpointUrl, cosmosAccountKey, cosmosClientOptions);
-            });
-
-            // Register the repository, explicitly providing db and container names
-            services.AddSingleton<IArtifactMetadataRepository>(sp =>
-            {
-                var cosmosClient = sp.GetRequiredService<CosmosClient>();
-                var container = cosmosClient.GetContainer(cosmosDatabaseName, cosmosContainerName);
-                return new CosmosDbArtifactMetadataRepository(container, sp.GetRequiredService<ILogger<CosmosDbArtifactMetadataRepository>>());
-            });
-        }
-        else
-        {
-            logger.LogWarning("Cosmos DB configuration not found. ArtifactMetadataRepository will not be available.");
-            // Consider registering a Null/InMemory repository here if needed for fallback
-        }
-
         // --- Authentication (Example: Microsoft Entra ID for downstream APIs / Graph) ---
         // services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         //     .AddMicrosoftIdentityWebApi(configuration.GetSection("AzureAd"));
@@ -160,33 +209,18 @@ public static class WebApplicationBuilderExtensions
         // --- Core AI and Artifact Services ---
         logger.LogInformation("Registering Core AI and Artifact Services...");
 
-        // --- Configure Google AI (Gemini via Mscc.GenerativeAI) ---
-        var googleAiOptions = configuration.GetSection(GoogleAiOptions.SectionName).Get<GoogleAiOptions>();
-        if (googleAiOptions != null && !string.IsNullOrWhiteSpace(googleAiOptions.ApiKey) && googleAiOptions.ApiKey != "YOUR_API_KEY_HERE")
-        {
-            logger.LogInformation("Registering Google AI (Gemini via Mscc) client.");
-            // Register Google AI Chat Client directly as the extension method doesn't exist
-            string modelId = googleAiOptions.ModelId ?? "gemini-1.5-flash"; // Use default if not specified
-            services.AddSingleton<IChatClient>(provider => 
-                new GeminiChatClient(googleAiOptions.ApiKey!, modelId) // Use non-nullable assertion for ApiKey due to check above
-            );
-            logger.LogInformation("Registered GeminiChatClient with model '{ModelId}'.", modelId);
-            
-            // Register our adapter/wrapper if needed (assuming one exists)
-            // services.AddSingleton<IAiChatModel, GoogleAiChatAdapter>();
-        }
-        else
-        {
-            logger.LogWarning("Google AI (Gemini via Mscc) configuration missing or invalid ApiKey. Service will not be registered.");
-        }
+        // --- Content Extractors ---
+        // Register multiple implementations. Consumers can inject IEnumerable<IContentExtractor>
+        // to find the appropriate one based on SupportedMimeTypes.
+        // See: [ARCHITECTURE_PROCESSING_INTERFACES.md](../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md)
+        services.AddSingleton<IContentExtractor, PlainTextContentExtractor>();
+        services.AddSingleton<IContentExtractor, HtmlContentExtractor>();
 
         // --- Artifact Providers ---
         logger.LogInformation("Registering Artifact Providers...");
-        // Local File Provider (always register for now, reads from configuration)
-        services.AddSingleton<IArtifactProvider, LocalFileArtifactProvider>();
-        logger.LogInformation("Registered LocalFileArtifactProvider.");
-
-        // TODO: Add other artifact providers (e.g., SharePoint/Graph) based on config
+        // Register NullArtifactProvider for scenarios where no provider should act (e.g., if no other provider matches a reference type)
+        services.AddSingleton<IArtifactProvider, NullArtifactProvider>();
+        logger.LogInformation("Registered Artifact Providers (NullArtifactProvider). Ensure specific providers (e.g., for Graph) are registered elsewhere if needed.");
 
         // --- API Controllers --- 
         services.AddControllers();
@@ -201,8 +235,7 @@ public static class WebApplicationBuilderExtensions
         logger.LogInformation("Registering Bot Framework services...");
         services.AddHttpClient().AddTransient<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
         services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
-        // TODO: Find the correct IBot implementation class name in Nucleus.Adapters.Teams
-        // services.AddTransient<IBot, TeamsMessagingBot>(); // Register your bot
+        services.AddTransient<IBot, TeamsAdapterBot>(); // Register your bot
         logger.LogInformation("Registered Bot Framework services.");
 
         services.AddSingleton<IOrchestrationService, OrchestrationService>();
@@ -211,6 +244,38 @@ public static class WebApplicationBuilderExtensions
         services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
         services.AddHostedService<QueuedInteractionProcessorService>(); // Background worker
 
+        // Register NullPlatformNotifier as the keyed IPlatformNotifier for PlatformType.Api
+        services.AddKeyedSingleton<IPlatformNotifier, NullPlatformNotifier>(PlatformType.Api);
+
+        // --- Register Persona Implementations ---
+        // TODO: This should ideally be keyed or dynamically loaded based on config.
+        // Register BootstrapperPersona as a keyed service implementing IPersona<EmptyAnalysisData>
+        services.AddKeyedSingleton<IPersona<EmptyAnalysisData>, BootstrapperPersona>(NucleusConstants.PersonaKeys.Default);
+        logger.LogInformation("Registered keyed BootstrapperPersona.");
+
+        // --- Persona Management (Keyed by PersonaId) ---
+        services.AddKeyedScoped<IPersonaManager, DefaultPersonaManager>(NucleusConstants.PersonaKeys.Default, (Func<IServiceProvider, object, DefaultPersonaManager>)((sp, key) =>
+        {
+            var logger = sp.GetRequiredService<ILogger<DefaultPersonaManager>>();
+            var personaConfigs = sp.GetRequiredService<IOptions<List<PersonaConfiguration>>>();
+            var metadataRepo = sp.GetRequiredService<IArtifactMetadataRepository>();
+            var persona = sp.GetRequiredService<IPersona<EmptyAnalysisData>>(); // Corrected: Use GetRequiredService
+            var artifactProviders = sp.GetRequiredService<IEnumerable<IArtifactProvider>>(); // Resolve artifact providers
+
+            // Pass the resolved generic persona AS the non-generic IPersona, plus the providers
+            return new DefaultPersonaManager(logger, sp, personaConfigs, metadataRepo, persona, artifactProviders);
+        }));
+        logger.LogInformation("Successfully registered FACTORY for IPersonaManager with key: {Key} (Scoped)", NucleusConstants.PersonaKeys.Default);
+
+        // --- Processing Services ---
+        logger.LogInformation("Registering Processing Services...");
+        services.AddSingleton<IPersonaConfigurationProvider, InMemoryPersonaConfigurationProvider>(); // ADDED
+        services.AddScoped<IOrchestrationService, OrchestrationService>(); // Already exists
+        services.AddScoped<IPersonaRuntime, PersonaRuntime>(); // Already exists
+        logger.LogInformation("Registered Processing Services (IOrchestrationService, IPersonaRuntime, IPersonaConfigurationProvider).");
+
+        // --- Messaging (Service Bus / In-Memory) ---
+        // Check if Service Bus is configured for messaging
         logger.LogInformation("Nucleus services registration complete.");
         return builder;
     }

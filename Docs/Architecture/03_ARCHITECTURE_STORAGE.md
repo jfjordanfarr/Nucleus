@@ -1,30 +1,30 @@
 ---
 title: Architecture - Storage & Metadata Management
-description: Outlines the strategy for managing artifacts and metadata, emphasizing external source system storage and internal metadata persistence, coordinated via the API service.
-version: 1.11
-date: 2025-04-24
+description: Outlines the strategy for managing artifacts and metadata, emphasizing exclusive reliance on user source system storage and internal metadata persistence, orchestrated via API service reference-based interactions.
+version: 1.13
+date: 2025-04-27
 ---
 
 # Nucleus OmniRAG: Storage Architecture
 
-**Version:** 1.11
-**Date:** 2025-04-24
+**Version:** 1.13
+**Date:** 2025-04-27
 
-This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). These interactions are orchestrated by the `Nucleus.Services.Api`. Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
+This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). These interactions are orchestrated **exclusively by the `Nucleus.Services.Api` via `ArtifactReference` objects**. Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
 ## 1. Core Principles
 
 *   **User Source System is Authoritative:** The original artifact (user-provided *or* Nucleus-generated) resides and is managed within the user's designated source system (SharePoint, Slack Files, Google Drive, etc.). Nucleus interacts with these systems via [adapters](./05_ARCHITECTURE_CLIENTS.md).
-*   **Metadata in Nucleus DB:** Essential metadata about the source artifact (`ArtifactMetadata`) and persona-specific analysis (`PersonaKnowledgeEntry`) are stored in Nucleus's own [database layer (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md). This metadata contains pointers (`sourceUri`) to the actual artifact in the user's system.
-*   **No Intermediate Storage:** Nucleus avoids creating its own persistent store for artifacts. Temporary, in-memory streams or extremely short-lived local caches might be used during [processing](./01_ARCHITECTURE_PROCESSING.md), but **no intermediate persistence** (like Azure Blob Storage or dedicated file shares) should be relied upon, aligning with Memory `08b60bec`.
-*   **Permission-Based Access:** Nucleus accesses artifacts in the source system using the permissions granted to its corresponding bot or application identity within that platform (e.g., Teams bot permissions to read/write files in a channel). See [Security Architecture](./06_ARCHITECTURE_SECURITY.md).
-*   **Support Diverse Sources:** The architecture must accommodate artifacts from various locations accessible via APIs (cloud drives, collaboration platforms, email attachments) through the [Client/Adapter Architecture](./05_ARCHITECTURE_CLIENTS.md).
+*   **Metadata in Nucleus DB:** Essential metadata about the source artifact (`ArtifactMetadata`) and persona-specific analysis (`PersonaKnowledgeEntry`) are stored in Nucleus's own [database layer (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md). This metadata contains pointers (`sourceUri`, `sourceIdentifier`) to the actual artifact in the user's system.
+*   **No Intermediate Storage:** Nucleus avoids creating its own persistent store for artifacts. Temporary, in-memory streams might be used during [processing](./01_ARCHITECTURE_PROCESSING.md), but **no intermediate persistence** (like Azure Blob Storage or dedicated file shares) is used for user content, aligning with Zero Trust principles detailed in the [Security Architecture](./06_ARCHITECTURE_SECURITY.md).
+*   **Reference-Based Access:** Nucleus accesses artifacts in the source system **only** when needed for processing, using [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) objects provided by clients in API requests. The API service then uses the appropriate [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementation to ephemerally fetch content stream based on the reference. Access is governed by the permissions granted to its corresponding bot or application identity within that platform (e.g., Teams bot permissions to read/write files in a channel). See [Security Architecture](./06_ARCHITECTURE_SECURITY.md).
+*   **Support Diverse Sources:** The architecture must accommodate artifacts from various locations accessible via APIs (cloud drives, collaboration platforms, email attachments) through the [Client/Adapter Architecture](./05_ARCHITECTURE_CLIENTS.md), unified by the `ArtifactReference` mechanism.
 
 ## 2. Key Metadata Structure: `ArtifactMetadata`
 
-The `ArtifactMetadata` record is the central object persisted in the `ArtifactMetadataContainer` within [Cosmos DB](./04_ARCHITECTURE_DATABASE.md) for *every* unique artifact Nucleus interacts with. It represents Nucleus's understanding of the artifact's properties and context, derived primarily from the source system via [Adapters](./05_ARCHITECTURE_CLIENTS.md).
+The [`ArtifactMetadata`](../../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs) record is the central object persisted in the `ArtifactMetadataContainer` within [Cosmos DB](./04_ARCHITECTURE_DATABASE.md) for *every* unique artifact Nucleus interacts with. It represents Nucleus's understanding of the artifact's properties and context, derived primarily from the source system via [Adapters](./05_ARCHITECTURE_CLIENTS.md).
 
-**Authoritative Definition:** The precise C# definition of the [`ArtifactMetadata`](../../../Nucleus.Abstractions/Models/ArtifactMetadata.cs) record resides within the codebase. Refer to the source code and its XML documentation for the exact fields and their types.
+**Authoritative Definition:** The precise C# definition of the [`ArtifactMetadata`](../../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs) record resides within the codebase. Refer to the source code and its XML documentation for the exact fields and their types.
 
 The conceptual categories of information stored within `ArtifactMetadata` include:
 
@@ -66,31 +66,26 @@ This approach ensures:
 
 ## 4. Core Operations
 
-*   **Ingestion/Update:** When a new artifact is detected (e.g., via webhook from a source system handled by an adapter) or an existing one changes:
-    *   The Platform Adapter receives the trigger event from the source system.
-    *   The Adapter makes an **API call** to the `Nucleus.Services.Api` (e.g., `POST /ingest`) with details about the artifact event (e.g., `sourceUri`, `sourceIdentifier`, `eventType`).
-    *   The **API service** authenticates, validates, and potentially performs initial triage.
-    *   The **API service orchestrates** the processing pipeline (sync or async, see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)).
+*   **Interaction Trigger (Ingestion/Update/Query):** When an event occurs that requires Nucleus interaction (e.g., a new artifact detected via webhook, a user query mentioning an artifact, a direct user command like `nucleus interact`):
+    *   The Platform Adapter receives the trigger event from the source system or user input.
+    *   The Adapter constructs an `AdapterRequest` DTO containing relevant context (user info, channel, etc.) and, crucially, one or more `ArtifactReference` objects pointing to any relevant artifacts in the user's source system.
+    *   The Adapter makes an **API call** to the `Nucleus.Services.Api` (typically `POST /api/v1/interactions`), sending the `AdapterRequest` as a JSON payload. **The API does not accept direct file uploads (e.g., `multipart/form-data`).**
+    *   The **API service** authenticates the request, validates the `AdapterRequest` and `ArtifactReference`s, and determines the appropriate action (e.g., initiate analysis, handle query).
+    *   The **API service orchestrates** the subsequent processing pipeline (sync or async, see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)).
     *   The pipeline logic, under API control:
-        *   Interacts with the `IArtifactMetadataRepository` (typically hosted within the API service project) to check for existing metadata or prepare for creation/update.
-        *   Creates or updates the `ArtifactMetadata` document in Cosmos DB.
-        *   If processing is required, instructs the appropriate platform adapters (via the API service) to fetch the artifact content stream from the `sourceUri` for analysis.
+        *   Interacts with the [`IArtifactMetadataRepository`](../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) to manage metadata persistence (creating or updating `ArtifactMetadata`).
+        *   If processing/analysis of artifact content is required:
+            *   It uses the `ArtifactReference` from the initial request (or retrieved from `ArtifactMetadata`) to identify the artifact.
+            *   It invokes the appropriate [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) (resolved by the API service based on `ReferenceType`) to ephemerally retrieve the artifact's content stream ([`ArtifactContent`](../../../src/Nucleus.Abstractions/Models/ArtifactContent.cs)).
+            *   The content stream is used for analysis by the relevant [Personas](./02_ARCHITECTURE_PERSONAS.md).
         *   Updates processing status fields in the `ArtifactMetadata` document as analysis progresses.
-
-*   **Persona Analysis:** Personas analyze the artifact content (fetched via Adapters) and generate `PersonaKnowledgeEntry` data.
-    *   The `PersonaKnowledgeEntry` data is stored in Cosmos DB.
-    *   The `ArtifactMetadata` record is updated with the analysis results.
-
-*   **Query Handling:** When a user submits a query:
-    *   The Query Handler retrieves relevant `ArtifactMetadata` and `PersonaKnowledgeEntry` records from Cosmos DB.
-    *   The Query Handler uses the retrieved data to generate a response.
 
 ## 5. Integration with Other Architectures
 
 *   **Processing Pipeline (`01_ARCHITECTURE_PROCESSING.md`):**
     *   **Orchestrated by the API service**, it coordinates the steps of ingestion, analysis, and knowledge storage.
     *   Invokes `IArtifactMetadataRepository` to manage metadata persistence.
-    *   Uses platform adapters **(as directed by the API service)** to fetch artifact content when needed for analysis.
+    *   Uses the `IArtifactProvider` interface **(invoked by API-controlled logic)** to ephemerally fetch artifact content based on `ArtifactReference`s when needed for analysis.
 
 *   **Database Layer (`04_ARCHITECTURE_DATABASE.md`):**
     *   Is the primary persistence layer for `ArtifactMetadata` and `PersonaKnowledgeEntry`.
@@ -123,12 +118,13 @@ When a source artifact represents a collection (e.g., a folder, an email with mu
 
 ## 8. Next Steps
 
-1.  **Implement `IArtifactMetadataRepository`:** Create a Cosmos DB implementation (likely within `Nucleus.Services.Api`) for the defined [`IArtifactMetadataRepository`](../../../Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) interface for CRUD operations on `ArtifactMetadata` documents.
-2.  **Finalize `sourceIdentifier` Strategy:** Define the precise algorithm for generating stable logical `sourceIdentifier`s for different `SourceSystemType`s, ensuring uniqueness and allowing correlation even if the `sourceUri` changes slightly (e.g., SharePoint version updates).
-3.  **Integrate with Processing Pipeline:** Ensure the pipeline correctly interacts with the `IArtifactMetadataRepository` and uses platform adapters to fetch content via `sourceUri`.
-4.  **Develop Platform Adapters:** Build out the necessary adapters in the Client Layer (`05_ARCHITECTURE_CLIENTS.md`) for key target source systems.
-5.  **Refine Metadata Schema:** Continuously refine the `ArtifactMetadata` fields based on persona needs and extraction capabilities.
+1.  **Implement `IArtifactMetadataRepository`:** Create a Cosmos DB implementation (likely within `Nucleus.Services.Api`) for the defined [`IArtifactMetadataRepository`](../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs) interface for CRUD operations on `ArtifactMetadata` documents.
+2.  **Implement `IArtifactProvider`s:** Create implementations of [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) for initial target systems (e.g., local file system for `Nucleus.Console`, Graph API for Teams/SharePoint).
+3.  **Finalize `sourceIdentifier` Strategy:** Define the precise algorithm for generating stable logical `sourceIdentifier`s for different `SourceSystemType`s, ensuring uniqueness and allowing correlation even if the `sourceUri` changes slightly (e.g., SharePoint version updates).
+4.  **Integrate with Processing Pipeline:** Ensure the pipeline correctly interacts with the `IArtifactMetadataRepository` and invokes `IArtifactProvider` via the API service logic based on `ArtifactReference`s.
+5.  **Develop Platform Adapters:** Build out the necessary adapters in the Client Layer (`05_ARCHITECTURE_CLIENTS.md`) for key target source systems, ensuring they correctly construct `AdapterRequest` and `ArtifactReference` objects.
+6.  **Refine Metadata Schema:** Continuously refine the `ArtifactMetadata` fields based on persona needs and extraction capabilities.
 
 ---
 
-_This architecture clarifies that Nucleus leverages user source systems for artifact storage via adapters and uses its own database (Cosmos DB) solely for persisting rich metadata (`ArtifactMetadata`) and derived persona knowledge._
+_This architecture clarifies that Nucleus leverages user source systems for artifact storage via adapters and uses its own database (Cosmos DB) solely for persisting rich metadata (`ArtifactMetadata`) and derived persona knowledge. All interaction is API-mediated using reference-based requests._

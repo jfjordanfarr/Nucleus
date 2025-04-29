@@ -1,8 +1,9 @@
 ---
 title: Client Adapter - Console
 description: Describes a basic interaction surface with Nucleus personas, tailored for accelerated local development and providing a lightweight simulation environment for core adapter interactions.
-version: 1.6
-date: 2025-04-24
+version: 1.7
+date: 2025-04-27
+parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
 # Client Adapter: Console
@@ -96,6 +97,19 @@ Presentation capabilities are limited to standard console text output. The adapt
     *   Saving the received artifact content to a local file (as described in Generated Artifact Handling).
     *   Presenting a reference (like the saved file path or a `file://` hyperlink) allowing the developer to open and view it manually.
 *   **Simulation Focus:** The adapter facilitates testing the API's ability to *generate* and *return* rich artifact data, not rendering it.
+
+## Implementation Details
+
+The core logic for the Console Adapter resides primarily within:
+
+*   **Entry Point & Command Setup:** [`Program.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs)
+    *   Defines the `ingest` and `interactive` commands using `System.CommandLine`: [`Program.BuildRootCommand()`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs#L90)
+*   **Ingestion Handling:** [`Program.HandleIngestAsync()`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs#L148)
+    *   Parses file path, creates `AdapterRequest` with `file` type `ArtifactReference` containing the full path, and calls the API Agent.
+*   **Interactive Handling:** [`Program.HandleInteractiveAsync()`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs#L196)
+    *   Reads user input, parses `file://` URIs, creates `AdapterRequest` with query and potential `ArtifactReference`s, and calls the API Agent.
+*   **API Communication:** [`Services/NucleusApiServiceAgent.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Services/NucleusApiServiceAgent.cs)
+    *   Uses `HttpClient` to send constructed `AdapterRequest` DTOs to the `Nucleus.Services.Api`.
 
 ## Limitations
 

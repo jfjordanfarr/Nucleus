@@ -12,8 +12,16 @@ using System.Threading.Tasks;
 namespace Nucleus.Domain.Processing;
 
 /// <summary>
-/// Implements an in-memory background task queue using System.Threading.Channels.
+/// Provides an in-memory implementation of a background task queue based on <see cref="Channel{T}"/>.
+/// Suitable for single-instance deployments or testing environments.
 /// </summary>
+/// <remarks>
+/// This implementation allows decoupling of task submission (enqueueing) from task execution (dequeueing),
+/// facilitating asynchronous processing patterns within the application.
+/// </remarks>
+/// <seealso cref="IBackgroundTaskQueue"/>
+/// <seealso cref="NucleusIngestionRequest"/>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 public class InMemoryBackgroundTaskQueue : IBackgroundTaskQueue
 {
     // Use NucleusIngestionRequest as the channel type

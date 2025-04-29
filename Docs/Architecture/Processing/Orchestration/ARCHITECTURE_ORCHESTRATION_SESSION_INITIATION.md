@@ -2,11 +2,11 @@
 title: Architecture - Orchestration Session Initiation (API-First)
 description: Details how the Nucleus API Service initiates interaction processing context after a successful Activation Check.
 version: 2.0
-date: 2025-04-24
+date: 2025-04-27
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
-# Nucleus OmniRAG: Orchestration Session Initiation (API-First)
+# Orchestration Session Initiation (API-First)
 
 ## 1. Introduction
 
@@ -42,3 +42,16 @@ Once the `ApiService` determines that an incoming `InteractionRequest` should be
 *   [API Architecture Overview](../10_ARCHITECTURE_API.md)
 *   [API Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)
 *   [API Activation & Routing](./ARCHITECTURE_ORCHESTRATION_ROUTING.md)
+
+## 5. Related Components and Documents
+
+- **Core Implementation:**
+  - [`OrchestrationService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs): Central service managing the interaction lifecycle, including context setup (though currently divergent from this document's description).
+  - [`OrchestrationService.ProcessInteractionAsync`](cci:1://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs:59:4-167:5): The primary method handling incoming requests.
+- **Key Data Structures:**
+  - [`InteractionContext`](../../../../src/Nucleus.Abstractions/Orchestration/InteractionContext.cs): Represents the context object ideally created post-activation.
+  - [`NucleusIngestionRequest`](../../../../src/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs): Used for queueing asynchronous processing tasks.
+- **Related Orchestration Concepts:**
+  - [Overall Orchestration](../ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
+  - [Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)
+  - [Routing](./ARCHITECTURE_ORCHESTRATION_ROUTING.md)

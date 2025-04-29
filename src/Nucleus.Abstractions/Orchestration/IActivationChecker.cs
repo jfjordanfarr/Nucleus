@@ -8,9 +8,14 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Orchestration;
 
 /// <summary>
-/// Defines the contract for a service that checks if an incoming interaction
-/// meets the criteria required to activate processing.
+/// Defines the contract for a service that checks if an incoming interaction request
+/// should trigger activation based on configured rules.
 /// </summary>
+/// <remarks>
+/// This component is central to the API's initial request handling, determining whether
+/// to proceed with synchronous or asynchronous processing or to ignore the interaction.
+/// </remarks>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 public interface IActivationChecker
 {
     /// <summary>

@@ -370,3 +370,7 @@ Nucleus.ApiService/LocalTeamDirectory/
 
 # Project-specific untracked data folder
 /_LocalData/
+
+# --- Keep specific 'Artifacts' directories needed for the project ---
+!Nucleus.Services/Nucleus.Services.Api/Infrastructure/Artifacts/
+!Nucleus.Services/Nucleus.Services.Api/Infrastructure/Artifacts/*

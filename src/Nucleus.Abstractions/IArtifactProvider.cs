@@ -6,14 +6,25 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Nucleus.Abstractions.Models;
+using Microsoft.AspNetCore.Http;
 
 namespace Nucleus.Abstractions;
 
 /// <summary>
-/// Defines the contract for services that can retrieve the content of an artifact
-/// based on its reference information. Implemented by adapters or specific data source connectors.
-/// See: Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
-/// See: ../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ARTIFACT_PROVIDERS.md
+/// Defines the contract for components responsible for retrieving the actual content
+/// of an artifact based on an ArtifactReference. Implementations are specific to the
+/// source system or protocol (e.g., local file system, Microsoft Graph, HTTP).
+/// Crucially, these providers operate ephemerally and do not store content long-term.
+/// <seealso cref="Models.ArtifactReference"/>
+/// <seealso cref="Models.ArtifactContent"/>
+/// <seealso cref="../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_INGESTION_FILECOLLECTIONS.md"/>
+/// <seealso cref="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
+/// <seealso cref="../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
 /// </summary>
 public interface IArtifactProvider
 {
@@ -33,7 +44,7 @@ public interface IArtifactProvider
     /// An <see cref="ArtifactContent"/> object containing the stream and metadata,
     /// or null if the artifact could not be retrieved or does not exist.
     /// The provider should log errors internally rather than throwing exceptions here.
-    /// </summary>
+    /// </returns>
     Task<ArtifactContent?> GetContentAsync(
         ArtifactReference reference,
         CancellationToken cancellationToken = default);

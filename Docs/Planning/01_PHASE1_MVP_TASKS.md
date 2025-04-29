@@ -1,14 +1,14 @@
 ---
 title: "Phase 1: MVP - Core API Foundation & Initial Validation Tasks"
-description: "Detailed tasks for implementing the Nucleus OmniRAG Minimum Viable Product (MVP) focused on the core backend API Service and its validation via an initial Console client."
-version: 1.3 # Aligned with API-First MVP
-date: 2025-04-22 # Today's date
+description: "Detailed tasks for implementing the Nucleus Minimum Viable Product (MVP) focused on the core backend API Service and its validation via an initial Console client."
+version: 1.5
+date: 2025-04-27
 ---
 
 # Phase 1: MVP - Core **API Foundation** & Initial Validation Tasks
 
 **Epic:** [`EPIC-MVP-API`](./00_ROADMAP.md#phase-1-mvp---core-api-foundation--initial-validation)
-**Requirements:** [`01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md`](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md) *(Note: Title reflects Console Client, but content is API-focused)*
+**Requirements:** [`01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md`](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
 **Architecture:** [`00_ARCHITECTURE_OVERVIEW.md`](../Architecture/00_ARCHITECTURE_OVERVIEW.md), [`10_ARCHITECTURE_API.md`](../Architecture/10_ARCHITECTURE_API.md)
 
 This document details the specific tasks required to complete Phase 1. The focus is on establishing the **Core API Service (`Nucleus.ApiService`)** and its foundational components (backend logic, persona integration, basic data storage). An initial **Console Application (`Nucleus.Console`)** will be developed concurrently to serve as a **reference client for validating** the API endpoints and interaction flows. This approach prioritizes building a robust API foundation first, enabling parallel development and testing.
@@ -25,36 +25,47 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [X] **TASK-MVP-SETUP-07:** Ensure AppHost correctly injects connection strings/service URIs into `Nucleus.ApiService` and `Nucleus.Console`. (Ref Config: Aspire Configuration)
 *   [X] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Google Gemini) and necessary configuration (API keys via user secrets/env vars).
 
-## `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for Ingestion)
-*(Ref Arch: [`01_ARCHITECTURE_PROCESSING.md`](../Architecture/01_ARCHITECTURE_PROCESSING.md), [`ARCHITECTURE_PROCESSING_INGESTION.md`](../Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md))*
-*   [ ] **TASK-MVP-EXT-01:** Define `IContentExtractor` interface. (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD)
+## `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for API Processing)
+*(Ref Arch: [`01_ARCHITECTURE_PROCESSING.md`](../Architecture/01_ARCHITECTURE_PROCESSING.md), [`ARCHITECTURE_PROCESSING_INGESTION.md`](../Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md))* // Note: Extraction happens within API after content retrieval.
+*   [ ] **TASK-MVP-EXT-01:** Define `IContentExtractor` interface. (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD) // Used by API after getting content via IArtifactProvider
 *   [ ] **TASK-MVP-EXT-02:** Implement `PlainTextExtractor` for `text/plain` MIME type. (Ref Code: `Nucleus.Processing/Services/Extractors/` - TBD)
 *   [ ] **TASK-MVP-EXT-03:** Implement `HtmlExtractor` for `text/html` MIME type (use a library like HtmlAgilityPack to sanitize/extract text). (Ref Code: `Nucleus.Processing/Services/Extractors/` - TBD)
-*   [ ] **TASK-MVP-EXT-04:** Integrate `IContentExtractor` selection logic within the **`Nucleus.ApiService`** based on artifact MIME type. *(Used by Console `ingest` command later)* (Ref Code: `Nucleus.ApiService/Controllers/IngestController.cs` - TBD)
+*   [ ] **TASK-MVP-EXT-04:** Integrate `IContentExtractor` selection logic within the **`Nucleus.ApiService`** processing pipeline (called after ephemeral content retrieval via `IArtifactProvider`). (Ref Code: `Nucleus.ApiService/...` - TBD)
 
 ## `ISSUE-MVP-PERSONA-01`: Create Initial **Bootstrapper Persona**
 *(Ref Arch: [`02_ARCHITECTURE_PERSONAS.md`](../Architecture/02_ARCHITECTURE_PERSONAS.md), [`ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md`](../Architecture/Personas/ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md))*
 *   [ ] **TASK-MVP-PER-01:** Define the output C# record model(s) for the `BootstrapperPersona`'s structured analysis/knowledge representation. (Ref Code: `Nucleus.Personas/Bootstrapper/Models/` - TBD)
-*   [X] **TASK-MVP-PER-02:** Implement `BootstrapperPersona` class inheriting `IPersona<T>`. (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs`)
-*   [X] **TASK-MVP-PER-03:** Implement basic `HandleQueryAsync` logic in `BootstrapperPersona` to call the configured AI model (e.g., Gemini via `Microsoft.Extensions.AI` abstractions). (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs`)
-*   [X] **TASK-MVP-PER-04:** Implement basic `HandleIngestionAsync` placeholder logic in `BootstrapperPersona` (may just log for MVP). (Ref Code: `Nucleus.Personas/Bootstrapper/BootstrapperPersona.cs`)
+*   [ ] **TASK-MVP-PER-02:** Implement `BootstrapperPersona` logic (`AnalyzeContentAsync`, `HandleInteractionAsync`).
+*   [ ] **TASK-MVP-PER-03:** Integrate `BootstrapperPersona` into the API's interaction handling flow.
 
-## `ISSUE-MVP-API-01`: Develop Backend **API Service**
-*(Ref Arch: [`10_ARCHITECTURE_API.md`](../Architecture/10_ARCHITECTURE_API.md), [`ARCHITECTURE_API_ENDPOINTS.md`](../Architecture/Api/ARCHITECTURE_API_ENDPOINTS.md) - TBD)*
+## `ISSUE-MVP-API-01`: Develop Backend API (Unified Interaction Endpoint)
+*(Ref Arch: [`10_ARCHITECTURE_API.md`](../Architecture/10_ARCHITECTURE_API.md), [`ARCHITECTURE_API_INTERACTIONS.md`](../Architecture/Api/ARCHITECTURE_API_INTERACTIONS.md))* 
 *   [X] **TASK-MVP-API-01:** **Re-implement/Refine** `Nucleus.ApiService` project (replacing any template placeholders) with necessary services (DI, logging, configuration, controllers). (Ref Code: `Nucleus.ApiService/Program.cs`)
-*   [X] **TASK-MVP-API-02:** Define API controllers and endpoints relevant for initial interaction (e.g., `POST /api/v1/query`, `POST /api/v1/ingest`, `GET /api/v1/status`). (Ref Code: `Nucleus.ApiService/Controllers/` - TBD)
-*   [X] **TASK-MVP-API-03:** Implement controller logic to handle requests, call the appropriate persona (`BootstrapperPersona`), and return responses/status codes. (Ref Code: `Nucleus.ApiService/Controllers/` - TBD)
-*   [X] **TASK-MVP-API-04:** Configure DI container in `Nucleus.ApiService` to register personas, services (`IContentExtractor`, `IPersonaKnowledgeRepository`, `IEmbeddingGenerator`, etc.). (Ref Code: `Nucleus.ApiService/Program.cs`)
-*   [ ] **TASK-MVP-API-05:** Implement basic health checks (`/healthz`).
+*   [ ] **TASK-MVP-API-02:** Define API controllers and the primary **unified interaction endpoint** (`POST /api/v1/interactions`). (Ref Code: `Nucleus.ApiService/Controllers/InteractionsController.cs` - TBD)
+*   [ ] **TASK-MVP-API-03:** Define DTOs for the unified interaction model (`InteractionRequest`, `InteractionResponse`, `ArtifactReference`, `ProcessingStatus`, etc.). (Ref Code: `Nucleus.Core/Models/Api/` - TBD)
+*   [ ] **TASK-MVP-API-04:** Implement core logic within the `/interactions` endpoint:
+    *   [ ] Receive `InteractionRequest`.
+    *   [ ] If `ArtifactReference` is present, invoke `IArtifactProvider` to get content ephemerally (Note: MVP has only `LocalFileArtifactProvider` initially, called by Console).
+    *   [ ] Invoke `IContentExtractor` (if content retrieved).
+    *   [ ] Route to appropriate `IPersona` (`BootstrapperPersona` for MVP).
+    *   [ ] Handle synchronous response or initiate async processing (via queue/orchestrator later - MVP likely sync).
+    *   [ ] Return `InteractionResponse` (with sync result or Job ID).
+*   [ ] **TASK-MVP-API-05:** Implement API endpoint for querying job status (e.g., `GET /api/v1/jobs/{jobId}/status`).
+*   [ ] **TASK-MVP-API-06:** Implement basic health checks (`/healthz`).
+*   [ ] **TASK-MVP-API-07:** Implement initial `IArtifactProvider` for local files (`LocalFileArtifactProvider`) - potentially within `Nucleus.Infrastructure` or `Nucleus.ApiService` for MVP simplicity. *(Note: This is technically used by the Console client indirectly via the API call in MVP)*
 
-## `ISSUE-MVP-CONSOLE-01`: Create Minimal **Console Client** (for API Validation)
-*(Ref Arch: [`05_ARCHITECTURE_CLIENTS.md`](../Architecture/05_ARCHITECTURE_CLIENTS.md), [`ARCHITECTURE_ADAPTERS_CONSOLE.md`](../Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md))* 
+## `ISSUE-MVP-CONSOLE-01`: Create Minimal **Console Client** (Reads local files, passes ArtifactReference to API)
+*(Ref Arch: [`05_ARCHITECTURE_CLIENTS.md`](../Architecture/05_ARCHITECTURE_CLIENTS.md), [`ARCHITECTURE_ADAPTERS_CONSOLE.md`](../Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md))*
 *   [ ] **TASK-MVP-CON-01:** Set up `Nucleus.Console` project structure (e.g., using `System.CommandLine` or similar library for command parsing). (Ref Code: `Nucleus.Console/Program.cs`)
-*   [ ] **TASK-MVP-CON-02:** Implement basic command structure to invoke API endpoints (e.g., `nucleus query "<text>"`, `nucleus ingest <path>`, `nucleus status`).
-*   [ ] **TASK-MVP-CON-03:** Implement HTTP client logic within `Nucleus.Console` to call the `Nucleus.ApiService` endpoints.
+*   [ ] **TASK-MVP-CON-02:** Implement basic command structure (e.g., `nucleus ask "<query>" [--file <path>]`, `nucleus status <jobId>`).
+*   [ ] **TASK-MVP-CON-03:** Implement HTTP client logic within `Nucleus.Console` to call the `Nucleus.ApiService` endpoints (`/interactions`, `/jobs/.../status`).
     *   Ensure `HttpClient` is configured correctly (base address injected by Aspire). (Ref Code: `Nucleus.Console/Services/ApiClient.cs` - TBD)
-*   [ ] **TASK-MVP-CON-04:** Implement logic for the `query` command to call `/api/v1/query` and display the response.
-*   [ ] **TASK-MVP-CON-05:** Implement basic logic for the `ingest` command to call `/api/v1/ingest`.
+*   [ ] **TASK-MVP-CON-04:** Implement logic for the `ask` command:
+    *   [ ] Construct `InteractionRequest` DTO.
+    *   [ ] If `--file` is provided, **read the local file metadata (path, name, type)** and create an appropriate `ArtifactReference` (e.g., using a `file://` scheme or specific type indicator for local files).
+    *   [ ] Call `POST /api/v1/interactions` with the request DTO.
+    *   [ ] Display the `InteractionResponse` (sync result or Job ID).
+*   [ ] **TASK-MVP-CON-05:** Implement logic for the `status` command to call `GET /api/v1/jobs/{jobId}/status` and display the result.
 *   [ ] **TASK-MVP-CON-06:** Implement basic error handling and display for API call failures.
 
 ## `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code)
@@ -70,15 +81,16 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-INFRA-04:** Parameterize templates for different environments (dev/test).
 *   [ ] **TASK-MVP-INFRA-05:** Set up basic deployment pipeline (GitHub Actions / ADO / `azd`) for the API and infrastructure. (Ref: `.github/workflows/` - TBD)
 
-## `ISSUE-MVP-RETRIEVAL-01`: Implement Basic Knowledge Store & Retrieval
+## `ISSUE-MVP-RETRIEVAL-01`: Implement Basic **Metadata** Store & Retrieval Foundation
 *(Ref Arch: [`04_ARCHITECTURE_DATABASE.md`](../Architecture/04_ARCHITECTURE_DATABASE.md))*
-*   [ ] **TASK-MVP-RET-01:** Define `PersonaKnowledgeEntry` C# record (include persona ID, analysis result, relevant text/snippet, source identifier, timestamp, embeddings). (Ref Code: `Nucleus.Core/Models/` - TBD)
-*   [ ] **TASK-MVP-RET-02:** Define `IPersonaKnowledgeRepository` interface (methods for Save, GetById, Query/Search). (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD)
-*   [ ] **TASK-MVP-RET-03:** Implement `CosmosDbPersonaKnowledgeRepository` adapter in `Nucleus.Infrastructure`. (Ref Code: `Nucleus.Infrastructure/Repositories/CosmosDb/` - TBD)
-*   [ ] **TASK-MVP-RET-04:** Define `IEmbeddingGenerator` interface (using `Microsoft.Extensions.AI`). (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD)
-*   [ ] **TASK-MVP-RET-05:** Implement adapter for chosen embedding model (e.g., `GoogleGeminiEmbeddingGenerator`). (Ref Code: `Nucleus.Infrastructure/Services/AI/` - TBD)
-*   [ ] **TASK-MVP-RET-06:** **(Defer Complex Retrieval)** Define `IRetrievalService` interface (simple initial version?).
-*   [ ] **TASK-MVP-RET-07:** **(Defer Complex Retrieval)** Implement `BasicRetrievalService`.
-*   [ ] **TASK-MVP-RET-08:** Integrate embedding generation and saving `PersonaKnowledgeEntry` into the `BootstrapperPersona`'s interaction flow (e.g., after getting a query response, store query+response pair and embeddings via the repository).
+*   [ ] **TASK-MVP-RET-01:** Define `ArtifactMetadata` C# record (source info like `ArtifactReference`, basic properties like name/type, timestamp, ID, owner/user ID). (Ref Code: `Nucleus.Core/Models/` - TBD)
+*   [ ] **TASK-MVP-RET-02:** Define `PersonaKnowledgeEntry` C# record (persona ID, analysis result/summary, source `ArtifactMetadata` ID, timestamp, embeddings). (Ref Code: `Nucleus.Core/Models/` - TBD)
+*   [ ] **TASK-MVP-RET-03:** Define `IArtifactMetadataRepository` & `IPersonaKnowledgeRepository` interfaces. (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD)
+*   [ ] **TASK-MVP-RET-04:** Implement Cosmos DB adapters for repositories in `Nucleus.Infrastructure`. (Ref Code: `Nucleus.Infrastructure/Repositories/CosmosDb/` - TBD)
+*   [ ] **TASK-MVP-RET-05:** Define `IEmbeddingGenerator` interface (using `Microsoft.Extensions.AI`). (Ref Code: `Nucleus.Abstractions/Interfaces/` - TBD)
+*   [ ] **TASK-MVP-RET-06:** Implement adapter for chosen embedding model (e.g., `GoogleGeminiEmbeddingGenerator`). (Ref Code: `Nucleus.Infrastructure/Services/AI/` - TBD)
+*   [ ] **TASK-MVP-RET-07:** **(Defer Complex Retrieval)** Define `IRetrievalService` interface (simple initial version focusing on metadata/knowledge saving, maybe basic lookup by ID?).
+*   [ ] **TASK-MVP-RET-08:** **(Defer Complex Retrieval)** Implement `BasicRetrievalService` (mostly placeholder/basic save logic integration).
+*   [ ] **TASK-MVP-RET-09:** Integrate metadata/knowledge saving into the `BootstrapperPersona`'s interaction flow (e.g., after analysis, save `ArtifactMetadata` and `PersonaKnowledgeEntry` via repositories).
 
 ---

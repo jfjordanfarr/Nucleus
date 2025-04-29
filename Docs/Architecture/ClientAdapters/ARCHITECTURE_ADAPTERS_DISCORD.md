@@ -1,8 +1,9 @@
 ---
 title: Client Adapter - Discord
-description: Describes a client edapter which enables the interaction with Nucleus personas in Discord
-version: 1.3
-date: 2025-04-23
+description: Describes a client adapter which enables the interaction with Nucleus personas in Discord
+version: 1.4
+date: 2025-04-27
+parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
 # Client Adapter: Discord
@@ -20,7 +21,7 @@ Requires a Discord Bot Token obtained from the Discord Developer Portal. Permiss
 
 ## Interaction Handling & API Forwarding
 
-Following the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4a88-8b6b-ed0fb4d8dd07)), the Discord Adapter translates between the Discord API (likely via a library like `discord.py` or `DSharpPlus`) and the central `Nucleus.Services.Api`.
+Following the API-First principle, the Discord Adapter translates between the Discord API (likely via a library like `discord.py` or `DSharpPlus`) and the central `Nucleus.Services.Api`.
 
 1.  **Receive Message Event:** The adapter's bot logic registers an event handler (e.g., `on_message`) to receive incoming message objects from the Discord Gateway.
 2.  **Extract Basic Context:** The adapter extracts standard information from the message object:
@@ -43,10 +44,17 @@ Following the API-First principle ([Memory: 21ba96d2](cci:memory/21ba96d2-36ea-4
     *   **Asynchronous:** If the API returns HTTP 202 Accepted, the adapter might send an acknowledgement (e.g., a thinking emoji reaction or a simple message). It then needs a mechanism (TBD - polling `/interactions/{jobId}/status`, or webhooks) to receive the final result later and send it to the user.
 
 
-## Persistent Storage
+## Persistent Storage & Artifact Handling
 
 *   **Conversations:** Discord stores message history persistently according to server/channel settings.
-*   **Generated Artifacts:** Personas can generate artifacts (files). The Discord Adapter **must** use the Discord API to upload these files back into the relevant channel/thread. Nucleus then creates `ArtifactMetadata` for the uploaded file using the `sourceIdentifier` and `sourceUri` provided by the Discord API upon successful upload. Local storage by Nucleus is avoided for generated content destined for Discord.
+*   **Generated Artifacts (Outputs):** Personas can generate artifacts (files). The flow for handling these is:
+    1.  The `Nucleus.Services.Api` generates the artifact content (e.g., a text file, image, HTML visualization).
+    2.  The API response (`InteractionResponse`) sent back to the Discord Adapter includes this generated content (or a means to retrieve it).
+    3.  The **Discord Adapter** receives the response and uses the Discord API (e.g., `channel.send(file=...)`) to **upload the received artifact content** into the relevant Discord channel/thread.
+    4.  Upon successful upload, the Discord API provides details about the uploaded file (e.g., a message ID containing the file, a direct attachment URL).
+    5.  The adapter (potentially via a follow-up call or as part of async job completion handling) informs the `Nucleus.Services.Api` of the successful upload and provides the necessary Discord identifiers (URL, message ID, attachment ID).
+    6.  The `Nucleus.Services.Api` then creates the canonical `ArtifactMetadata` record for the generated artifact, using the provided Discord identifiers for `sourceIdentifier` and `sourceUri`.
+    This ensures the artifact resides natively within the Discord platform, while Nucleus maintains the authoritative metadata record.
 
 
 ## Messaging
@@ -85,16 +93,18 @@ Manages the context of Guilds, Channels, and Threads.
     *   `threadSourceIdentifier`: Set to the Thread's `sourceIdentifier` for all messages within that thread.
 
 
-## Attachments
+## Attachments (Inputs/Ingestion)
 
-Handles files and rich content previews associated with messages.
+Handles files attached to incoming Discord messages.
 
-*   **Platform Representation:** Attachment or Embed objects linked to a Message.
-*   **Nucleus `ArtifactMetadata` Mapping:**
-    *   Attachments/Embeds can optionally have their own `ArtifactMetadata` (especially if they are files to be processed).
+*   **Platform Representation:** `Attachment` objects linked to a `Message` object in the Discord API. Each attachment typically has properties like `id`, `filename`, and `url`.
+*   **Adapter Action:** When a message event contains attachments (`message.attachments`), the adapter extracts the direct download **URL** for each attachment.
+*   **API Request:** The adapter includes these **URLs** in the `SourceArtifactUris` field of the `InteractionRequest` DTO sent to the `Nucleus.Services.Api`.
+*   **API Service Action:** The **`Nucleus.Services.Api`** receives these URLs and is responsible for using them to download the actual file content directly from Discord's CDN for ingestion and processing.
+*   **Nucleus `ArtifactMetadata` Mapping (Optional):** While the primary focus is on ingesting the content, `ArtifactMetadata` can be created for the source Discord attachment itself:
     *   `sourceSystemType`: Set to `Discord`.
     *   `sourceIdentifier`: e.g., `discord://attachment/MESSAGE_ID/ATTACHMENT_ID`.
-    *   `parentSourceIdentifier`: Message's `sourceIdentifier`.
+    *   `parentSourceIdentifier`: The `sourceIdentifier` of the containing Discord message.
 
 
 ## Rich Presentations and Embedded Hypermedia
@@ -107,6 +117,7 @@ Discord offers several ways to present information richly.
 *   **Custom Apps/Bots & Visualizations:**
     *   While Nucleus acts as a bot, complex UIs might require dedicated Discord Apps.
     *   Interactive data visualizations ([ARCHITECTURE_PROCESSING_DATAVIZ.md](../Processing/ARCHITECTURE_PROCESSING_DATAVIZ.md)) are best presented by generating the viz, saving it as an image/HTML file, uploading it back to Discord, and providing a link/preview embed, rather than direct embedding.
+
 
 ## References
 

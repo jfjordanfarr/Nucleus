@@ -26,7 +26,7 @@ using Nucleus.Abstractions.Repositories;
 using Nucleus.Domain.Processing;
 using Nucleus.Infrastructure.Data.Persistence.Repositories; // For CosmosDbArtifactMetadataRepository etc.
 using Nucleus.Services.Api.Diagnostics;
-using Nucleus.Services.Api.Infrastructure.Artifacts; // For LocalFileArtifactProvider
+using Nucleus.Services.Api.Infrastructure; // For LocalFileArtifactProvider
 using Nucleus.Services.Api.Infrastructure.Messaging; // For ServiceBusQueueConsumerService and NullMessageQueuePublisher
 using System.Collections.Generic;
 using System.Linq;
@@ -39,6 +39,15 @@ using Nucleus.Services.Api; // ADDED
 
 namespace Nucleus.Services.Api
 {
+    /// <summary>
+    /// Main entry point for the Nucleus API service.
+    /// Configures and runs the ASP.NET Core web application.
+    /// Utilizes .NET Aspire for service discovery and resilience.
+    /// See API Endpoint mapping in ApiEndpointsExtensions.cs.
+    /// <seealso cref="../../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/07_ARCHITECTURE_DEPLOYMENT.md"/>
+    /// </summary>
     public class Program
     {
         public static async Task Main(string[] args)
@@ -83,7 +92,7 @@ namespace Nucleus.Services.Api
             });
 
             // --- Nucleus Domain Services --- 
-            builder.Services.AddProcessingServices();
+            // REMOVED: builder.Services.AddProcessingServices(); // Handled by AddNucleusServices
 
             var app = builder.Build();
 
@@ -91,29 +100,7 @@ namespace Nucleus.Services.Api
             app.MapNucleusEndpoints();
 
             // --- Initialize Cosmos DB Container on startup --- 
-            using (var scope = app.Services.CreateScope())
-            {
-                var services = scope.ServiceProvider;
-                try
-                {
-                    // Only try to initialize if Cosmos was configured
-                    var cosmosEndpointUrl = builder.Configuration["CosmosDb:EndpointUrl"];
-                    var cosmosAccountKey = builder.Configuration["CosmosDb:AccountKey"]; // Consider Key Vault for production
-                    var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
-                    if (!string.IsNullOrWhiteSpace(cosmosEndpointUrl) && !string.IsNullOrWhiteSpace(cosmosAccountKey) && !string.IsNullOrWhiteSpace(cosmosDatabaseName))
-                    {
-                        var cosmosClient = services.GetRequiredService<CosmosClient>();
-                        var database = await cosmosClient.CreateDatabaseIfNotExistsAsync(cosmosDatabaseName);
-                        var cosmosContainerName = builder.Configuration.GetValue<string>("CosmosDb:ArtifactMetadataContainerName", CosmosDbArtifactMetadataRepository.ArtifactMetadataContainerName); // Default from constant
-                        await database.Database.CreateContainerIfNotExistsAsync(cosmosContainerName, "/id"); // Assuming /id is partition key
-                        _logger.LogInformation("Cosmos DB Database '{DatabaseName}' and Container '{ContainerName}' initialization checked/completed.", cosmosDatabaseName, cosmosContainerName);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "An error occurred during Cosmos DB initialization.");
-                }
-            }
+            // REMOVED: Initialization is now handled within AddNucleusServices when registering the Container singleton.
 
             await app.RunAsync();
         }

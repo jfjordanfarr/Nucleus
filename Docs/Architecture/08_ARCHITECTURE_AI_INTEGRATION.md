@@ -1,13 +1,15 @@
 ---
 title: "Architecture: AI Integration (Microsoft.Extensions.AI)"
-description: "Overview of strategies and patterns for integrating external AI models using the provider-agnostic Microsoft.Extensions.AI abstractions. Currently uses Mscc.GenerativeAI as a temporary solution for Gemini."
-version: 1.6
-date: 2025-04-23
+description: "Overview of strategies for integrating external AI models using Microsoft.Extensions.AI, emphasizing ephemeral content retrieval via the API service and IArtifactProvider."
+version: 1.8
+date: 2025-04-28
 ---
 
 # Architecture: AI Integration (using `Microsoft.Extensions.AI`)
 
 **Parent:** [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
+**Version:** 1.8
+**Date:** 2025-04-28
 
 ## 1. Overview
 
@@ -19,6 +21,7 @@ This document outlines the architectural approach for integrating various third-
 *   **Standardization:** Aligns with emerging .NET standards for AI integration, facilitating interoperability with other libraries and frameworks in the ecosystem.
 
 **Current Status:** The *current* implementation uses the `Mscc.GenerativeAI.Microsoft` package as a **temporary solution** to provide an `IChatClient` implementation for Google Gemini, pending an official .NET SDK for the latest Google AI APIs.
+*   **Reference:** [../HelpfulMarkdownFiles/Library-References/Mscc.GenerativeAI.Microsoft-Reference.md](../HelpfulMarkdownFiles/Library-References/Mscc.GenerativeAI.Microsoft-Reference.md)
 
 **Reference:** For background on `Microsoft.Extensions.AI`, see [../HelpfulMarkdownFiles/Library-References/MicrosoftExtensionsAI.md](../HelpfulMarkdownFiles/Library-References/MicrosoftExtensionsAI.md).
 
@@ -30,12 +33,13 @@ The core pattern relies on registering and injecting `Microsoft.Extensions.AI.IC
 
 The current working integration uses the `Mscc.GenerativeAI.Microsoft` NuGet package to bridge Gemini to `IChatClient`.
 
-**Note:** While previous investigations (Memory [d9dbc22b-8575-4d43-b35f-29ad5d37640f]) noted discrepancies, the current setup *is* functional using this pattern.
+**Note:** While previous investigations noted discrepancies, the current setup *is* functional using this pattern.
 
 1.  **Dependencies:** `Mscc.GenerativeAI.Microsoft` package reference in `Nucleus.Services.Api`.
-2.  **Configuration:** `AI:GoogleAI:ApiKey` and `AI:GoogleAI:Model` in `appsettings.json`.
+2.  **Configuration:** `AI:GoogleAI:ApiKey` and `AI:GoogleAI:Model` in `appsettings.json` (using keys defined in [NucleusConstants](../../../src/Nucleus.Abstractions/NucleusConstants.cs)).
     *   **Code Link:** [Nucleus.Services.Api/appsettings.Development.json](../../../src/Services/Nucleus.Services.Api/appsettings.Development.json)
-3.  **Dependency Injection (`Program.cs`):**
+    *   **Config Class:** [GoogleAiOptions](../../../src/Nucleus.Abstractions/Models/Configuration/GoogleAiOptions.cs)
+3.  **Dependency Injection (`Program.cs`):** Registration performed in [WebApplicationBuilderExtensions](../../../src/Services/Nucleus.Services.Api/WebApplicationBuilderExtensions.cs)
     ```csharp
     // Register Google AI Chat Client using Mscc.GenerativeAI.Microsoft extension method
     builder.Services.AddGeminiChat(options =>
@@ -84,26 +88,32 @@ Leveraging the `IChatClient` abstraction makes switching providers straightforwa
 
 This demonstrates the power of the abstraction layer – the core application logic remains unchanged.
 
-### 2.3. Ephemeral Context via API
+### 2.3. Providing Ephemeral Context to AI Models
 
-To support providing context to the AI model without persisting user file content, an ephemeral caching mechanism is used in conjunction with the standard interaction flow:
+Nucleus ensures user file content remains in user-controlled storage and is accessed ephemerally only when needed for processing. Providing this content as context to AI models follows the standard API interaction flow:
 
-1.  **Interaction Request (`POST /api/Interaction/process`):**
-    *   The client sends an `AdapterRequest` to the endpoint.
-    *   To provide context, the client includes one or more `ArtifactReference` objects in the `AdapterRequest.ArtifactReferences` list.
-    *   Critically, the `ArtifactReference.OptionalContext` field should contain an identifier (e.g., a local file path for the Console Adapter) that the persona can use to look up pre-cached content.
+1.  **Adapter Request Construction:**
+    *   The Client Adapter identifies relevant artifacts for the interaction (e.g., files mentioned in a prompt, files explicitly attached).
+    *   The Adapter constructs an `AdapterRequest` and populates the `ArtifactReferences` list with `ArtifactReference` objects for each relevant artifact. These objects contain the necessary details (e.g., `ReferenceType`, `SourceUri`, `SourceIdentifier`) for the API service to locate the artifact later.
     *   **Code Link:** [Nucleus.Abstractions/Models/AdapterRequest.cs](../../../Abstractions/Nucleus.Abstractions/Models/AdapterRequest.cs)
     *   **Code Link:** [Nucleus.Abstractions/Models/ArtifactReference.cs](../../../Abstractions/Nucleus.Abstractions/Models/ArtifactReference.cs)
-2.  **Orchestration & Caching (`OrchestrationService` -> Persona `AnalyzeEphemeralContentAsync`):**
-    *   The `InteractionController` passes the request to the `IOrchestrationService`.
-    *   The orchestration service (or relevant persona logic triggered by it, like `BootstrapperPersona.AnalyzeEphemeralContentAsync`) uses the `ArtifactReference.OptionalContext` as a key to look up content previously stored in the `IMemoryCache`.
-    *   *Note: The mechanism for initially populating the cache (e.g., a separate ingestion step or pre-loading) is currently specific to the adapter implementation (e.g., the Console Adapter might read a local file based on the context identifier before sending the interaction request).* This document previously described a dedicated ingestion endpoint which is now superseded by the unified interaction flow.
-    *   **Code Link:** [Nucleus.Personas.Core/BootstrapperPersona.cs](../../../src/Personas/Nucleus.Personas.Core/BootstrapperPersona.cs) (`AnalyzeEphemeralContentAsync` - Example of cache usage)
-3.  **Contextual Query Handling (Persona `HandleQueryAsync`):**
-    *   If cached content associated with the `ArtifactReference.OptionalContext` is found during orchestration/persona processing, it is made available to the persona's primary query handling logic (e.g., `HandleQueryAsync`).
-    *   The persona then incorporates this retrieved context into the prompt sent to the AI model (as detailed in Section 2.2, Step 3).
+2.  **API Interaction Request:**
+    *   The Adapter sends the `AdapterRequest` (containing the `ArtifactReferences`) to the primary API endpoint: `POST /api/v1/interactions`.
+    *   **Code Link:** [Api/ARCHITECTURE_API_CLIENT_INTERACTION.md](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)
+3.  **API Service Orchestration & Content Retrieval:**
+    *   The `Nucleus.Services.Api` receives the `AdapterRequest`.
+    *   The responsible `OrchestrationService` identifies the need for context (based on persona logic, user query, etc.).
+    *   It determines the required `ArtifactReference`s (potentially involving searches against `IArtifactMetadataRepository`).
+    *   It iterates through the required references and uses the appropriate [IArtifactProvider](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) (resolved via DI or a manager) to ephemerally retrieve the `ArtifactContent` (stream + metadata) for each.
+    *   The retrieved content streams are read, potentially processed/chunked, and formatted into prompts (e.g., `ChatMessage` objects).
+    *   The formatted prompt context is sent to the AI model via `IChatClient`.
+    *   The response is processed, and the retrieved content streams are disposed.
 
-This mechanism allows users to reference context for a specific interaction without that context being permanently stored by Nucleus, addressing potential privacy and data management concerns, by leveraging the `IMemoryCache` and context identifiers passed within the standard `AdapterRequest`.
+This process ensures that:
+*   User content is only accessed when necessary for a specific interaction.
+*   Content retrieval is orchestrated centrally by the API service, respecting security and source system boundaries via `IArtifactProvider`.
+*   No intermediate storage of user content is required within Nucleus.
+*   The AI model receives rich, full-document context derived directly from the user's authoritative source, which enables the AI model to generate higher-quality responses based on deeper understanding compared to approaches limited by pre-chunked or summarized data.
 
 ## 3. Future Considerations & Multi-Provider Strategy
 
@@ -113,7 +123,7 @@ This mechanism allows users to reference context for a specific interaction with
 
 ## 4. Semantic Kernel Analysis and Strategic Considerations
 
-Recent investigation (April 2025, Cascade Steps 2875-2901) explored Microsoft's Semantic Kernel (SK) framework and its potential relevance to Nucleus, focusing on Hybrid Search, Model Context Protocol (MCP), and the Agent Framework.
+Recent investigation explored Microsoft's Semantic Kernel (SK) framework and its potential relevance to Nucleus, focusing on Hybrid Search, Model Context Protocol (MCP), and the Agent Framework.
 
 ### 4.1. Key Semantic Kernel Features
 
@@ -135,7 +145,7 @@ Recent investigation (April 2025, Cascade Steps 2875-2901) explored Microsoft's 
 | **Orchestration**    | Agent selection/termination, Planners                         | Processing Pipeline, `OrchestrationService`, future Durable Functions.                                                          | SK offers more built-in agent orchestration logic.                                                                                    |
 | **Interoperability** | MCP Server                                                    | REST API for external, DI for internal.                                                                                         | SK/MCP standardizes tool exposure.                                                                                                  |
 | **Chat History Ctrl**| Managed within SK context; fine-grained control needs validation. | Full control via custom adapter/persona logic.                                                                                | **Critical:** Nucleus requires fine-grained history pruning; SK's flexibility here needs confirmation.                                |
-| **Ephemeral Cache**  | Not a primary SK Memory feature; likely remains app-level.  | `IMemoryCache` for interaction-specific context.                                                                               | **Critical:** Nucleus requires ephemeral prompt/response caching, a feature provided by AI providers themselves, with varied specific implementation details.                   |
+| **Ephemeral Cache**  | Not a primary SK Memory feature; likely remains app-level.  | Nucleus retrieves context ephemerally via `IArtifactProvider` when needed for prompts. Provider-level prompt/response caching is separate. | **Critical:** Nucleus requires ephemeral context *retrieval*. AI Provider caching is a distinct mechanism.                     |
 
 ### 4.3. Strategic Options
 

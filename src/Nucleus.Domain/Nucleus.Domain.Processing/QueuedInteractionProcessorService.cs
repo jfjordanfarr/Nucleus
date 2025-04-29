@@ -15,9 +15,16 @@ using System.Threading.Tasks;
 namespace Nucleus.Domain.Processing;
 
 /// <summary>
-/// Background service that dequeues AdapterRequests from the IBackgroundTaskQueue
-/// and processes them asynchronously.
+/// A background service responsible for processing interactions dequeued from a background task queue.
+/// This service runs independently of the API request lifecycle, handling long-running or asynchronous tasks.
 /// </summary>
+/// <remarks>
+/// It continuously monitors the <see cref="IBackgroundTaskQueue"/> for new work items (<see cref="NucleusIngestionRequest"/>).
+/// When an item is dequeued, it creates a new dependency injection scope, resolves the necessary services
+/// (like <see cref="IOrchestrationService"/> and <see cref="IPlatformNotifier"/>), and processes the interaction.
+/// </remarks>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public class QueuedInteractionProcessorService : BackgroundService
 {
     private readonly ILogger<QueuedInteractionProcessorService> _logger;

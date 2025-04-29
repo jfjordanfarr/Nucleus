@@ -12,10 +12,11 @@ using System.Threading.Tasks;
 namespace Nucleus.Services.Api.Infrastructure.Messaging;
 
 /// <summary>
-/// Implements <see cref="IMessageQueuePublisher{T}"/> using Azure Service Bus.
-/// Handles serialization of the payload and publishing to a specified queue or topic.
+/// Implements the IMessageQueuePublisher interface for Azure Service Bus.
+/// Provides functionality to publish messages to a specified queue or topic.
 /// See: ../../../../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md
 /// See: ../../../../Docs/Architecture/Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md
+/// <seealso cref="../../../../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md"/>
 /// </summary>
 /// <typeparam name="T">The type of the message payload.</typeparam>
 public class AzureServiceBusPublisher<T> : IMessageQueuePublisher<T>

@@ -14,9 +14,9 @@ using System.Threading.Tasks;
 namespace Nucleus.Infrastructure.Adapters.Teams;
 
 /// <summary>
-/// Implements <see cref="IPlatformNotifier"/> for Microsoft Teams using the Bot Framework SDK.
-/// Sends messages back to Teams conversations/channels.
-/// See: [ARCHITECTURE_ADAPTERS_TEAMS.md](../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS.md)
+/// Implements the <see cref="IPlatformNotifier"/> interface for Microsoft Teams.
+/// Uses the Bot Framework SDK to send notifications and acknowledgements back to the user.
+/// See: d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\ARCHITECTURE_ADAPTERS_TEAMS.md
 /// </summary>
 public class TeamsNotifier : IPlatformNotifier
 {
@@ -95,7 +95,6 @@ public class TeamsNotifier : IPlatformNotifier
             }
             else
             {
-                // Handle the case where the adapter is not a CloudAdapter (log error, throw exception, etc.)
                 _logger.LogError("The provided IBotFrameworkHttpAdapter is not a CloudAdapter and does not support ContinueConversationAsync.");
                 // Depending on desired behavior, you might throw or return an error tuple here.
                 // For now, let the method continue, potentially returning null resourceResponse below.
