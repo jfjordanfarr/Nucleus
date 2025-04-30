@@ -19,30 +19,42 @@ public class PlainTextContentExtractor : IContentExtractor
     }
 
     /// <inheritdoc />
-    public async Task<ContentExtractionResult> ExtractContentAsync(Stream sourceStream, string mimeType, string? sourceUri = null)
+    public async Task<ContentExtractionResult> ExtractContentAsync(Stream sourceStream, string mimeType, Uri? sourceUri = null)
     {
         if (!SupportsMimeType(mimeType))
         {
-            throw new ArgumentException($"Unsupported MIME type: {mimeType}. This extractor only supports {SupportedMimeType}.", nameof(mimeType));
+            // Return specific result instead of throwing exception
+            return ContentExtractionResult.UnsupportedMimeType(mimeType);
         }
 
+        // Check sourceStream before null check for clarity
         if (sourceStream == null || !sourceStream.CanRead)
         {
-            throw new ArgumentNullException(nameof(sourceStream), "Source stream cannot be null and must be readable.");
+            // Return specific result instead of throwing exception
+            return ContentExtractionResult.Failure("Source stream cannot be null and must be readable.");
         }
 
-        // Keep the stream open for the caller to manage, but reset position if possible
-        if (sourceStream.CanSeek)
+        try
         {
-            sourceStream.Position = 0;
-        }
+            // Keep the stream open for the caller to manage, but reset position if possible
+            if (sourceStream.CanSeek)
+            {
+                sourceStream.Position = 0;
+            }
 
-        // Use StreamReader to handle potential encoding issues (defaults to UTF-8)
-        // Pass leaveOpen: true so the StreamReader doesn't dispose the sourceStream
-        using (var reader = new StreamReader(sourceStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: -1, leaveOpen: true))
+            // Use StreamReader to handle potential encoding issues (defaults to UTF-8)
+            // Pass leaveOpen: true so the StreamReader doesn't dispose the sourceStream
+            using (var reader = new StreamReader(sourceStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: -1, leaveOpen: true))
+            {
+                string extractedText = await reader.ReadToEndAsync();
+                // Use static factory method
+                return ContentExtractionResult.Success(extractedText);
+            }
+        }
+        catch (Exception ex)
         {
-            string extractedText = await reader.ReadToEndAsync();
-            return new ContentExtractionResult(extractedText);
+            // Return failure result on exception
+            return ContentExtractionResult.Failure($"Error reading plain text stream: {ex.Message}", ex);
         }
     }
 }

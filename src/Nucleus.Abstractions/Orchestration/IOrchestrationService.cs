@@ -8,36 +8,6 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Orchestration;
 
 /// <summary>
-/// Represents the possible outcomes of the orchestration process for an interaction.
-/// </summary>
-public enum OrchestrationStatus
-{
-    /// <summary>
-    /// The interaction was successfully processed synchronously, and the response is available immediately.
-    /// </summary>
-    ProcessedSync,
-    /// <summary>
-    /// The interaction was accepted and queued for asynchronous processing.
-    /// </summary>
-    AcceptedAsync,
-    /// <summary>
-    /// The interaction was received but did not meet the criteria for activation and was not processed further.
-    /// </summary>
-    NotActivated,
-    /// <summary>
-    /// An error occurred during the orchestration process.
-    /// </summary>
-    Error
-}
-
-/// <summary>
-/// Encapsulates the result of the orchestration process, including the status and any resulting response.
-/// </summary>
-/// <param name="Status">The final status of the orchestration attempt.</param>
-/// <param name="Response">The AdapterResponse generated, if applicable (e.g., for sync processing or error details).</param>
-public record OrchestrationResult(OrchestrationStatus Status, AdapterResponse? Response);
-
-/// <summary>
 /// Defines the central service responsible for orchestrating the processing of incoming interactions.
 /// This acts as the primary entry point into the Nucleus backend logic after the initial API reception.
 /// It handles activation checks, determines processing mode (sync/async), resolves personas, and routes requests.
@@ -68,6 +38,8 @@ public interface IOrchestrationService
         AdapterRequest request,
         CancellationToken cancellationToken = default);
 
+    // Removed HandleQueuedInteractionAsync as queue handling will be done by a dedicated service.
+    /*
     /// <summary>
     /// Handles an interaction request that has been dequeued from the background task queue for asynchronous processing.
     /// This method bypasses the initial activation checks and sync/async decision logic.
@@ -80,4 +52,5 @@ public interface IOrchestrationService
     /// The <see cref="AdapterResponse"/> within the result should contain the message intended for the end-user.
     /// </returns>
     Task<OrchestrationResult?> HandleQueuedInteractionAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default);
+    */
 }

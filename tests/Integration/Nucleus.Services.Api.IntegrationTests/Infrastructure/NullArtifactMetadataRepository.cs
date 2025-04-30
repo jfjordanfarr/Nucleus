@@ -43,11 +43,10 @@ public class NullArtifactMetadataRepository : IArtifactMetadataRepository
 
     /// <summary>
     /// Gets all artifact metadata asynchronously. Returns an empty list for the null implementation.
-    /// Note: CA1822 warning is expected here as this mock doesn't access instance data.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>An empty list of artifact metadata.</returns>
-    public Task<IEnumerable<ArtifactMetadata>> GetAllAsync(CancellationToken cancellationToken = default)
+    public static Task<IEnumerable<ArtifactMetadata>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return Task.FromResult(Enumerable.Empty<ArtifactMetadata>());
     }

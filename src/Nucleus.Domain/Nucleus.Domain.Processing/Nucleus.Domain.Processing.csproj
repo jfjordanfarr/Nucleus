@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -17,7 +17,6 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
     <PackageReference Include="Mscc.GenerativeAI" Version="2.5.2" />
     <PackageReference Include="Google.Protobuf" Version="3.25.0" />
     <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.2" />
@@ -26,6 +25,13 @@
   <ItemGroup>
     <ProjectReference Include="..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
     <ProjectReference Include="..\Personas\Nucleus.Personas.Core\Nucleus.Domain.Personas.Core.csproj" />
+    <ProjectReference Include="..\..\Nucleus.Services\Nucleus.Services.Shared\Nucleus.Services.Shared.csproj" />
+    <ProjectReference Include="..\..\..\Aspire\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" /> 
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Resources\Dataviz\" />
+    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>

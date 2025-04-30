@@ -80,7 +80,7 @@ public class PersonaConfiguration
     /// Used by the Orchestration Router.
     /// Optional. If null or empty, activation might rely solely on ContextScope or default routing.
     /// </summary>
-    public List<string>? ActivationTriggers { get; set; } = new();
+    public List<string> ActivationTriggers { get; } = new();
 
     /// <summary>
     /// Defines the context (e.g., channels, users) where the persona is active.
@@ -88,7 +88,7 @@ public class PersonaConfiguration
     /// Used by the Orchestration Router.
     /// Optional.
     /// </summary>
-    public Dictionary<string, object>? ContextScope { get; set; } = new();
+    public Dictionary<string, object> ContextScope { get; } = new();
 
     #endregion
 
@@ -105,7 +105,7 @@ public class PersonaConfiguration
     /// Requires a separate tool registration/definition mechanism and Runtime support for tool execution.
     /// Optional.
     /// </summary>
-    public List<string>? EnabledTools { get; set; } = new();
+    public List<string> EnabledTools { get; } = new();
 
     /// <summary>
     /// Defines how the persona accesses user knowledge artifacts and dedicated knowledge containers.
@@ -150,7 +150,7 @@ public class PersonaConfiguration
     /// Example: {"PedagogicalTreeRef": "trees/pedagogical_v1.json"}
     /// Optional.
     /// </summary>
-    public Dictionary<string, string>? CustomProperties { get; set; }
+    public Dictionary<string, string> CustomProperties { get; } = new();
 
     #endregion
 
@@ -208,7 +208,7 @@ public class KnowledgeScope
     /// List of specific artifact collection IDs to use when Strategy is SpecificCollectionIds.
     /// Optional.
     /// </summary>
-    public List<string>? CollectionIds { get; set; } = new();
+    public List<string> CollectionIds { get; } = new();
 
     /// <summary>
     /// Specifies the ID of a dedicated Persona Knowledge Container (Cosmos DB container)

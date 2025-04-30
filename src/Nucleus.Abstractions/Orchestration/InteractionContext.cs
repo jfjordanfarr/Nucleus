@@ -34,7 +34,7 @@ public class InteractionContext
     /// The extracted content from any artifacts associated with the original request.
     /// This list will be empty if no artifacts were present or if extraction failed for all of them.
     /// </summary>
-    public IReadOnlyList<ArtifactContent> ExtractedContents { get; }
+    public IReadOnlyList<ExtractedArtifact> ExtractedContents { get; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="InteractionContext"/> class.
@@ -47,7 +47,7 @@ public class InteractionContext
         AdapterRequest originalRequest, 
         PlatformType platformType, 
         string? resolvedPersonaId,
-        IReadOnlyList<ArtifactContent> extractedContents)
+        IReadOnlyList<ExtractedArtifact> extractedContents)
     {
         OriginalRequest = originalRequest ?? throw new ArgumentNullException(nameof(originalRequest));
         PlatformType = platformType;

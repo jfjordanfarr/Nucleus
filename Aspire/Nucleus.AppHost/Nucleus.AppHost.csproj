@@ -13,10 +13,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
     <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" />
-    <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" />
+    <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
 
   <ItemGroup>

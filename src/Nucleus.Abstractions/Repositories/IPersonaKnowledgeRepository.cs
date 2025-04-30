@@ -5,27 +5,13 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Repositories;
 
 /// <summary>
-/// Enum representing the confidence level of the persona's analysis.
-/// @TODO: I'm not in love with this location for the enum definition. Anywhere that we can make this more globally available like NucleusConstants.cs?
-/// </summary>
-public enum ConfidenceLevel
-{
-    Unknown = 0,
-    VeryLow = 1,
-    Low = 2,
-    Medium = 3,
-    High = 4,
-    VeryHigh = 5,
-    Certain = 6
-}
-
-/// <summary>
 /// Defines the contract for storing and retrieving persona-specific knowledge entries.
 /// These entries represent the processed output or analysis derived from artifacts by a specific persona.
 /// Implementations will typically interact with a persistent data store (e.g., Cosmos DB).
 /// </summary>
 /// <typeparam name="TAnalysisData">The type of the specific analysis data stored within the knowledge entry.</typeparam>
 /// <seealso cref="Models.PersonaKnowledgeEntry{TAnalysisData}"/>
+/// <seealso cref="ConfidenceLevel"/>
 /// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>

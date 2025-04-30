@@ -1,7 +1,8 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using Nucleus.Abstractions.Models; // Contains AdapterResponse & PersonaConfiguration
+using Nucleus.Abstractions.Models; // Contains AdapterResponse
+using Nucleus.Abstractions.Models.Configuration; // Contains PersonaConfiguration
 using Nucleus.Abstractions.Orchestration; // Contains InteractionContext
 using System.Threading;
 using System.Threading.Tasks;

@@ -68,45 +68,39 @@ public class InteractionController : ControllerBase
             // The 'files' parameter is removed, pass null or an empty collection if the interface still requires it temporarily.
             var result = await _orchestrationService.ProcessInteractionAsync(request, cancellationToken); // Pass request and cancellationToken
 
-            // Check the orchestration status
-            switch (result.Status)
+            _logger.LogInformation("Invoking orchestration service...");
+            _logger.LogInformation("Orchestration result: {Status}", result.Status);
+
+            // Map orchestration result to HTTP response
+            return result.Status switch
             {
-                case OrchestrationStatus.ProcessedSync:
-                    // Synchronous success, return the response from the AdapterResponse
-                    _logger.LogInformation("[API Controller] Interaction processed synchronously. ConversationId: {ConversationId}", request.ConversationId);
-                    // Ensure Response is not null before accessing its properties
-                    if (result.Response != null && result.Response.Success)
-                    {
-                        return Ok(result.Response); // Or just result.Response.ResponseMessage if that's the intended payload
-                    }
-                    else
-                    {
-                        // Handle unexpected null response or failure within sync processing
-                        _logger.LogError("[API Controller] Synchronous processing indicated success status but response was null or failed. ConversationId: {ConversationId}", request.ConversationId);
-                        return StatusCode(StatusCodes.Status500InternalServerError, result.Response?.ErrorMessage ?? "Internal error during synchronous processing.");
-                    }
+                // Immediate success with a response
+                OrchestrationStatus.Success when result.AdapterResponse != null =>
+                    Ok(result.AdapterResponse), // Use correct enum: Success, Access response via AdapterResponse
 
-                case OrchestrationStatus.AcceptedAsync:
-                    // Asynchronous processing initiated, return 202 Accepted
-                    _logger.LogInformation("[API Controller] Interaction accepted for asynchronous processing. ConversationId: {ConversationId}", request.ConversationId);
-                    return Accepted(); // Standard response for async task initiation
+                // Accepted for asynchronous processing (HTTP 202)
+                OrchestrationStatus.Queued =>
+                    Accepted(), // Use correct enum: Queued
 
-                case OrchestrationStatus.NotActivated:
-                    // Interaction was not activated, return 200 OK with no content (as per design)
-                    _logger.LogInformation("[API Controller] Interaction not activated. ConversationId: {ConversationId}", request.ConversationId);
-                    return Ok(); // Or NoContent() if preferred
+                // Interaction ignored (e.g., didn't meet activation criteria)
+                OrchestrationStatus.Ignored =>
+                    Ok(), // Use correct enum: Ignored - Return 200 OK, as it's not an error, just no action needed.
 
-                case OrchestrationStatus.Error:
-                    // Orchestration reported an error
-                    _logger.LogError("[API Controller] Orchestration failed. Error: {ErrorMessage}, ConversationId: {ConversationId}", 
-                        result.Response?.ErrorMessage ?? "Unknown orchestration error", request.ConversationId);
-                    return StatusCode(StatusCodes.Status500InternalServerError, result.Response?.ErrorMessage ?? "An orchestration error occurred.");
+                // Failure cases - return Problem details
+                OrchestrationStatus.Failed or
+                OrchestrationStatus.PersonaResolutionFailed or
+                OrchestrationStatus.ActivationCheckFailed or
+                OrchestrationStatus.ArtifactProcessingFailed or
+                OrchestrationStatus.RuntimeExecutionFailed =>
+                    Problem(detail: result.ErrorMessage ?? "Orchestration failed.", statusCode: StatusCodes.Status500InternalServerError),
 
-                default:
-                    // Should not happen, but handle unexpected status
-                    _logger.LogError("[API Controller] Unexpected OrchestrationStatus: {Status}. ConversationId: {ConversationId}", result.Status, request.ConversationId);
-                    return StatusCode(StatusCodes.Status500InternalServerError, "Unexpected orchestration status.");
-            }
+                // Unhandled error case
+                OrchestrationStatus.UnhandledError =>
+                    Problem(detail: result.ErrorMessage ?? "An unexpected error occurred.", statusCode: StatusCodes.Status500InternalServerError),
+
+                // Default/Unexpected status - should ideally not happen
+                _ => Problem(detail: $"Unexpected orchestration status: {result.Status}", statusCode: StatusCodes.Status500InternalServerError)
+            };
         }
         catch (ArgumentException argEx)
         {

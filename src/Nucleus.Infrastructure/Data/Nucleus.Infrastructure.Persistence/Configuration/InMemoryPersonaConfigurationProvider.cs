@@ -44,8 +44,6 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
             DisplayName = "Nucleus Bootstrapper",
             Description = "Handles initial setup, basic interactions, and serves as a fallback.",
             ShowYourWork = false, // Keep it simple
-            ActivationTriggers = new List<string> { "@Nucleus", "/nucleus", "setup" }, // Corrected: List<string>
-            ContextScope = new Dictionary<string, object> { { "Platform", "Any" } }, // Example scope
             LlmConfiguration = new LlmConfiguration
             {
                 Provider = NucleusConstants.Llm.GoogleProvider,
@@ -64,9 +62,15 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
                 StrategyKey = NucleusConstants.AgenticStrategies.Echo, // Use Echo or SimpleRag for bootstrapping
                 MaxIterations = 1
                 // Parameters = null (or specific parameter object if needed)
-            },
-            EnabledTools = new List<string>() // Bootstrapper typically has no tools
+            }
         };
+        // Populate read-only collections after initialization
+        bootstrapperConfig.ActivationTriggers.Add("@Nucleus");
+        bootstrapperConfig.ActivationTriggers.Add("/nucleus");
+        bootstrapperConfig.ActivationTriggers.Add("setup");
+        bootstrapperConfig.ContextScope.Add("Platform", "Any");
+        // EnabledTools remains empty, no Add calls needed.
+
         _configurations.Add(bootstrapperConfig.PersonaId, bootstrapperConfig);
         _logger.LogInformation("Loaded default persona configuration: {PersonaId}", bootstrapperConfig.PersonaId);
 
@@ -75,35 +79,43 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
         var educatorConfig = new PersonaConfiguration
         {
             PersonaId = "Educator_v1", // Consistent ID
-            DisplayName = "Educator Assistant",
-            Description = "Assists with personalized learning, analyzes educational artifacts, and generates tailored content.",
-            ShowYourWork = true,
-            ActivationTriggers = new List<string> { "teach", "explain", "analyze my writing", "review this report", "help me learn" }, // Corrected: List<string>
-            ContextScope = new Dictionary<string, object> { { "Subject", "General" } }, // Example scope
+            DisplayName = "Homeschool Educator Assistant",
+            Description = "Assists with lesson planning, educational content generation, and progress tracking for homeschooling.",
+            ShowYourWork = false, // Less important for direct educational interaction
             LlmConfiguration = new LlmConfiguration
             {
                 Provider = NucleusConstants.Llm.GoogleProvider,
-                ChatModelId = NucleusConstants.Llm.GeminiChatModel,
+                ChatModelId = NucleusConstants.Llm.GeminiChatModel, // Or a model fine-tuned for education
                 EmbeddingModelId = NucleusConstants.Llm.GeminiEmbeddingModel,
-                Temperature = 0.6f
+                Temperature = 0.7f, // Allow more creativity
+                MaxOutputTokens = 1500
             },
             KnowledgeScope = new KnowledgeScope
             {
-                Strategy = KnowledgeScopeStrategy.AllUserArtifacts, // Corrected Enum (Maps from 'Contextual')
-                // CollectionIds = new List<string> { "CurriculumMaterials", "StudentSubmissions" }, // Example if using SpecificCollectionIds
-                MaxContextDocuments = 15 // Educator may need more context
-                // TargetKnowledgeContainerId = "EducatorKnowledgeBase" // Example if using dedicated knowledge
+                Strategy = KnowledgeScopeStrategy.SpecificCollectionIds, // Corrected Enum (Maps from 'UserContextual')
+                MaxContextDocuments = 5,
+                CollectionIds = { "HomeschoolingResources" }
+                // TargetKnowledgeContainerId = "FamilyNotebook" // Example if using dedicated knowledge
             },
-            SystemMessage = "You are an encouraging and knowledgeable Educator AI. Your goal is to support the user's learning journey by analyzing provided materials (like essays, reports, or readings) and offering constructive feedback, explanations, and tailored learning activities. Focus on clarity, encouragement, and adapting to the user's needs. Be mindful of the sensitivity of educational data.",
-            ResponseGuidelines = "Break down complex topics. Use analogies. Ask clarifying questions. Cite sources if using web search.",
+            SystemMessage = "You are a helpful and patient AI assistant for homeschooling. Generate age-appropriate educational content, explain concepts clearly, create simple quizzes, and help with lesson planning. Adapt to the specified subject and grade level.",
+            ResponseGuidelines = "Be encouraging and clear. Use simple language suitable for children and educators. Prioritize educational value.",
             AgenticStrategy = new AgenticStrategyConfiguration // Corrected Type
             {
-                StrategyKey = NucleusConstants.AgenticStrategies.MultiStepReasoning, // Corrected Key (Maps from PlanThenExecute concept)
-                MaxIterations = 5 // Corrected property (Maps from MaxTurns concept)
+                StrategyKey = NucleusConstants.AgenticStrategies.SimpleRag, // Corrected Key (Maps from BasicRetrieval concept)
+                MaxIterations = 3 // Corrected property (Maps from MaxTurns concept)
                 // Parameters = null (or specific parameter object if needed)
-            },
-            EnabledTools = new List<string> { "WebSearch", "ContentGeneration" } // Example tools
+            }
         };
+        // Populate read-only collections after initialization
+        educatorConfig.ActivationTriggers.Add("lesson plan");
+        educatorConfig.ActivationTriggers.Add("explain concept");
+        educatorConfig.ActivationTriggers.Add("create quiz");
+        educatorConfig.ActivationTriggers.Add("homeschool help");
+        educatorConfig.ContextScope.Add("Subject", "General");
+        educatorConfig.ContextScope.Add("GradeLevel", "Elementary");
+        educatorConfig.EnabledTools.Add("ContentGeneration");
+        educatorConfig.EnabledTools.Add("QuizCreation");
+
         _configurations.Add(educatorConfig.PersonaId, educatorConfig);
         _logger.LogInformation("Loaded default persona configuration: {PersonaId}", educatorConfig.PersonaId);
 
@@ -115,8 +127,6 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
             DisplayName = "Professional Colleague",
             Description = "Acts as a helpful professional colleague, skilled in analyzing work documents, drafting communications, and providing concise summaries or insights.",
             ShowYourWork = true, // Can be useful for complex tasks
-            ActivationTriggers = new List<string> { "draft email", "summarize this", "analyze report", "review document", "professional opinion" }, // Corrected: List<string>
-            ContextScope = new Dictionary<string, object> { { "Domain", "Business" } }, // Example scope
             LlmConfiguration = new LlmConfiguration
             {
                 Provider = NucleusConstants.Llm.GoogleProvider,
@@ -128,7 +138,6 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
             KnowledgeScope = new KnowledgeScope
             {
                 Strategy = KnowledgeScopeStrategy.SpecificCollectionIds, // Corrected Enum (Maps from 'FocusedRetrieval')
-                CollectionIds = new List<string> { "ProjectDocs", "MeetingNotes", "TeamRepository" }, // Requires specific collections
                 MaxContextDocuments = 10
                 // TargetKnowledgeContainerId = "CorporateWiki" // Example if using dedicated knowledge
             },
@@ -139,9 +148,22 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
                 StrategyKey = NucleusConstants.AgenticStrategies.MultiStepReasoning, // Corrected Key (Maps from PlanThenExecute concept)
                 MaxIterations = 7 // Corrected property (Maps from MaxTurns concept)
                 // Parameters = null (or specific parameter object if needed)
-            },
-            EnabledTools = new List<string> { "DocumentAnalysis", "EmailDrafting", "Summarization" } // Example tools
+            }
         };
+        // Populate read-only collections after initialization
+        professionalConfig.ActivationTriggers.Add("draft email");
+        professionalConfig.ActivationTriggers.Add("summarize this");
+        professionalConfig.ActivationTriggers.Add("analyze report");
+        professionalConfig.ActivationTriggers.Add("review document");
+        professionalConfig.ActivationTriggers.Add("professional opinion");
+        professionalConfig.ContextScope.Add("Domain", "Business");
+        professionalConfig.KnowledgeScope.CollectionIds.Add("ProjectDocs");
+        professionalConfig.KnowledgeScope.CollectionIds.Add("MeetingNotes");
+        professionalConfig.KnowledgeScope.CollectionIds.Add("TeamRepository");
+        professionalConfig.EnabledTools.Add("DocumentAnalysis");
+        professionalConfig.EnabledTools.Add("EmailDrafting");
+        professionalConfig.EnabledTools.Add("Summarization");
+
         _configurations.Add(professionalConfig.PersonaId, professionalConfig);
         _logger.LogInformation("Loaded default persona configuration: {PersonaId}", professionalConfig.PersonaId);
 

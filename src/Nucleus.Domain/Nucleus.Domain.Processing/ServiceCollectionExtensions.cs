@@ -22,27 +22,6 @@ public static class ServiceCollectionExtensions
         using var loggerFactory = LoggerFactory.Create(lb => lb.AddConsole().SetMinimumLevel(LogLevel.Debug)); // Simple console logger for setup
         var logger = loggerFactory.CreateLogger("Nucleus.Domain.Processing.ServiceCollectionExtensions");
 
-        // Persona Managers (Registering Default for now - real implementation would register multiple concrete managers)
-        // Register the concrete implementation first, allowing DI to resolve its dependencies (like IClientAdapterResolver)
-        // services.AddSingleton<DefaultPersonaManager>();
-        // Now, ensure requests for the interface resolve to the registered singleton instance.
-        // services.AddSingleton<IPersonaManager>(provider => provider.GetRequiredService<DefaultPersonaManager>());
-
-        // Register Persona Managers using Keyed Services
-        // The key should match the ManagedPersonaTypeId property of the implementation.
-        // TODO: Consider a central registry or reflection-based approach for keys instead of hardcoding.
-        // Use the string literal corresponding to the value set in DefaultPersonaManager's constructor
-        services.AddKeyedScoped<IPersonaManager, DefaultPersonaManager>("Default_v1"); // Match DefaultPersonaResolver - CHANGED TO SCOPED
-
-        // Use the string literal corresponding to the value set in DefaultPersonaManager's constructor
-        logger.LogInformation("Successfully registered IPersonaManager with key: {Key} (Scoped)", "Default_v1");
-
-        // Register the actual Persona implementation with the same key
-        // Note: Using Default_v1 key as per resolver/manager registration, even though BootstrapperPersona.PersonaId is different.
-        // IPersona is generic: IPersona<TAnalysisData>. Register against the specific implementation.
-        services.AddKeyedSingleton<IPersona<EmptyAnalysisData>, BootstrapperPersona>("Default_v1");
-        logger.LogInformation("Successfully registered IPersona implementation {ImplementationType} with key: {Key}", typeof(BootstrapperPersona).Name, "Default_v1");
-
         // Register other services from Nucleus.Processing here in the future...
 
         // Register the DatavizHtmlBuilder

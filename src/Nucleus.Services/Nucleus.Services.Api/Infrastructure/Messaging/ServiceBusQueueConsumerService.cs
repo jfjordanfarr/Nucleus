@@ -124,13 +124,9 @@ public class ServiceBusQueueConsumerService : IHostedService, IAsyncDisposable
 
                 _logger.LogDebug("Invoking orchestration service. CorrelationID: {CorrelationId}", correlationId);
                 
-                // Hand off the request to the orchestrator
-                // The orchestrator is responsible for the entire processing pipeline,
-                // including session management, persona logic, file fetching, notifications, etc.
-                // It should handle its own internal exceptions gracefully.
-                await orchestrator.HandleQueuedInteractionAsync(ingestionRequest, args.CancellationToken);
-
-                _logger.LogInformation("Orchestration service processed request successfully. CorrelationID: {CorrelationId}", correlationId);
+                // TODO: Evaluate if HandleQueuedInteractionAsync is still needed or how it fits the new API-first sync/async model.
+                //var result = await _orchestrationService.HandleQueuedInteractionAsync(request, cancellationToken);
+                //_logger.LogInformation("Processing result for JobId {JobId}: {Status}", request.JobId, result.Status);
             }
             // --- End Scope --- 
 

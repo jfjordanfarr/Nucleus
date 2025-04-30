@@ -42,6 +42,10 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Serialization;
 using Microsoft.Extensions.AI; // ADDED for IChatClient
 using Nucleus.Infrastructure.Persistence.Configuration; // ADDED for InMemoryPersonaConfigurationProvider
+using Nucleus.Services.Shared; // Added
+using Nucleus.Services.Shared.Extraction; // Added
+using Nucleus.Domain.Personas.Core.Interfaces; // Added
+using Nucleus.Domain.Personas.Core.Strategies; // Added for EchoAgenticStrategyHandler
 
 namespace Nucleus.Services.Api;
 
@@ -238,7 +242,6 @@ public static class WebApplicationBuilderExtensions
         services.AddTransient<IBot, TeamsAdapterBot>(); // Register your bot
         logger.LogInformation("Registered Bot Framework services.");
 
-        services.AddSingleton<IOrchestrationService, OrchestrationService>();
         services.AddSingleton<IPersonaResolver, DefaultPersonaResolver>();
         services.AddSingleton<IActivationChecker, ActivationChecker>(); // ADDED
         services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
@@ -247,32 +250,19 @@ public static class WebApplicationBuilderExtensions
         // Register NullPlatformNotifier as the keyed IPlatformNotifier for PlatformType.Api
         services.AddKeyedSingleton<IPlatformNotifier, NullPlatformNotifier>(PlatformType.Api);
 
-        // --- Register Persona Implementations ---
-        // TODO: This should ideally be keyed or dynamically loaded based on config.
-        // Register BootstrapperPersona as a keyed service implementing IPersona<EmptyAnalysisData>
-        services.AddKeyedSingleton<IPersona<EmptyAnalysisData>, BootstrapperPersona>(NucleusConstants.PersonaKeys.Default);
-        logger.LogInformation("Registered keyed BootstrapperPersona.");
-
-        // --- Persona Management (Keyed by PersonaId) ---
-        services.AddKeyedScoped<IPersonaManager, DefaultPersonaManager>(NucleusConstants.PersonaKeys.Default, (Func<IServiceProvider, object, DefaultPersonaManager>)((sp, key) =>
-        {
-            var logger = sp.GetRequiredService<ILogger<DefaultPersonaManager>>();
-            var personaConfigs = sp.GetRequiredService<IOptions<List<PersonaConfiguration>>>();
-            var metadataRepo = sp.GetRequiredService<IArtifactMetadataRepository>();
-            var persona = sp.GetRequiredService<IPersona<EmptyAnalysisData>>(); // Corrected: Use GetRequiredService
-            var artifactProviders = sp.GetRequiredService<IEnumerable<IArtifactProvider>>(); // Resolve artifact providers
-
-            // Pass the resolved generic persona AS the non-generic IPersona, plus the providers
-            return new DefaultPersonaManager(logger, sp, personaConfigs, metadataRepo, persona, artifactProviders);
-        }));
-        logger.LogInformation("Successfully registered FACTORY for IPersonaManager with key: {Key} (Scoped)", NucleusConstants.PersonaKeys.Default);
-
         // --- Processing Services ---
         logger.LogInformation("Registering Processing Services...");
         services.AddSingleton<IPersonaConfigurationProvider, InMemoryPersonaConfigurationProvider>(); // ADDED
         services.AddScoped<IOrchestrationService, OrchestrationService>(); // Already exists
-        services.AddScoped<IPersonaRuntime, PersonaRuntime>(); // Already exists
         logger.LogInformation("Registered Processing Services (IOrchestrationService, IPersonaRuntime, IPersonaConfigurationProvider).");
+
+        // --- Persona Runtime and Strategies ---
+        services.AddScoped<IPersonaRuntime, PersonaRuntime>();
+
+        // Register IAgenticStrategyHandler implementations (Non-Keyed)
+        services.AddScoped<IAgenticStrategyHandler, EchoAgenticStrategyHandler>();
+        // Add other strategy handlers here as they are implemented
+        // e.g., services.AddScoped<IAgenticStrategyHandler, MultiStepReasoningHandler>();
 
         // --- Messaging (Service Bus / In-Memory) ---
         // Check if Service Bus is configured for messaging

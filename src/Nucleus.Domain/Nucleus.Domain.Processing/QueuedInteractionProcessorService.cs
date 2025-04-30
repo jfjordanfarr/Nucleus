@@ -23,8 +23,8 @@ namespace Nucleus.Domain.Processing;
 /// When an item is dequeued, it creates a new dependency injection scope, resolves the necessary services
 /// (like <see cref="IOrchestrationService"/> and <see cref="IPlatformNotifier"/>), and processes the interaction.
 /// </remarks>
-/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
-/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso href="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso href="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public class QueuedInteractionProcessorService : BackgroundService
 {
     private readonly ILogger<QueuedInteractionProcessorService> _logger;
@@ -85,83 +85,82 @@ public class QueuedInteractionProcessorService : BackgroundService
     {
         // Create a scope to resolve scoped services (like DbContexts or specific request handlers)
         using var scope = _serviceProvider.CreateScope();
-        var scopedProvider = scope.ServiceProvider;
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueuedInteractionProcessorService>>();
+        var orchestrationService = scope.ServiceProvider.GetRequiredService<IOrchestrationService>();
+        var notifier = scope.ServiceProvider.GetService<Abstractions.IPlatformNotifier>(); // Notifier might not always be configured
 
-        IOrchestrationService? orchestrationService = null; 
-        IEnumerable<IPlatformNotifier>? notifiers = null;
-        
+        logger.LogInformation("[BackgroundQueue] Dequeued interaction. Request ID (if available): {CorrelationId}, Platform: {PlatformType}, User: {UserId}",
+            request.CorrelationId ?? "N/A",
+            request.PlatformType,
+            request.OriginatingUserId);
+
+        OrchestrationResult? result = null;
         try
         {
-            // Resolve necessary services from the scope
-            orchestrationService = scopedProvider.GetRequiredService<IOrchestrationService>();
-            notifiers = scopedProvider.GetRequiredService<IEnumerable<IPlatformNotifier>>();
-            var logger = scopedProvider.GetRequiredService<ILogger<QueuedInteractionProcessorService>>(); // Use injected logger
-            
-            logger.LogInformation("Processing queued request for ConversationId {ConversationId}", request.OriginatingConversationId);
+            // Construct AdapterRequest from NucleusIngestionRequest
+            var adapterRequest = new AdapterRequest(
+                PlatformType: request.PlatformType, // Pass the string directly
+                ConversationId: request.OriginatingConversationId,
+                UserId: request.OriginatingUserId,
+                ReplyToMessageId: request.OriginatingReplyToMessageId,
+                MessageId: request.OriginatingMessageId,
+                QueryText: request.QueryText ?? string.Empty, // Handle potential null
+                ArtifactReferences: request.ArtifactReferences,
+                Metadata: request.Metadata
+            );
 
-            // Call the new method designed for queued processing
-            OrchestrationResult? result = await orchestrationService.HandleQueuedInteractionAsync(request, cancellationToken);
+            // Call OrchestrationService with the constructed AdapterRequest
+            result = await orchestrationService.ProcessInteractionAsync(adapterRequest, cancellationToken);
 
-            // If processing yielded a response message, send it back via the appropriate notifier
-            if (result?.Response != null && !string.IsNullOrWhiteSpace(result.Response.ResponseMessage))
+            logger.LogInformation("[BackgroundQueue] Interaction processing completed. Status: {Status}, PersonaId: {PersonaId}, CorrelationId: {CorrelationId}",
+                result.Status,
+                result.ResolvedPersonaId ?? "N/A",
+                request.CorrelationId ?? "N/A");
+
+            // Check if the OrchestrationResult itself contains a response to send immediately
+            // (e.g., if processing failed early or was ignored within ProcessInteractionAsync)
+            // OR if the status indicates success and the contained response is the final one.
+            if (result.AdapterResponse != null && result.Status != OrchestrationStatus.Queued) // Don't notify if it was just queued again (shouldn't happen here)
             {
-                logger.LogInformation("Processing complete for ConversationId {ConversationId}. Attempting to send response notification.", request.OriginatingConversationId);
-
-                var notifier = notifiers.FirstOrDefault(n => 
-                    n.SupportedPlatformType.Equals(request.PlatformType, StringComparison.OrdinalIgnoreCase));
-
-                if (notifier == null)
+                if (notifier != null && notifier.SupportedPlatformType.Equals(request.PlatformType, StringComparison.OrdinalIgnoreCase))
                 {
-                    logger.LogError("No IPlatformNotifier found for PlatformType: {PlatformType}. Cannot send response for ConversationId: {ConversationId}", 
+                    logger.LogInformation("[BackgroundQueue] Sending final response via notifier for Platform: {Platform}, ConversationId: {ConversationId}",
                         request.PlatformType, request.OriginatingConversationId);
-                } 
+                    // Send the response contained within the result
+                    await notifier.SendNotificationAsync(
+                        request.OriginatingConversationId,
+                        result.AdapterResponse.ResponseMessage,
+                        request.OriginatingReplyToMessageId, // Use ReplyToId if available
+                        cancellationToken);
+                }
                 else
-                {    
-                    logger.LogDebug("Found notifier {NotifierType} for PlatformType {PlatformType}. Sending notification...", 
-                        notifier.GetType().Name, request.PlatformType);
-                        
-                    var notificationResult = await notifier.SendNotificationAsync(
-                        conversationId: request.OriginatingConversationId,
-                        messageText: result.Response.ResponseMessage,
-                        replyToMessageId: request.OriginatingMessageId, // Reply to the original message that triggered the async flow
-                        cancellationToken: cancellationToken);
-
-                    if (notificationResult.Success)
-                    {
-                        logger.LogInformation("Successfully sent notification for ConversationId {ConversationId}. Sent Message ID: {SentMessageId}", 
-                            request.OriginatingConversationId, notificationResult.SentMessageId ?? "N/A");
-                    }
-                    else
-                    {
-                        logger.LogError("Failed to send notification for ConversationId {ConversationId}. Error: {Error}", 
-                            request.OriginatingConversationId, notificationResult.Error ?? "Unknown error");
-                    }
+                {
+                    logger.LogWarning("[BackgroundQueue] No suitable notifier found or configured for platform {PlatformType}. Cannot send final response.", request.PlatformType);
                 }
             }
-            else
-            {
-                 logger.LogInformation("Processing complete for ConversationId {ConversationId}. No response message generated or processing failed before response generation.", 
-                    request.OriginatingConversationId);
-            }
- 
-            // Logging below is now handled within HandleQueuedInteractionAsync or ExecuteInteractionProcessingAsync
-            /*
-            logger.LogInformation("Finished processing queued request for ConversationId {ConversationId}. Status: {Status}, Response Success: {Success}", 
-                request.ConversationId, 
-                result.Status, 
-                result.Response?.Success ?? false); // Log basic outcome
-            */
+            // If result.AdapterResponse is null, it implies successful persona execution handled its own notification, or it failed silently.
+            // Logging within OrchestrationService/PersonaRuntime should cover those cases.
         }
         catch (Exception ex)
         {
-             _logger.LogError(ex, "Error occurred while processing queued request for ConversationId {ConversationId}.", 
-                request.OriginatingConversationId); 
-            // Consider adding retry logic or moving to a dead-letter queue here
-        }
-        finally
-        {
-            // Optional: Log scope disposal or other cleanup if needed
-            _logger.LogDebug("Disposing scope for request processing of ConversationId {ConversationId}", request.OriginatingConversationId);
+            logger.LogError(ex, "[BackgroundQueue] Unhandled exception processing dequeued interaction. CorrelationId: {CorrelationId}", request.CorrelationId ?? "N/A");
+            // Optionally, attempt to notify about the failure if possible and not already handled
+            if (notifier != null && notifier.SupportedPlatformType.Equals(request.PlatformType, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var failureResponse = new AdapterResponse(false, "An unexpected error occurred while processing your request.", ex.Message);
+                    await notifier.SendNotificationAsync(
+                        request.OriginatingConversationId,
+                        failureResponse.ResponseMessage,
+                        request.OriginatingReplyToMessageId,
+                        cancellationToken);
+                }
+                catch (Exception notifyEx)
+                {
+                    logger.LogError(notifyEx, "[BackgroundQueue] Failed to send failure notification after unhandled processing exception.");
+                }
+            }
         }
     }
 }

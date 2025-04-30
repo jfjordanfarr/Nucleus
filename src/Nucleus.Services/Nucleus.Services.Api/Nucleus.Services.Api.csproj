@@ -43,4 +43,9 @@
     <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.2" /> <!-- Updated version for AddGeminiChat extension -->
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Exclude files intended for the Shared project -->
+    <Compile Remove="Nucleus.Services.Shared\**\*.cs" />
+  </ItemGroup>
+
 </Project>

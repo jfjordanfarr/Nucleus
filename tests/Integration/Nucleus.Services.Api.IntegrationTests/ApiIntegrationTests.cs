@@ -15,7 +15,6 @@ using Azure.Messaging.ServiceBus;
 using Nucleus.Services.Api.Infrastructure.Messaging; 
 using Moq;
 using System.Text; 
-using Nucleus.Domain.Personas.Core; 
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
@@ -34,7 +33,6 @@ public class ApiIntegrationTests
 {
     private static WebApplicationFactory<Program> _factory = null!;
     private static string _testTenantId = "TestTenant_ApiIntegration";
-    private static string _defaultPersonaId = Nucleus.Abstractions.NucleusConstants.PersonaKeys.Default; 
 
     [ClassInitialize]
     public static void ClassInitialize(TestContext context)
@@ -63,8 +61,8 @@ public class ApiIntegrationTests
                     services.AddSingleton<IMessageQueuePublisher<NucleusIngestionRequest>>(sp => 
                         new Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<NucleusIngestionRequest>(sp.GetRequiredService<ILogger<Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<NucleusIngestionRequest>>>()));
 
-                    // --- Add required Persona registration for tests ---
-                    services.TryAddScoped<IPersona<EmptyAnalysisData>, BootstrapperPersona>(); 
+                    // --- Persona registration removed - Tests should use API endpoint directly ---
+                    // services.TryAddScoped<IPersona<EmptyAnalysisData>, BootstrapperPersona>(); 
                 });
             });
     }
@@ -268,7 +266,7 @@ public class ApiIntegrationTests
     {
         // Cleanup logic if needed (e.g., delete test data from Cosmos)
         // Currently handled by using unique IDs per test run and potentially manual cleanup
-        // _factory?.Dispose(); 
+        _factory?.Dispose(); 
     }
 
     // === Helper Methods ===
