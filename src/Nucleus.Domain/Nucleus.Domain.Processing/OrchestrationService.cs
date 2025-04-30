@@ -32,8 +32,8 @@ public class OrchestrationService : IOrchestrationService
     private readonly IPersonaRuntime _personaRuntime;
     private readonly IServiceProvider _serviceProvider;
     private readonly ActivitySource _activitySource;
-    private readonly IArtifactProvider[] _artifactProviders;
-    private readonly IContentExtractor[] _contentExtractors;
+    private readonly IEnumerable<IArtifactProvider> _artifactProviders;
+    private readonly IEnumerable<IContentExtractor> _contentExtractors;
     private readonly IArtifactMetadataRepository _metadataRepository;
     private readonly ActivationChecker _activationChecker;
     private readonly IPersonaConfigurationProvider _personaConfigurationProvider;
@@ -44,8 +44,8 @@ public class OrchestrationService : IOrchestrationService
         IPersonaRuntime personaRuntime,
         IServiceProvider serviceProvider,
         ActivitySource activitySource,
-        IArtifactProvider[] artifactProviders,
-        IContentExtractor[] contentExtractors,
+        IEnumerable<IArtifactProvider> artifactProviders,
+        IEnumerable<IContentExtractor> contentExtractors,
         IArtifactMetadataRepository metadataRepository,
         ActivationChecker activationChecker,
         IPersonaConfigurationProvider personaConfigurationProvider)
@@ -200,82 +200,83 @@ public class OrchestrationService : IOrchestrationService
                     // Only fetch/extract if metadata doesn't exist (or implement logic for re-extraction if needed)
                     if (existingMetadata == null)
                     {
-                        // Fetch content using IArtifactProvider
-                        using var fetchContentActivity = StartActivity("FetchArtifactContent");
-                        var provider = _artifactProviders.FirstOrDefault(p => p.SupportedReferenceTypes.Contains(reference.ReferenceType, StringComparer.OrdinalIgnoreCase));
-                        fetchContentActivity?.SetTag("providerFound", provider != null);
-
-                        ArtifactContent? content = null; // Initialize content as null
+                        // Find a provider that supports this reference
+                        var provider = _artifactProviders.FirstOrDefault(p => 
+                            p.SupportedReferenceTypes.Contains(reference.ReferenceType, StringComparer.OrdinalIgnoreCase)); // CORRECTED: Use SupportedReferenceTypes
+                        
                         if (provider != null)
                         {
-                            content = await provider.GetContentAsync(reference, cancellationToken).ConfigureAwait(false);
-                        }
-                        fetchContentActivity?.SetTag("contentFetched", content != null);
+                            using var providerActivity = StartActivity($"FetchArtifactFromProvider_{provider.GetType().Name}");
+                            // Fetch content using IArtifactProvider
+                            using var fetchContentActivity = StartActivity("FetchArtifactContent");
+                            var content = await provider.GetContentAsync(reference, cancellationToken).ConfigureAwait(false);
+                            fetchContentActivity?.SetTag("contentFetched", content != null);
 
-                        if (content != null)
-                        {
-                            // Extract text using IContentExtractor
-                            using var extractContentActivity = StartActivity("ExtractArtifactContent");
-                            try
+                            if (content != null)
                             {
-                                var extractor = _contentExtractors.FirstOrDefault(e => e.SupportsMimeType(content.ContentType!)); // Use ! for CS8604
-                                ContentExtractionResult? extractionResult = null;
-                                if (extractor != null)
+                                // Extract text using IContentExtractor
+                                using var extractContentActivity = StartActivity("ExtractArtifactContent");
+                                try
                                 {
-                                    extractionResult = await extractor.ExtractContentAsync(
-                                        content.ContentStream!, // Use ! for CS8604
-                                        content.ContentType!, // Use ! for CS8604
-                                        reference.SourceUri).ConfigureAwait(false);
+                                    var extractor = _contentExtractors.FirstOrDefault(e => e.SupportsMimeType(content.ContentType!)); // Use ! for CS8604
+                                    ContentExtractionResult? extractionResult = null;
+                                    if (extractor != null)
+                                    {
+                                        extractionResult = await extractor.ExtractContentAsync(
+                                            content.ContentStream!, // Use ! for CS8604
+                                            content.ContentType!, // Use ! for CS8604
+                                            reference.SourceUri).ConfigureAwait(false);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning("No content extractor found for MimeType: {MimeType}, SourceUri: {SourceUri}", content.ContentType, reference.SourceUri);
+                                        // Consider setting a specific status if no extractor found
+                                    }
+
+                                    extractContentActivity?.SetTag("extractionStatus", extractionResult?.Status.ToString());
+
+                                    if (extractionResult?.Status == ExtractionStatus.Success && extractionResult?.ExtractedText != null) // Use ExtractionStatus
+                                    {
+                                        // Create ExtractedArtifact for successful extraction
+                                        extractedArtifact = new ExtractedArtifact(
+                                            SourceId: sourceIdentifier, // Use the generated sourceIdentifier
+                                            ExtractedText: extractionResult.ExtractedText,
+                                            ContentType: content.ContentType!,
+                                            SourceUri: reference.SourceUri);
+                                        results.Add(extractedArtifact);
+                                        _logger.LogInformation("Successfully extracted content for artifact: {SourceIdentifier}", sourceIdentifier);
+
+                                        // Create and save new metadata
+                                        await CreateAndSaveMetadataAsync(sourceIdentifier, reference, content, request, cancellationToken).ConfigureAwait(false);
+                                    }
+                                    else
+                                    { 
+                                        _logger.LogWarning("Content extraction failed or returned no text for artifact: {SourceIdentifier}. Status: {Status}, Error: {Message}", 
+                                            sourceIdentifier, extractionResult?.Status, extractionResult?.Message);
+                                        extractContentActivity?.SetTag("error", extractionResult?.Message);
+                                        // Optionally create metadata even on extraction failure, marking it as failed?
+                                        // await CreateAndSaveMetadataAsync(sourceIdentifier, reference, content, request, cancellationToken, extractionResult.Status).ConfigureAwait(false); 
+                                    }
                                 }
-                                else
+                                finally
                                 {
-                                    _logger.LogWarning("No content extractor found for MimeType: {MimeType}, SourceUri: {SourceUri}", content.ContentType, reference.SourceUri);
-                                    // Consider setting a specific status if no extractor found
-                                }
-
-                                extractContentActivity?.SetTag("extractionStatus", extractionResult?.Status.ToString());
-
-                                if (extractionResult?.Status == ExtractionStatus.Success && extractionResult?.ExtractedText != null) // Use ExtractionStatus
-                                {
-                                    // Create ExtractedArtifact for successful extraction
-                                    extractedArtifact = new ExtractedArtifact(
-                                        SourceId: sourceIdentifier, // Use the generated sourceIdentifier
-                                        ExtractedText: extractionResult.ExtractedText,
-                                        ContentType: content.ContentType!,
-                                        SourceUri: reference.SourceUri);
-                                    results.Add(extractedArtifact);
-                                    _logger.LogInformation("Successfully extracted content for artifact: {SourceIdentifier}", sourceIdentifier);
-
-                                    // Create and save new metadata
-                                    await CreateAndSaveMetadataAsync(sourceIdentifier, reference, content, request, cancellationToken).ConfigureAwait(false);
-                                }
-                                else
-                                { 
-                                    _logger.LogWarning("Content extraction failed or returned no text for artifact: {SourceIdentifier}. Status: {Status}, Error: {Message}", 
-                                        sourceIdentifier, extractionResult?.Status, extractionResult?.Message);
-                                    extractContentActivity?.SetTag("error", extractionResult?.Message);
-                                    // Optionally create metadata even on extraction failure, marking it as failed?
-                                    // await CreateAndSaveMetadataAsync(sourceIdentifier, reference, content, request, cancellationToken, extractionResult.Status).ConfigureAwait(false); 
+                                    // Ensure the stream is disposed if it's disposable
+                                    if (content?.ContentStream is IDisposable disposableStream)
+                                    {
+                                        disposableStream.Dispose();
+                                    }
+                                    else
+                                    {
+                                        // If the stream is not IDisposable, consider if manual closing is needed
+                                        // based on the IArtifactProvider implementation guarantees.
+                                        // Often, streams returned might be managed elsewhere (e.g., HttpClient response streams).
+                                    }
                                 }
                             }
-                            finally
+                            else
                             {
-                                // Ensure the stream is disposed if it's disposable
-                                if (content?.ContentStream is IDisposable disposableStream)
-                                {
-                                    disposableStream.Dispose();
-                                }
-                                else
-                                {
-                                    // If the stream is not IDisposable, consider if manual closing is needed
-                                    // based on the IArtifactProvider implementation guarantees.
-                                    // Often, streams returned might be managed elsewhere (e.g., HttpClient response streams).
-                                }
+                                _logger.LogWarning("Failed to fetch artifact content for reference: {ReferenceId} (Provider not found or failed to get content)", reference.ReferenceId);
                             }
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Failed to fetch artifact content for reference: {ReferenceId} (Provider not found or failed to get content)", reference.ReferenceId);
                         }
                     }
                     else
@@ -330,7 +331,7 @@ public class OrchestrationService : IOrchestrationService
                 CreatedAtSource = null, // TODO: Get from source system if available
                 ModifiedAtSource = null, // TODO: Get from source system if available
                 // PlatformContext = request.PlatformContext, // Assuming PlatformContext exists on AdapterRequest
-                // Title = ...,
+                Title = content.Metadata?.TryGetValue("DisplayName", out var title) == true ? title : reference.FileName, // Use DisplayName if available, fallback to FileName
                 // Author = ...,
                 // Summary = ...,
                 // Tags = ...,

@@ -1,8 +1,8 @@
 ---
 title: Architecture - API Activation & Routing
-description: Details the process for activating interactions received via the API and routing them to appropriate synchronous or asynchronous handlers.
-version: 2.3
-date: 2025-04-27
+description: Details the process for activating interactions received via the API and routing them to appropriate synchronous or asynchronous handlers via the OrchestrationService.
+version: 2.4
+date: 2025-04-30
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
@@ -10,30 +10,30 @@ parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 
 ## 1. Introduction
 
-This document outlines the two key stages involved after an interaction request is received by the `Nucleus.Services.Api`, following the [API Interaction Processing Lifecycle (v4.0)](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md) and adhering to the overall [API-First Architecture](../../../10_ARCHITECTURE_API.md):
+This document outlines the two key stages involved after an interaction request is received by the `Nucleus.Services.Api`, following the [API Interaction Processing Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md) and adhering to the overall [API-First Architecture](../../../10_ARCHITECTURE_API.md):
 
 1.  **Activation Check:** Determining if the interaction warrants processing based on configured rules. This relies on interaction details provided by the client adapter as described in [API Client Interaction Patterns](../../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md).
-2.  **Post-Activation Routing:** Directing an *activated* interaction to the correct internal handler, either for synchronous processing or asynchronous background execution.
+2.  **Post-Activation Routing:** Directing an *activated* interaction to the correct internal handler (synchronous or asynchronous) via the central `OrchestrationService`.
 
-This centralized approach within the API service replaces the previous decentralized salience broadcast model.
+This centralized approach within the API service replaces any previous decentralized models.
 
 ## 2. Core Components
 
-*   **API Endpoint Handler:** (e.g., ASP.NET Core Controller Action) Receives the initial HTTP request, performs authentication/authorization, and orchestrates the activation and routing process.
-*   **Activation Rule Engine:** Logic (likely a dedicated service injected into the handler) responsible for evaluating incoming interaction metadata against configured activation rules.
-*   **Configuration Store:** Source for activation rules (e.g., `appsettings.json`, database, dedicated configuration service).
-*   **Synchronous Handlers:** Internal services responsible for processing specific types of requests directly within the API request cycle (e.g., simple query service, metadata service).
-*   **Internal Task Queue:** Message queue (e.g., RabbitMQ, Azure Service Bus) used to decouple the API handler from long-running background tasks.
-*   **Background Worker Services:** Services that listen to the task queue, dequeue messages, and execute the long-running processing logic.
+*   **API Endpoint Handler:** (e.g., `InteractionController`) Receives the initial `AdapterRequest`, performs authentication/authorization, and invokes the `IOrchestrationService`.
+*   **Orchestration Service (`IOrchestrationService`):** Central component responsible for handling the interaction lifecycle, including activation checks, context setup, and routing to sync/async paths.
+*   **Activation Checker (`IActivationChecker`):** Logic (likely used internally by `OrchestrationService`) responsible for evaluating incoming interaction metadata against configured activation rules.
+*   **Configuration Store:** Source for activation rules (e.g., `appsettings.json`, database).
+*   **Internal Task Queue (`IMessageQueuePublisher` / `IBackgroundTaskQueue`):** Used to decouple the API handler from long-running background tasks.
+*   **Background Worker Services (`QueuedInteractionProcessorService` / `ServiceBusQueueConsumerService`):** Services that listen to the task queue, dequeue messages, and invoke the `OrchestrationService` to execute the long-running processing logic.
 
 ## 3. Activation Check Flow
 
-The API Endpoint Handler receives the interaction details (user, platform context, message content/metadata, **potentially including platform-specific reply identifiers if the Client Adapter detected a reply**) and invokes the Activation Rule Engine.
+The API Endpoint Handler receives the interaction details (user, platform context, message content/metadata, **potentially including platform-specific reply identifiers if the Client Adapter detected a reply**) and invokes the `IOrchestrationService`.
 
 ```mermaid
 graph TD
     A[API Handler Receives Interaction Request] --> B(Parse Request Data + Reply Context?);
-    B -- Interaction Details --> C{Activation Rule Engine};
+    B -- Interaction Details --> C{Orchestration Service};
     C -- Configured Rules / Reply Context --> D{Evaluate Rules (Mention?, Scope?, User?, Direct Reply?)};
     D -- Yes (Activate) --> E[Proceed to Post-Activation Routing];
     D -- No (Ignore) --> F[Return HTTP 200 OK / 204 No Content];
@@ -42,8 +42,8 @@ graph TD
 
 **Rule Evaluation Logic:**
 
-*   The engine checks the interaction against a prioritized list or set of rules associated with configured Personas or system behaviors.
-*   **Implicit Activation for Replies:** Before evaluating standard rules (mentions, scopes), the engine checks if the interaction is identified as a direct reply to a message recently sent by Nucleus. This check relies on platform-specific context provided in the API request (extracted by the Client Adapter):
+*   The `OrchestrationService` checks the interaction against a prioritized list or set of rules associated with configured Personas or system behaviors.
+*   **Implicit Activation for Replies:** Before evaluating standard rules (mentions, scopes), the `OrchestrationService` checks if the interaction is identified as a direct reply to a message recently sent by Nucleus. This check relies on platform-specific context provided in the API request (extracted by the Client Adapter):
     *   **Teams:** Matching `Conversation.Id` containing a `messageid` corresponding to a recent Nucleus `ActivityId`.
     *   **Discord:** Presence of a `message.reference.message_id` corresponding to a recent Nucleus message ID.
     *   **Slack:** Presence of a `thread_ts` corresponding to the `ts` of a recent Nucleus message.
@@ -71,7 +71,7 @@ graph TD
 
 ## 4. Post-Activation Routing
 
-Once an interaction is activated, the API Handler determines the execution path and routes the task accordingly.
+Once an interaction is activated, the `OrchestrationService` determines the execution path and routes the task accordingly.
 
 ```mermaid
 graph TD
@@ -92,9 +92,9 @@ graph TD
     *   The specific API endpoint hit initially.
     *   The nature of the activated task (e.g., ingestion is typically async, simple status check is sync).
     *   Parameters in the request indicating complexity or size.
-*   **Synchronous Routing:** The handler resolves (e.g., via DI) and invokes the appropriate internal service interface based on the task type.
+*   **Synchronous Routing:** The `OrchestrationService` resolves (e.g., via DI) and invokes the appropriate internal service interface based on the task type.
 *   **Asynchronous Routing:**
-    *   The handler identifies the correct *type* of task message and the target *queue* (if multiple queues exist for different priorities or worker types).
+    *   The `OrchestrationService` identifies the correct *type* of task message and the target *queue* (if multiple queues exist for different priorities or worker types).
     *   It packages all necessary context (user info, interaction details, target persona, artifact references) into the message body.
     *   It publishes the message to the designated internal queue.
 
@@ -134,7 +134,7 @@ The activation and routing logic described above involves the following key inte
     -   `OrchestrationService` ([`Nucleus.Domain/Processing/OrchestrationService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs)): Implements the core orchestration, activation checks, and routing.
 -   **Activation Check:**
     -   `IActivationChecker` ([`Nucleus.Abstractions/Orchestration/IActivationChecker.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)): Defines the contract for activation checks.
-    -   `ActivationChecker` ([`Nucleus.Domain/Processing/ActivationChecker.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)): A basic implementation of the activation check.
+    -   `ActivationChecker` ([`Nucleus.Domain/Processing/ActivationChecker.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)): A basic implementation of the activation check, used by `OrchestrationService`.
 -   **Asynchronous Processing (Queueing):**
     -   `IBackgroundTaskQueue` ([`Nucleus.Abstractions/IBackgroundTaskQueue.cs`](../../../../src/Nucleus.Abstractions/IBackgroundTaskQueue.cs)): Interface for the internal queue.
     -   `InMemoryBackgroundTaskQueue` ([`Nucleus.Domain/Processing/InMemoryBackgroundTaskQueue.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/InMemoryBackgroundTaskQueue.cs)): In-memory implementation of the queue.

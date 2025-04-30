@@ -8,6 +8,7 @@ namespace Nucleus.ServiceDefaults.Instrumentation; // Adjusted namespace to matc
 /// <summary>
 /// Provides a central place to define and access the application's ActivitySource for OpenTelemetry.
 /// Resides within ServiceDefaults as it's closely tied to the shared telemetry configuration.
+/// See: [Project Census](../../../AgentOps/01_PROJECT_CONTEXT.md#aspire-layer-aspire)
 /// </summary>
 public static class NucleusActivitySource
 {

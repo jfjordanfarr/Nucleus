@@ -33,7 +33,7 @@ public class EchoAgenticStrategyHandler : IAgenticStrategyHandler
     }
 
     /// <inheritdoc/>
-    public string StrategyKey => "EchoStrategy"; // Keep StrategyKey implementation
+    public string StrategyKey => "Echo"; // Keep StrategyKey implementation
 
     /// <inheritdoc/>
     public Task<AdapterResponse> HandleAsync(

@@ -1,8 +1,8 @@
 ---
 title: Architecture - Orchestration Session Initiation (API-First)
-description: Details how the Nucleus API Service initiates interaction processing context after a successful Activation Check.
-version: 2.0
-date: 2025-04-27
+description: Details how the Nucleus API Service initiates interaction processing context via the OrchestrationService after a successful Activation Check.
+version: 2.1
+date: 2025-04-30
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
@@ -10,32 +10,35 @@ parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 
 ## 1. Introduction
 
-Under the API-First architecture, the concept of "session initiation" is significantly simplified and centralized within the `Nucleus.Services.Api`.
+Under the API-First architecture, the concept of "session initiation" is significantly simplified and centralized within the `Nucleus.Services.Api`'s `OrchestrationService`.
 
-This document outlines the process that occurs *after* an incoming `InteractionRequest` (received via `POST /interactions`) has successfully passed the **Activation Check** performed by the API Service, as detailed in [API Activation & Routing](./ARCHITECTURE_ORCHESTRATION_ROUTING.md).
+This document outlines the process that occurs *after* an incoming `InteractionRequest` (received via `POST /interactions`) has successfully passed the **Activation Check** performed by the `OrchestrationService`, as detailed in [API Activation & Routing](./ARCHITECTURE_ORCHESTRATION_ROUTING.md).
 
-There is no longer a decentralized broadcast or complex claim mechanism involving multiple `PersonaManager` components competing for initiation.
+There is no longer a decentralized broadcast or complex claim mechanism involving multiple components competing for initiation.
 
 ## 2. Context Creation Post-Activation
 
-Once the `ApiService` determines that an incoming `InteractionRequest` should be processed (i.e., it passes the Activation Check):
+Once the `OrchestrationService` determines that an incoming `InteractionRequest` should be processed (i.e., it passes the Activation Check):
 
-1.  **Unique Interaction ID:** The `ApiService` (likely via its internal `OrchestrationService`) generates a unique `InteractionId` (e.g., a GUID) to track this specific processing instance.
-2.  **Context Object Creation:** A central context object (e.g., `InteractionContext`) is created. This object encapsulates:
+1.  **Unique Interaction ID:** The `OrchestrationService` generates a unique `InteractionId` (e.g., a GUID) to track this specific processing instance.
+2.  **Context Object Creation:** A central context object (`InteractionContext`) is created. This object encapsulates:
     *   The generated `InteractionId`.
-    *   The details from the original `InteractionRequest` (User ID, Content, Platform Context, Source Artifacts, etc.).
-    *   The resolved Persona ID (if determined during Activation Check or resolved subsequently).
+    *   The details from the original `InteractionRequest` (User ID, Content, Platform Context, Source `ArtifactReference`s, etc.).
+    *   The resolved Persona ID (determined during Activation Check or via `IPersonaResolver`).
+    *   Placeholders for fetched/extracted content (`ExtractedContents`).
     *   Any other relevant metadata needed for processing.
-3.  **(Optional) Ephemeral Storage:** If the interaction requires temporary storage (e.g., for intermediate LLM reasoning steps if `ShowYourWork` is enabled), the `ApiService` is responsible for creating the necessary storage container (e.g., an Ephemeral Markdown Scratchpad in a designated location, potentially linked via the `InteractionContext`).
-4.  **Hand-off to Handler:** The `ApiService` then passes this fully populated `InteractionContext` to the appropriate handler based on whether the task is synchronous or asynchronous:
-    *   **Synchronous:** Passed directly to the responsible synchronous processing logic.
-    *   **Asynchronous:** Packaged and placed onto the task queue (e.g., Azure Service Bus) for a background worker to pick up. The `InteractionContext` data is included in the queue message.
+3.  **Persona Configuration Loading:** The `OrchestrationService` uses `IPersonaConfigurationProvider` to load the `PersonaConfiguration` for the resolved Persona ID.
+4.  **Ephemeral Content Fetching & Context Population:** The `OrchestrationService` proceeds with context ranking and selective ephemeral fetching using `IArtifactProvider` (as described in the [Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)), populating the `InteractionContext.ExtractedContents`.
+5.  **(Optional) Ephemeral Storage:** If intermediate reasoning needs to be persisted (e.g., `ShowYourWork`), the `IAgenticStrategyHandler` (invoked later by `IPersonaRuntime`) is responsible for requesting its persistence via `IArtifactProvider.SaveAsync`.
+6.  **Hand-off to Handler/Runtime:** The `OrchestrationService` then passes the fully populated `InteractionContext` and the loaded `PersonaConfiguration` to the appropriate handler:
+    *   **Synchronous:** Directly calls `IPersonaRuntime.ExecuteAsync`.
+    *   **Asynchronous:** Packages necessary data (`NucleusIngestionRequest` containing request details and references) and places it onto the task queue (e.g., Azure Service Bus) for a background worker. The worker will repeat steps 1-4 before calling `IPersonaRuntime.ExecuteAsync`.
 
 ## 3. Key Changes from Previous Model
 
-*   **Centralized:** Initiation is solely the responsibility of the `ApiService` after activation.
-*   **Simplified:** No broadcast, salience checks for *initiation*, or complex distributed locking (like the Cosmos DB placeholder) is required.
-*   **Implicit:** Session initiation is an implicit step within the API's processing flow following successful activation.
+*   **Centralized:** Context creation and initiation logic resides within the `OrchestrationService`.
+*   **Simplified:** No broadcast, salience checks for *initiation*, or complex distributed locking required.
+*   **Implicit:** Context creation is an implicit step within the `OrchestrationService`'s processing flow following successful activation.
 
 ## 4. Related Documents
 
@@ -46,11 +49,14 @@ Once the `ApiService` determines that an incoming `InteractionRequest` should be
 ## 5. Related Components and Documents
 
 - **Core Implementation:**
-  - [`OrchestrationService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs): Central service managing the interaction lifecycle, including context setup (though currently divergent from this document's description).
+  - [`OrchestrationService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs): Central service managing the interaction lifecycle, including context setup.
   - [`OrchestrationService.ProcessInteractionAsync`](cci:1://file:///d:/Projects/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs:59:4-167:5): The primary method handling incoming requests.
 - **Key Data Structures:**
-  - [`InteractionContext`](../../../../src/Nucleus.Abstractions/Orchestration/InteractionContext.cs): Represents the context object ideally created post-activation.
+  - [`InteractionContext`](../../../../src/Nucleus.Abstractions/Orchestration/InteractionContext.cs): Represents the context object created post-activation.
   - [`NucleusIngestionRequest`](../../../../src/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs): Used for queueing asynchronous processing tasks.
+- **Core Runtime:**
+  - [`IPersonaRuntime`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs): Interface for the central runtime.
+  - [`PersonaRuntime`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/PersonaRuntime.cs): Implementation of the runtime.
 - **Related Orchestration Concepts:**
   - [Overall Orchestration](../ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
   - [Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)

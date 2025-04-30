@@ -167,6 +167,37 @@ public class InMemoryPersonaConfigurationProvider : IPersonaConfigurationProvide
         _configurations.Add(professionalConfig.PersonaId, professionalConfig);
         _logger.LogInformation("Loaded default persona configuration: {PersonaId}", professionalConfig.PersonaId);
 
+        // --- Default Persona (Minimal Fallback) ---
+        // This persona is used when no specific persona is resolved.
+        var defaultConfig = new PersonaConfiguration
+        {
+            PersonaId = "Default_v1", // CORRECTED: Use string literal instead of non-existent constant
+            DisplayName = "Default Assistant",
+            Description = "Provides basic assistance when no specific persona is activated.",
+            ShowYourWork = false,
+            LlmConfiguration = new LlmConfiguration
+            {
+                Provider = NucleusConstants.Llm.GoogleProvider,
+                ChatModelId = NucleusConstants.Llm.GeminiChatModel, // Use a capable default
+                EmbeddingModelId = NucleusConstants.Llm.GeminiEmbeddingModel
+            },
+            KnowledgeScope = new KnowledgeScope
+            {
+                Strategy = KnowledgeScopeStrategy.NoUserArtifacts,
+                MaxContextDocuments = 0
+            },
+            SystemMessage = "You are a helpful assistant. Respond clearly and concisely.",
+            ResponseGuidelines = "Be helpful and direct.",
+            AgenticStrategy = new AgenticStrategyConfiguration
+            {
+                StrategyKey = NucleusConstants.AgenticStrategies.Echo, // Simple fallback
+                MaxIterations = 1
+            }
+            // ActivationTriggers, ContextScope, EnabledTools are intentionally empty for a simple default.
+        };
+        _configurations.Add(defaultConfig.PersonaId, defaultConfig);
+        _logger.LogInformation("Loaded default persona configuration: {PersonaId}", defaultConfig.PersonaId);
+
     }
 
     /// <inheritdoc />

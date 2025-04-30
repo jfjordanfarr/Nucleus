@@ -46,6 +46,7 @@ using Nucleus.Services.Shared; // Added
 using Nucleus.Services.Shared.Extraction; // Added
 using Nucleus.Domain.Personas.Core.Interfaces; // Added
 using Nucleus.Domain.Personas.Core.Strategies; // Added for EchoAgenticStrategyHandler
+using Nucleus.Infrastructure.Adapters.Console.Services; // ADDED for ConsoleArtifactProvider
 
 namespace Nucleus.Services.Api;
 
@@ -219,12 +220,31 @@ public static class WebApplicationBuilderExtensions
         // See: [ARCHITECTURE_PROCESSING_INTERFACES.md](../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md)
         services.AddSingleton<IContentExtractor, PlainTextContentExtractor>();
         services.AddSingleton<IContentExtractor, HtmlContentExtractor>();
+        logger.LogInformation("Registered Content Extractors.");
+
+        // --- Orchestration ---
+        services.AddScoped<IOrchestrationService, OrchestrationService>();
+        services.AddScoped<ActivationChecker>();
+        logger.LogInformation("Registered Orchestration Service.");
+
+        // --- Agentic Strategy Handlers ---
+        // See: [Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_RUNTIME.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_RUNTIME.md:0:0-0:0)
+        // Agentic strategy details are covered within: [Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md:0:0-0:0)
+        services.AddScoped<IAgenticStrategyHandler, EchoAgenticStrategyHandler>(); // Default/Example Handler
+        logger.LogInformation("Registered Agentic Strategy Handlers.");
+
+        // --- Background Services ---
+        services.AddHostedService<QueuedInteractionProcessorService>();
 
         // --- Artifact Providers ---
         logger.LogInformation("Registering Artifact Providers...");
-        // Register NullArtifactProvider for scenarios where no provider should act (e.g., if no other provider matches a reference type)
-        services.AddSingleton<IArtifactProvider, NullArtifactProvider>();
-        logger.LogInformation("Registered Artifact Providers (NullArtifactProvider). Ensure specific providers (e.g., for Graph) are registered elsewhere if needed.");
+        // Register all implementations of IArtifactProvider
+        services.AddScoped<IArtifactProvider, NullArtifactProvider>();
+        services.AddScoped<IArtifactProvider, ConsoleArtifactProvider>(); 
+        // The OrchestrationService depends on IArtifactProvider[], which DI will resolve
+        // by collecting all registered IArtifactProvider services.
+        services.AddScoped<IOrchestrationService, OrchestrationService>();
+        logger.LogInformation("Registered IOrchestrationService with its dependencies (including IArtifactProvider implementations).");
 
         // --- API Controllers --- 
         services.AddControllers();
@@ -243,7 +263,7 @@ public static class WebApplicationBuilderExtensions
         logger.LogInformation("Registered Bot Framework services.");
 
         services.AddSingleton<IPersonaResolver, DefaultPersonaResolver>();
-        services.AddSingleton<IActivationChecker, ActivationChecker>(); // ADDED
+        services.AddSingleton<IActivationChecker, ActivationChecker>(); 
         services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
         services.AddHostedService<QueuedInteractionProcessorService>(); // Background worker
 
@@ -252,17 +272,12 @@ public static class WebApplicationBuilderExtensions
 
         // --- Processing Services ---
         logger.LogInformation("Registering Processing Services...");
-        services.AddSingleton<IPersonaConfigurationProvider, InMemoryPersonaConfigurationProvider>(); // ADDED
+        services.AddSingleton<IPersonaConfigurationProvider, InMemoryPersonaConfigurationProvider>(); 
         services.AddScoped<IOrchestrationService, OrchestrationService>(); // Already exists
         logger.LogInformation("Registered Processing Services (IOrchestrationService, IPersonaRuntime, IPersonaConfigurationProvider).");
 
         // --- Persona Runtime and Strategies ---
         services.AddScoped<IPersonaRuntime, PersonaRuntime>();
-
-        // Register IAgenticStrategyHandler implementations (Non-Keyed)
-        services.AddScoped<IAgenticStrategyHandler, EchoAgenticStrategyHandler>();
-        // Add other strategy handlers here as they are implemented
-        // e.g., services.AddScoped<IAgenticStrategyHandler, MultiStepReasoningHandler>();
 
         // --- Messaging (Service Bus / In-Memory) ---
         // Check if Service Bus is configured for messaging
