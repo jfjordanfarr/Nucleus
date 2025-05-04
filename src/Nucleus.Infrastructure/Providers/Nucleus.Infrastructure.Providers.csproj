@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- NETSDK1022: Remove explicit Compile item as SDK includes it by default -->
+  <!-- <ItemGroup>
+    <Compile Include="ConsoleArtifactProvider.cs" />
+  </ItemGroup> -->
+
+</Project>

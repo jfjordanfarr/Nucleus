@@ -29,9 +29,6 @@
     <ProjectReference Include="..\..\..\Aspire\Nucleus.ServiceDefaults\Nucleus.ServiceDefaults.csproj" /> 
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Resources\Dataviz\" />
-    <Folder Include="Services\" />
-  </ItemGroup>
+  <!-- Folder Includes are generally unnecessary in SDK-style projects -->
 
 </Project>

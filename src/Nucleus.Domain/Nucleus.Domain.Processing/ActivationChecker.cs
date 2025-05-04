@@ -3,8 +3,11 @@
 
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,23 +32,41 @@ public class ActivationChecker : IActivationChecker
     }
 
     /// <inheritdoc />
-    public Task<bool> ShouldActivateAsync(AdapterRequest request, CancellationToken cancellationToken = default)
+    public Task<ActivationResult> CheckActivationAsync(
+        AdapterRequest request,
+        IEnumerable<PersonaConfiguration> configurations,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(configurations);
 
         // Basic rule: Check for "@Nucleus" mention (case-insensitive)
         // TODO: Enhance with configurable rules, user checks, platform context, etc.
-        bool isActivated = request.QueryText?.Contains("@Nucleus", StringComparison.OrdinalIgnoreCase) ?? false;
+        // This simple version just checks the mention and picks the *first* matching config.
+        // A real implementation needs to evaluate PersonaConfiguration.ActivationTriggers and ContextScope.
+        bool mentionFound = request.QueryText?.Contains("@Nucleus", StringComparison.OrdinalIgnoreCase) ?? false;
 
-        if (isActivated)
+        if (mentionFound)
         {
-            _logger.LogInformation("Activation Check PASSED for ConversationId {ConversationId} due to '@Nucleus' mention.", request.ConversationId);
+            // For this basic implementation, just return the first configuration found.
+            var firstConfig = configurations.FirstOrDefault();
+            if (firstConfig != null)
+            {
+                _logger.LogInformation("Activation Check PASSED for ConversationId {ConversationId} due to '@Nucleus' mention. Activating Persona: {PersonaId}", 
+                    request.ConversationId, firstConfig.PersonaId);
+                return Task.FromResult(new ActivationResult(true, firstConfig.PersonaId, firstConfig));
+            }
+            else
+            {
+                _logger.LogWarning("Activation Check PASSED for ConversationId {ConversationId} due to '@Nucleus' mention, but NO persona configurations were provided.", request.ConversationId);
+            }
         }
         else
         {
             _logger.LogDebug("Activation Check FAILED for ConversationId {ConversationId}. Mention '@Nucleus' not found.", request.ConversationId);
         }
 
-        return Task.FromResult(isActivated);
+        // If no mention or no configurations, return non-activated result
+        return Task.FromResult(new ActivationResult(false));
     }
 }

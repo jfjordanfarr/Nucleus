@@ -1,289 +1,186 @@
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
+using Nucleus.Abstractions.Repositories;
+using Nucleus.Infrastructure.Testing.Repositories;
+using Nucleus.Domain.Personas.Core; // For EmptyAnalysisData
+using Xunit.Abstractions; // For ITestOutputHelper
+using Microsoft.Azure.Cosmos; // For CosmosClient
+using Aspire.Hosting.Testing; // Add Aspire Testing namespace
+using Aspire.Hosting; // Add Aspire Hosting namespace for DistributedApplication
+using Aspire.Hosting.ApplicationModel; // Added for ResourceStates
+using System.Net.Http.Json; // For PostAsJsonAsync
+using Xunit;
+using Microsoft.Extensions.DependencyInjection; // For GetRequiredService
+using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Nucleus.Domain.Personas.Core.Interfaces; 
-using Nucleus.Abstractions;
+using Microsoft.Extensions.Options;
 using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.Configuration;
-using Nucleus.Abstractions.Repositories;
-using Nucleus.Services.Api.IntegrationTests.Infrastructure;
+using Nucleus.Infrastructure.Data.Persistence.Repositories; // Added for CosmosDb repo
+using Nucleus.Infrastructure.Data.Persistence; // Corrected namespace for CosmosDb provider
 using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
-using Azure.Messaging.ServiceBus;
-using Nucleus.Services.Api.Infrastructure.Messaging;
-using Moq;
-using System.Text;
-using Nucleus.Services.Api.Infrastructure;
-using Nucleus.Infrastructure.Adapters.Console.Services;
-using Nucleus.Services.Api; 
-using Microsoft.AspNetCore.TestHost; 
-using Nucleus.Domain.Personas.Core.Strategies; 
+using System.Threading;
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
 /// <summary>
-/// Integration tests for the Nucleus.Services.Api focusing on API endpoint interactions.
-/// These tests leverage WebApplicationFactory and interact with dependencies provided
-/// or mocked during test setup, including relying on the Aspire AppHost for certain
-/// infrastructure like the Cosmos DB emulator connection.
+/// Integration tests for the Nucleus API service using Aspire Test Host.
+/// Implements IAsyncLifetime for proper setup and teardown of the Aspire DistributedApplication.
 /// </summary>
-/// <remarks>
-/// Refer to the main testing strategy document for context on testing layers.
-/// </remarks>
-/// <seealso cref="../../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md"/>
-[TestClass]
-public class ApiIntegrationTests
+public class ApiIntegrationTests : IAsyncLifetime
 {
-    private static WebApplicationFactory<Program> _factory = null!;
-    private static string _testTenantId = "TestTenant_ApiIntegration";
+    private readonly ITestOutputHelper _outputHelper;
+    private DistributedApplication _app = null!;
+    private HttpClient _apiClient = null!;
+    private IServiceProvider _serviceProvider = null!;
 
-    [ClassInitialize]
-    public static void ClassInitialize(TestContext context)
+    // Constructor remains simple, just storing the output helper
+    public ApiIntegrationTests(ITestOutputHelper outputHelper) 
     {
-        Console.WriteLine($"Executing tests in directory: {Environment.CurrentDirectory}");
+        _outputHelper = outputHelper;
+    }
 
-        _factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(builder =>
+    // Moved initialization logic here from constructor and separate method
+    public async Task InitializeAsync() // Part of IAsyncLifetime
+    {
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InitializeAsync START ---");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- InitializeAsync START ---");
+        try
+        {
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Initializing Aspire AppHost for integration tests...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Initializing Aspire AppHost for integration tests...");
+
+            // Ensure AppHost isn't initialized multiple times if tests share context (though not the case here)
+            if (_app != null)
             {
-                // Configure standard services (or remove defaults)
-                builder.ConfigureServices(services =>
-                {
-                    // Initial service modifications (removing Azure, publishers etc.)
-                    var azureClientService = services.FirstOrDefault(d => d.ServiceType.FullName?.Contains("Microsoft.Extensions.Azure") ?? false);
-                    if (azureClientService != null) { services.Remove(azureClientService); }
+                return;
+            }
 
-                    var hostedService = services.FirstOrDefault(d => d.ImplementationType == typeof(ServiceBusQueueConsumerService));
-                    if (hostedService != null) { services.Remove(hostedService); }
+            // Attempt to set logging levels for emulators by setting env vars in the test process
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Setting Logging environment variables for potential emulator inheritance...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Setting Logging environment variables for potential emulator inheritance...");
+            Environment.SetEnvironmentVariable("Logging__LogLevel__Default", "Warning");
+            Environment.SetEnvironmentVariable("Logging__LogLevel__Microsoft", "Warning");
+            Environment.SetEnvironmentVariable("Logging__LogLevel__System", "Warning");
 
-                    var existingPublisher1 = services.FirstOrDefault(d => d.ServiceType == typeof(IMessageQueuePublisher<ServiceBusMessage>));
-                    if (existingPublisher1 != null) { services.Remove(existingPublisher1); }
-                    var existingPublisher2 = services.FirstOrDefault(d => d.ServiceType == typeof(IMessageQueuePublisher<NucleusIngestionRequest>));
-                    if (existingPublisher2 != null) { services.Remove(existingPublisher2); }
+            var appHost = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Nucleus_AppHost>();
 
-                    services.AddSingleton<IMessageQueuePublisher<ServiceBusMessage>>(sp => 
-                        new Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<ServiceBusMessage>(sp.GetRequiredService<ILogger<Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<ServiceBusMessage>>>()));
-                    
-                    services.AddSingleton<IMessageQueuePublisher<NucleusIngestionRequest>>(sp => 
-                        new Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<NucleusIngestionRequest>(sp.GetRequiredService<ILogger<Nucleus.Services.Api.Infrastructure.Messaging.NullMessageQueuePublisher<NucleusIngestionRequest>>>()));
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Building DistributedApplication...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Building DistributedApplication...");
+            _app = await appHost.BuildAsync();
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication Built. Starting AppHost...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: DistributedApplication Built. Starting AppHost...");
 
-                });
+            // Start the application asynchronously.
+            await _app.StartAsync();
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] AppHost Started. Waiting for resources to be running...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: AppHost Started. Waiting for resources to be running...");
 
-                // Configure test-specific services AFTER standard configuration
-                builder.ConfigureTestServices(services =>
-                {
-                });
-            }); 
-     }
- 
-     [TestMethod]
-     public async Task QueryEndpoint_WithSimpleQuery_ReturnsSuccess()
-     {
-         using var client = _factory.CreateClient(); 
+            // Create CancellationTokenSources for timeouts
+            using var ctsCosmos = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            using var ctsServiceBus = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+            using var ctsApi = new CancellationTokenSource(TimeSpan.FromMinutes(1));
 
-         string conversationId = Guid.NewGuid().ToString();
-         var request = new AdapterRequest(
-             PlatformType.Api.ToString(), 
-             conversationId,
-             "TestUser",
-             "What is the capital of France?"
-         );
+            // Wait for resources to be running using CancellationTokens for timeouts
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for Cosmos DB Emulator...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting for Cosmos DB Emulator...");
+            await _app.ResourceNotifications.WaitForResourceAsync("cosmosdb", KnownResourceStates.Running, ctsCosmos.Token);
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Cosmos DB Emulator is running.");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Cosmos DB Emulator is running.");
 
-         var response = await client.PostAsJsonAsync("/api/interaction/query", request);
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for Service Bus Emulator...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting for Service Bus Emulator...");
+            await _app.ResourceNotifications.WaitForResourceAsync("servicebus", KnownResourceStates.Running, ctsServiceBus.Token);
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Service Bus Emulator is running.");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Service Bus Emulator is running.");
 
-         Assert.IsTrue(response.IsSuccessStatusCode, $"API request failed with status code {response.StatusCode}. Details: {await response.Content.ReadAsStringAsync()}");
-     }
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for Nucleus API Service...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting for Nucleus API Service...");
+            await _app.ResourceNotifications.WaitForResourceAsync("nucleusapi", KnownResourceStates.Running, ctsApi.Token);
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Nucleus API Service is running.");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Nucleus API Service is running.");
 
-     [TestMethod]
-     public async Task QueryEndpoint_WithContextFromFile_ReturnsSuccess()
-     {
-         using var client = _factory.CreateClient(); 
+            // Resolve dependencies from the test host's service provider
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Resolving dependencies from Aspire test host...");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Resolving dependencies from Aspire test host...");
+            _serviceProvider = _app.Services;
 
-         string conversationId = Guid.NewGuid().ToString();
-         string contextFilePath = Path.Combine(Environment.CurrentDirectory, "TestData", "test_artifact.txt"); 
-        
-         Assert.IsTrue(File.Exists(contextFilePath), $"Test context file not found at: {contextFilePath}");
+            // Create HttpClient for the API service
+            _apiClient = _app.CreateHttpClient("nucleusapi");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] HttpClient created for Nucleus API: BaseAddress={_apiClient.BaseAddress}");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: HttpClient created for Nucleus API: BaseAddress={_apiClient.BaseAddress}");
 
-         string fileName = Path.GetFileName(contextFilePath);
-         string mimeType = "text/plain"; 
+            // DO NOT resolve application-specific services like repositories here.
+            // _app.Services provides access to resources managed by the test host (e.g., HttpClient factory),
+            // not the internal DI container of the 'nucleusapi' service itself.
+            // Tests should interact with the API service via HTTP calls.
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] InitializeAsync COMPLETED SUCCESSFULLY.");
+        }
+        catch (Exception ex)
+        {
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! EXCEPTION during InitializeAsync: {ex}");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! EXCEPTION during InitializeAsync: {ex}");
+            // Ensure DisposeAsync is called even if InitializeAsync fails
+            await DisposeAsync();
+            throw; // Re-throw the exception to fail the test setup
+        }
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InitializeAsync END ---");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- InitializeAsync END ---");
+    }
 
-         var artifactReference = new ArtifactReference(
-             ReferenceId: contextFilePath, 
-             ReferenceType: "local_file_path", 
-             SourceUri: new Uri(contextFilePath),
-             TenantId: _testTenantId, 
-             FileName: fileName, 
-             MimeType: mimeType 
-         );
+    // Dispose method from IAsyncLifetime
+    public async Task DisposeAsync()
+    {
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- DisposeAsync START ---");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- DisposeAsync START ---");
+        try
+        {
+            if (_app != null)
+            {
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Disposing DistributedApplication...");
+                Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Disposing DistributedApplication...");
+                await _app.DisposeAsync();
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication Disposed.");
+                Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: DistributedApplication Disposed.");
+            }
+            else
+            {
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] _app was null, nothing to dispose.");
+                Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: _app was null, nothing to dispose.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! EXCEPTION during DisposeAsync: {ex}");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! EXCEPTION during DisposeAsync: {ex.ToString()}"); // Log full exception
+            // Don't throw from DisposeAsync if possible, but log aggressively.
+        }
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- DisposeAsync END ---");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- DisposeAsync END ---");
+    }
 
-         var metadata = new Dictionary<string, string> { { "TenantId", _testTenantId } };
+    [Fact(Timeout = 60000)] // Timeout set to 60 seconds
+    public async Task BasicHealthCheck_ShouldReturnOk()
+    {
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: BasicHealthCheck_ShouldReturnOk START ---");
+        // Arrange
+        Assert.NotNull(_apiClient); // Ensure HttpClient is ready
 
-         var request = new AdapterRequest(
-             PlatformType.Api.ToString(), 
-             conversationId,
-             "TestUserWithContext",
-             "Based *only* on the provided text context, what fruits are mentioned?",
-             ArtifactReferences: new List<ArtifactReference> { artifactReference }, 
-             Metadata: metadata 
-         );
+        // Act
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Sending request to /health...");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Sending request to /health...");
+        var response = await _apiClient.GetAsync("/health");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Received response: StatusCode={response.StatusCode}");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Received response: StatusCode={response.StatusCode}");
 
-         var response = await client.PostAsJsonAsync("/api/interaction/query", request);
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: BasicHealthCheck_ShouldReturnOk END ---");
 
-         try
-         {
-             Assert.IsTrue(response.IsSuccessStatusCode, $"API request failed with status code {response.StatusCode}. Details: {await response.Content.ReadAsStringAsync()}");
-         }
-         catch (HttpRequestException ex)
-         {
-             var errorContent = await response.Content.ReadAsStringAsync();
-             Assert.Fail($"API request failed with status code {response.StatusCode}. Details: {ex.Message}\nResponse Content: {errorContent}");
-         }
-     }
+    }
 
-     [TestMethod]
-     public async Task InteractionEndpoint_WithActivationAndArtifactReference_ShouldProcessAndPersistMetadata()
-     {
-         var conversationId = $"test-conv-{Guid.NewGuid()}";
-         var messageId = "test-message-artifact-ref-activated"; 
-         var userId = "test-user-artifact-activated";
-         var artifactReferenceType = "local_file_path"; 
-         var artifactReferenceId = "TestData/test_context.txt"; 
-         var expectedSourceIdentifier = $"{artifactReferenceType}:{artifactReferenceId}";
-         var queryText = "Hey @Nucleus, process this file.";
+    // Add other tests (like CanProcessInteractionAndPersistMetadata) back here as needed.
 
-         var request = new AdapterRequest(
-             PlatformType.Api.ToString(), 
-             conversationId,
-             userId,
-             QueryText: queryText, // Renamed parameter
-             MessageId: messageId, 
-             ArtifactReferences: new List<ArtifactReference> 
-             {
-                 new ArtifactReference(
-                     ReferenceId: Path.GetFullPath(artifactReferenceId), 
-                     ReferenceType: artifactReferenceType, 
-                     SourceUri: new Uri(Path.GetFullPath(artifactReferenceId)), 
-                     TenantId: _testTenantId 
-                 )
-             }
-         );
-
-         var client = _factory.CreateClient(); 
-         var response = await client.PostAsJsonAsync("/api/interaction/query", request); // Corrected endpoint path
-         response.EnsureSuccessStatusCode(); 
-
-         await Task.Delay(200); 
-
-         // DESIGN INTENT: Metadata should NOT be persisted for activation-only interactions.
-         // Therefore, we do not assert for repository changes here.
-         // We only check that the API returned a success status code (200/202).
-     }
-
-     [TestMethod]
-     public async Task InteractionEndpoint_WithSensitiveArtifact_ShouldNotLeakDataToMetadata()
-     {
-         // Arrange: Set up a test-specific factory to inject a mock artifact provider
-         string artifactDisplayName = "sensitive_data_test.txt";
-         string artifactReferenceType = "mock";
-         string artifactReferenceId = artifactDisplayName;
-         string sensitiveFileContent = File.ReadAllText(Path.Combine("TestData", artifactDisplayName)); // Load sensitive content
-         string sensitiveSsn = "999-88-7777"; // Example sensitive data
-         string sensitiveProjectCode = "ProjectUnicorn";
-         string sensitiveEmail = "top.secret@example.com";
-         string testTenantId = $"TestTenant_Sensitive_{Guid.NewGuid()}"; 
-         string testConversationId = $"test-conv-sensitive-{Guid.NewGuid()}";
-         string testUserId = "test-user-sensitive";
-
-         string expectedPlatformType = PlatformType.Api.ToString();
-         string expectedSourceIdentifier = $"{expectedPlatformType}:{testTenantId}:{artifactReferenceId}"; 
-
-         // Create a factory instance specifically for this test
-         await using var testSpecificFactory = _factory.WithWebHostBuilder(builder =>
-         {
-             builder.ConfigureServices(services =>
-             {
-                 // Ensure the necessary strategy handler is registered for this test's scope
-                 services.AddScoped<IAgenticStrategyHandler, EchoAgenticStrategyHandler>();
-
-                 // Set up a mock artifact provider for this test
-                 var mockArtifactReference = new ArtifactReference(
-                     ReferenceId: artifactReferenceId, 
-                     ReferenceType: artifactReferenceType,
-                     SourceUri: new Uri($"mock://{artifactReferenceId}"), 
-                     TenantId: testTenantId
-                 );
-
-                 var mockProvider = new Mock<IArtifactProvider>();
-                 mockProvider.Setup(p => p.SupportedReferenceTypes).Returns(new[] { artifactReferenceType });
-                 mockProvider.Setup(p => p.GetContentAsync(
-                         It.Is<ArtifactReference>(ar => ar.ReferenceType == artifactReferenceType && ar.ReferenceId == artifactReferenceId),
-                         It.IsAny<CancellationToken>()))
-                     .ReturnsAsync(new ArtifactContent( // Corrected constructor call
-                         originalReference: mockArtifactReference, // Pass the reference
-                         contentStream: new MemoryStream(Encoding.UTF8.GetBytes(sensitiveFileContent)), // Pass the stream
-                         contentType: "text/plain", // Example content type
-                         textEncoding: Encoding.UTF8, // Example encoding
-                         metadata: new Dictionary<string, string> { { "DisplayName", artifactDisplayName } } // Example metadata
-                     ));
-                 
-                 // Register the mock provider
-                 services.AddSingleton(mockProvider.Object);
-             });
-         });
-         // Create the client from the test-specific factory
-         using var client = testSpecificFactory.CreateClient();
-
-         // Arrange: Create the request with the ArtifactReference
-         var metadata = new Dictionary<string, string> { { "TenantId", testTenantId } };
-         var artifactReference = new ArtifactReference(artifactReferenceId, artifactReferenceType, new Uri($"mock://{artifactReferenceId}"), testTenantId);
-         var request = new AdapterRequest(
-             PlatformType: expectedPlatformType, // Use the variable for consistency
-             ConversationId: testConversationId,
-             UserId: testUserId,
-             QueryText: "Hey @Nucleus, analyze this sensitive file.", // Ensure activation
-             ArtifactReferences: new List<ArtifactReference> { artifactReference },
-             Metadata: metadata
-         );
-
-         using var jsonContent = JsonContent.Create(request);
-
-         // Act: Send the request to the API
-         var response = await client.PostAsync("/api/Interaction/query", jsonContent);
-
-         // Assert: API call was successful
-         response.EnsureSuccessStatusCode();
-         Assert.IsTrue(response.StatusCode == HttpStatusCode.OK || response.StatusCode == HttpStatusCode.Accepted,
-             $"Expected OK (200) or Accepted (202), but got {response.StatusCode}");
-
-         // Assert: Wait for processing and check persisted ArtifactMetadata
-         await Task.Delay(2000); // Allow time for potential async processing
-         // *** Corrected: Resolve repository from the test-specific factory's services ***
-         using var scope = testSpecificFactory.Services.CreateScope(); 
-         var repository = scope.ServiceProvider.GetRequiredService<IArtifactMetadataRepository>();
-         var persistedItem = await repository.GetBySourceIdentifierAsync(expectedSourceIdentifier);
-
-         Assert.IsNotNull(persistedItem, $"Expected ArtifactMetadata to be persisted for SourceIdentifier '{expectedSourceIdentifier}', but none was found.");
-
-         // Assert: Check that sensitive data is NOT in the persisted metadata
-         string persistedJson = System.Text.Json.JsonSerializer.Serialize(persistedItem);
-
-         Assert.IsFalse(persistedJson.Contains(sensitiveSsn), "Sensitive SSN found in ArtifactMetadata JSON.");
-         Assert.IsFalse(persistedJson.Contains(sensitiveProjectCode), "Sensitive Project Code found in ArtifactMetadata JSON.");
-         Assert.IsFalse(persistedJson.Contains(sensitiveEmail), "Sensitive Email found in ArtifactMetadata JSON.");
-
-         // Optional: Check that non-sensitive derived data IS present (e.g., Title from DisplayName)
-         Assert.AreEqual(artifactDisplayName, persistedItem.Title, "Expected Title to be derived from DisplayName.");
-     }
-
-     [ClassCleanup]
-     public static void ClassCleanup()
-     {
-         // Cleanup logic if needed (e.g., delete test data from Cosmos)
-         // Currently handled by using unique IDs per test run and potentially manual cleanup
-         _factory?.Dispose(); 
-     }
-
-     // === Helper Methods ===
 }

@@ -10,7 +10,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace Nucleus.Infrastructure.Adapters.Console.Services;
+namespace Nucleus.Infrastructure.Providers;
 
 /// <summary>
 /// Provides artifact content for local files referenced by the Console adapter.

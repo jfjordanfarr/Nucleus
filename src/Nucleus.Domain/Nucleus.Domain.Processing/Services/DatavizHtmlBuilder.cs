@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System.Net; // Added for WebUtility
 
-namespace Nucleus.Processing.Services;
+namespace Nucleus.Domain.Processing.Services;
 
 /// <summary>
 /// Nucleus Dataviz HTML Artifact Builder

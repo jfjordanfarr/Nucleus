@@ -222,4 +222,35 @@ public enum ConfidenceLevel
     Certain = 6
 }
 
+/// <summary>
+/// Represents the status of a Persona's execution attempt via IPersonaRuntime.
+/// </summary>
+public enum PersonaExecutionStatus
+{
+    /// <summary>
+    /// Execution status is unknown or not yet determined.
+    /// </summary>
+    Unknown = 0,
+
+    /// <summary>
+    /// The persona executed successfully and produced a response.
+    /// </summary>
+    Success = 1,
+
+    /// <summary>
+    /// The persona encountered an error during execution.
+    /// </summary>
+    Failed = 2,
+
+    /// <summary>
+    /// The persona determined the input should be filtered or ignored (e.g., based on salience, rules).
+    /// </summary>
+    Filtered = 3,
+
+    /// <summary>
+    /// The persona executed successfully but determined no specific action or response was required.
+    /// </summary>
+    NoActionTaken = 4
+}
+
 // End of namespace

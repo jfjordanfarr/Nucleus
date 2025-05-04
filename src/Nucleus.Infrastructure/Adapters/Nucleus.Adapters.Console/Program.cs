@@ -26,7 +26,7 @@ using System.Text.RegularExpressions; // Added for regex parsing
 /// Configures services, command-line parsing (using System.CommandLine), and command handlers.
 /// </summary>
 /// <seealso cref="Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
-public class Program
+public class NucleusConsoleAdapter
 {
     // --- Application Entry Point ---
     public static async Task<int> Main(string[] args)
@@ -60,7 +60,7 @@ public class Program
         ArgumentNullException.ThrowIfNull(args); // Add null check here
         if (args.Length == 0)
         {
-            var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
+            var logger = serviceProvider.GetRequiredService<ILogger<NucleusConsoleAdapter>>();
             logger.LogInformation("No command specified, starting interactive mode.");
             var apiAgent = serviceProvider.GetRequiredService<NucleusApiServiceAgent>();
             await HandleInteractiveAsync(logger, apiAgent);
@@ -120,7 +120,7 @@ public class Program
             // var provider = serviceProvider; // Use direct provider if services are singleton/transient
 
             var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger<Program>(); // Create the specific logger
+            var logger = loggerFactory.CreateLogger<NucleusConsoleAdapter>(); // Create the specific logger
             var apiAgent = provider.GetRequiredService<NucleusApiServiceAgent>();
             // REMOVED: var artifactProvider = provider.GetRequiredService<IArtifactProvider>();
             
@@ -142,7 +142,7 @@ public class Program
             // var provider = serviceProvider; // Use direct provider if services are singleton/transient
 
             var loggerFactory = provider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger<Program>(); // Create the specific logger
+            var logger = loggerFactory.CreateLogger<NucleusConsoleAdapter>(); // Create the specific logger
             var apiAgent = provider.GetRequiredService<NucleusApiServiceAgent>();
 
             // Call the static handler method, passing the resolved dependencies
@@ -163,7 +163,7 @@ public class Program
     /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/> 
     /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md"/> 
     /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_INGESTION.md"/> 
-    private static async Task HandleIngestAsync(FileInfo fileInfo, ILogger<Program> logger, NucleusApiServiceAgent apiAgent)
+    private static async Task HandleIngestAsync(FileInfo fileInfo, ILogger<NucleusConsoleAdapter> logger, NucleusApiServiceAgent apiAgent)
     {
         var sessionId = Guid.NewGuid().ToString();
         logger.LogInformation("Executing 'ingest' command for file: {FilePath} with SessionId: {SessionId}", fileInfo.FullName, sessionId);
@@ -214,7 +214,7 @@ public class Program
     /// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/> 
     /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/> 
     /// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md"/> 
-    private static async Task HandleInteractiveAsync(ILogger<Program> logger, NucleusApiServiceAgent apiAgent)
+    private static async Task HandleInteractiveAsync(ILogger<NucleusConsoleAdapter> logger, NucleusApiServiceAgent apiAgent)
     {
         logger.LogInformation("Nucleus Console Adapter started. Type 'exit' to quit.");
         logger.LogInformation("You can include local file paths in backticks (e.g., analyze `C:\\path\\file.txt`)");

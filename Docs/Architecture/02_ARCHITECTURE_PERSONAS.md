@@ -1,14 +1,14 @@
 ---
 title: Architecture - Personas & Multi-Platform Interaction
 description: Details the architecture for Personas, including multi-platform identities, interaction patterns, and persona-to-persona communication, all within the API-First model.
-version: 2.2
-date: 2025-04-28
+version: 2.3
+date: 2025-05-03
 ---
 
-# Nucleus OmniRAG: Persona Architecture
+# Nucleus: Persona Architecture
 
-**Version:** 2.2
-**Date:** 2025-04-28
+**Version:** 2.3
+**Date:** 2025-05-03
 
 This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate as **agentic entities** coordinated via the `Nucleus.Services.Api`, leveraging **ephemeral content retrieval** based on **artifact references** executed by a central **Persona Runtime/Engine** based on configuration.
 
@@ -24,6 +24,8 @@ This document details the architecture for implementing specialized AI assistant
 ## 1. Core Concept: Personas as Specialized Agents
 
 Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, **agentic reasoning capabilities (operating through iterative, multi-step processing loops)**, analysis methods, and interaction patterns, **all defined via configuration and executed by the Persona Runtime/Engine**. They leverage the core platform's infrastructure for **secure metadata indexing (querying sanitized, derived knowledge stored in the database)**, processing (see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)), **ephemeral artifact content retrieval (fetching full content transiently from user storage via `IArtifactProvider` when needed)** using `ArtifactReference` (adhering to **strict security principles like Zero Trust for user content**), storage of derived knowledge ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), and retrieval from the [Database](./04_ARCHITECTURE_DATABASE.md).
+
+*   **Key Data Structure:** Persona-generated insights are stored as [`PersonaKnowledgeEntry`](../../../Nucleus.Abstractions/Models/PersonaKnowledgeEntry.cs) records within dedicated Cosmos DB containers (see [Database](./04_ARCHITECTURE_DATABASE.md)). Crucially, the `AnalysisData` property of this record uses `System.Text.Json.JsonElement?`, allowing flexible, configuration-defined JSON structures instead of fixed C# types. The interpretation of this `JsonElement` is handled by the specific `IAgenticStrategyHandler` configured for the Persona.
 
 A key design principle is that a Persona exists as an abstraction *above* specific communication platforms. The same "Professional Colleague" persona, with its unique knowledge and capabilities, should be accessible via Teams, Email, Slack, etc., if configured.
 
@@ -78,7 +80,7 @@ Defines *what* a persona is and *how* it should behave. Key elements are outline
 *   **Capability Settings:**
     *   `LlmConfiguration`: Provider, Models, Parameters
     *   `EnabledTools`: List of allowed tools
-    *   `KnowledgeScope`: Strategy, Collections, `TargetKnowledgeContainerId`, Limits
+    *   `KnowledgeScope`: Strategy, Collections, `TargetKnowledgeContainerId`, Limits (Note: The `TargetKnowledgeContainerId` points to the Cosmos DB container holding `PersonaKnowledgeEntry` records with `JsonElement` analysis data for this persona)
 *   **Prompt Configuration:** `SystemMessage`, `ResponseGuidelines`
 *   **Agentic Strategy Configuration:** `StrategyType`, `MaxIterations`
 *   **Custom Properties:** Flexible key-value pairs for persona-specific data (e.g., `PedagogicalTreeRef` for Educator)

@@ -1,8 +1,8 @@
 ---
 title: Architecture - Namespaces and Folder Structure
 description: Defines the standard namespace and folder structure for the Nucleus project, following .NET Aspire conventions and Clean Architecture principles.
-version: 2.0
-date: 2025-04-28
+version: 2.2
+date: 2025-05-03
 parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
@@ -31,7 +31,6 @@ The project root follows the standard .NET Aspire convention:
 ├── src/                      # Core application source code
 │   ├── Nucleus.Abstractions/
 │   ├── Nucleus.Domain/
-│   ├── Nucleus.Application/
 │   ├── Nucleus.Infrastructure/
 │   └── Nucleus.Services/
 ├── tests/                    # Test projects
@@ -63,8 +62,10 @@ This section lists the individual projects within the Nucleus solution and links
 *   **[`Nucleus.Personas.Core`](./Namespaces/NAMESPACE_PERSONAS_CORE.md)** (`src/Nucleus.Domain/Personas/Nucleus.Personas.Core/`)
     *   Core domain logic for Personas, including the **Persona Runtime engine** responsible for executing configurations and agentic strategies.
 *   **(Placeholder for `Nucleus.Application`)** *(Currently empty)*
-*   **[`Nucleus.Infrastructure.Persistence`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PERSISTENCE.md)** (`src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/`)
+*   **[`Nucleus.Infrastructure.Data.Persistence`](./Namespaces/NAMESPACE_INFRASTRUCTURE_DATA_PERSISTENCE.md)** (`src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/`)
     *   Data persistence implementation (Cosmos DB Repositories).
+*   **[`Nucleus.Infrastructure.Providers`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS.md)** (`src/Nucleus.Infrastructure/Providers/`)
+    *   Implementations for accessing external data/resources (e.g., Artifact Providers).
 *   **[`Nucleus.Adapters.Console`](./Namespaces/NAMESPACE_ADAPTERS_CONSOLE.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/`)
     *   Console client adapter.
 *   **[`Nucleus.Adapters.Teams`](./Namespaces/NAMESPACE_ADAPTERS_TEAMS.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/`)
@@ -116,7 +117,10 @@ graph LR
         subgraph Infrastructure
             direction LR
             subgraph Data
-                I_Persistence[Nucleus.Infrastructure.Persistence]
+                I_Data_Persistence[Nucleus.Infrastructure.Data.Persistence]
+            end
+            subgraph Providers
+                 I_Providers[Nucleus.Infrastructure.Providers]
             end
             subgraph Adapters
                  I_Console[Nucleus.Adapters.Console]
@@ -144,15 +148,17 @@ graph LR
 
     %% Core Application Dependencies
     S_Api --> A;
-    S_Api --> I_Persistence;
+    S_Api --> I_Data_Persistence;
+    S_Api --> I_Providers;
     S_Api --> I_Console; %% Via DI for potential shared services, not direct calls
     S_Api --> I_Teams;   %% Via DI for potential shared services, not direct calls
     S_Api --> D_Processing; %% OrchestrationService lives here
     S_Api --> D_Personas; %% PersonaManager lives here
     S_Api --> Abs;
 
-    I_Persistence --> A; %% Implements App/Abstractions interfaces
-    I_Persistence --> Abs;
+    I_Data_Persistence --> A; %% Implements App/Abstractions interfaces
+    I_Data_Persistence --> Abs;
+    I_Providers --> Abs;
     I_Console --> Abs;
     I_Teams --> Abs;
 
@@ -176,7 +182,7 @@ graph LR
     %% T_Unit --> A;
     %% T_Unit --> D_Processing;
     T_Integration --> S_Api;
-    %% T_Integration --> I_Persistence;
+    %% T_Integration --> I_Data_Persistence;
     %% T_EndToEnd --> S_Api; %% Typically tests the API surface
 
     %% Style API First links
@@ -190,6 +196,10 @@ graph LR
 *   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md) (Placeholder).
 *   **`tests/Unit/`**: Planned for unit tests, currently not implemented.
 *   **`tests/EndToEnd/`**: Planned for end-to-end tests, currently not implemented.
+*   **`Nucleus.Services.Api.IntegrationTests`**: Integration tests specifically targeting the `Nucleus.Services.Api` project, often involving spinning up the web host and making real HTTP requests.
+    *   *Details*: [./11_ARCHITECTURE_NAMESPACES_FOLDERS/TESTS_API_INTEGRATION.md](./11_ARCHITECTURE_NAMESPACES_FOLDERS/TESTS_API_INTEGRATION.md)
+*   **`Nucleus.Infrastructure.Testing`**: Contains shared test doubles (mocks, fakes, stubs) and helper classes used by various test projects. This ensures test infrastructure is separate from production code.
+    *   *Details*: [./12_NAMESPACE_INFRASTRUCTURE_TESTING.md](./12_NAMESPACE_INFRASTRUCTURE_TESTING.md)
 
 ## 9. Related Documents
 

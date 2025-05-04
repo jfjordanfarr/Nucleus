@@ -3,15 +3,12 @@ using Azure.Messaging.ServiceBus;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Bot.Builder;
-using Microsoft.Bot.Builder.BotFramework;
-using Microsoft.Bot.Builder.Integration.AspNet.Core;
-using Microsoft.Bot.Connector.Authentication;
 using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Http.Resilience;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Graph;
@@ -24,15 +21,16 @@ using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Repositories;
 using Nucleus.Domain.Processing;
+using Nucleus.Infrastructure.Data.Persistence;
 using Nucleus.Infrastructure.Data.Persistence.Repositories; // For CosmosDbArtifactMetadataRepository etc.
+using Nucleus.Infrastructure.Providers;
 using Nucleus.Services.Api.Diagnostics;
 using Nucleus.Services.Api.Infrastructure; // For LocalFileArtifactProvider
 using Nucleus.Services.Api.Infrastructure.Messaging; // For ServiceBusQueueConsumerService and NullMessageQueuePublisher
+using Nucleus.Services.Shared;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Nucleus.Infrastructure.Adapters.Teams;
-using Nucleus.Domain.Personas.Core;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Serialization;
 using Nucleus.Services.Api; // ADDED
@@ -82,17 +80,23 @@ namespace Nucleus.Services.Api
             });
             // --- End Service Discovery Block ---
 
-            // Conditionally disable strict scope validation in Development/Test environments
-            // to potentially work around validation issues with keyed/factory registrations.
+            // Enable strict scope and build validation to catch DI lifetime issues.
             builder.Host.UseDefaultServiceProvider(options =>
             {
-                options.ValidateScopes = !builder.Environment.IsDevelopment();
-                options.ValidateOnBuild = !builder.Environment.IsDevelopment(); // Also disable build-time validation
+                options.ValidateScopes = true;
+                options.ValidateOnBuild = true; 
                 _logger.LogInformation("Strict DI Scope/Build Validation Enabled: {ValidationEnabled}", options.ValidateScopes);
             });
 
             // --- Nucleus Domain Services --- 
-            // REMOVED: builder.Services.AddProcessingServices(); // Handled by AddNucleusServices
+            // Add Persistence services (including Persona Configuration Provider)
+            builder.Services.AddPersistenceServices(builder.Configuration);
+
+            // Add Domain Processing services (including Orchestration, Persona Resolver)
+            builder.Services.AddProcessingServices(builder.Configuration);
+
+            // Add Infrastructure services (Adapters, Providers)
+            builder.Services.AddInfrastructureServices(builder.Configuration);
 
             var app = builder.Build();
 

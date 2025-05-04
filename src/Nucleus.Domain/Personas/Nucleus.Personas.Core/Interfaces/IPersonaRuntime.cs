@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using Nucleus.Abstractions; // Re-added missing using directive
 using Nucleus.Abstractions.Models; // Contains AdapterResponse
 using Nucleus.Abstractions.Models.Configuration; // Contains PersonaConfiguration
 using Nucleus.Abstractions.Orchestration; // Contains InteractionContext
@@ -26,10 +27,10 @@ public interface IPersonaRuntime
     /// Executes the agentic process defined by the persona configuration for the given interaction.
     /// </summary>
     /// <param name="personaConfig">The configuration defining the persona's behavior, strategies, and parameters.</param>
-    /// <param name="interactionContext">The context of the current user interaction, including request details and resolved artifacts.</param>
-    /// <param name="cancellationToken">A token for cancelling the operation.</param>
-    /// <returns>An <see cref="AdapterResponse"/> containing the persona's output, success status, and any generated artifact references.</returns>
-    Task<AdapterResponse> ExecuteAsync(
+    /// <param name="interactionContext">Contextual information about the interaction.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task representing the asynchronous operation, returning a tuple containing the response from the persona and its execution status.</returns>
+    Task<(AdapterResponse Response, PersonaExecutionStatus Status)> ExecuteAsync(
         PersonaConfiguration personaConfig,
         InteractionContext interactionContext,
         CancellationToken cancellationToken = default);

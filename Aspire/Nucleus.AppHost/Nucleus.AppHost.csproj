@@ -9,13 +9,13 @@
     <Nullable>enable</Nullable>
     <UserSecretsId>3c06ff0a-9445-48a1-8972-8e5f33a55272</UserSecretsId>
     <IsAspireHost>true</IsAspireHost>
-    <NoWarn>$(NoWarn);ASPIRECOSMOSDB001</NoWarn>
+    <NoWarn>$(NoWarn);ASPIRECOSMOSDB001;NU1608</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
-    <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" />
+    <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
 
@@ -24,6 +24,12 @@
     <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="9.2.0" />
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="9.2.0" /> 
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="mssql.conf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

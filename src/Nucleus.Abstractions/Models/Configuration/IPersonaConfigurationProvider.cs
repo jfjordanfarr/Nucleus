@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,4 +24,14 @@ public interface IPersonaConfigurationProvider
     /// <see cref="PersonaConfiguration"/> if found; otherwise, null.
     /// </returns>
     Task<PersonaConfiguration?> GetConfigurationAsync(string personaId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asynchronously retrieves all available persona configurations.
+    /// </summary>
+    /// <param name="cancellationToken">A token for cancelling the asynchronous operation.</param>
+    /// <returns>
+    /// A task representing the asynchronous operation. The task result contains an enumerable
+    /// of all <see cref="PersonaConfiguration"/> instances.
+    /// </returns>
+    Task<IEnumerable<PersonaConfiguration>> GetAllConfigurationsAsync(CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Nucleus.Abstractions.Models;
 
@@ -23,6 +24,7 @@ namespace Nucleus.Abstractions.Models;
 /// <param name="ReplyToMessageId">Optional: The ID of the message this request is replying to.</param>
 /// <param name="ArtifactReferences">Optional: References to any artifacts (files, etc.) associated with the request.</param>
 /// <param name="Metadata">Optional: Additional key-value metadata from the platform adapter.</param>
+/// <param name="InteractionType">Identifies the type of interaction (e.g., "UserMessage", "SystemCommand").</param>
 public record AdapterRequest(
     string PlatformType,
     string ConversationId,
@@ -31,4 +33,5 @@ public record AdapterRequest(
     string? MessageId = null,
     string? ReplyToMessageId = null,
     List<ArtifactReference>? ArtifactReferences = null,
-    Dictionary<string, string>? Metadata = null);
+    Dictionary<string, string>? Metadata = null,
+    string? InteractionType = null);

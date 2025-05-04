@@ -4,7 +4,8 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <UserSecretsId>YOUR_USER_SECRETS_ID_HERE</UserSecretsId> <!-- GENERATE A GUID and replace -->
+    <OutputType>Exe</OutputType>
+    <UserSecretsId>2f294b23-e6c1-4bfc-92a7-35d8e13adb68</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,19 +14,21 @@
     <ProjectReference Include="..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
     <ProjectReference Include="..\..\Nucleus.Domain\Nucleus.Domain.Processing\Nucleus.Domain.Processing.csproj" />
     <ProjectReference Include="..\..\Nucleus.Domain\Personas\Nucleus.Personas.Core\Nucleus.Domain.Personas.Core.csproj" />
-    <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" />
+    <!-- <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" /> --> <!-- Temporarily Removed for Testing -->
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" />
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Data\Nucleus.Infrastructure.Persistence\Nucleus.Infrastructure.Data.Persistence.csproj" /> 
+    <ProjectReference Include="..\..\Nucleus.Infrastructure\Providers\Nucleus.Infrastructure.Providers.csproj" /> 
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
+    <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" Version="9.2.0" /> <!-- Added for Aspire extension methods -->
+    <PackageReference Include="Azure.Identity" Version="1.13.2" /> <!-- Explicitly to resolve NU1605 -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0-preview.3.24172.13" /> 
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.25207.5" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.11.0" /> <!-- Added for AddAzureClients, latest stable -->
     <PackageReference Include="Microsoft.Identity.Web" Version="2.19.1" /> 
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.3" /> 
-    <PackageReference Include="Azure.Identity" Version="1.13.1" /> <!-- Updated from 1.12.0 to satisfy Microsoft.Extensions.Azure -->
     <PackageReference Include="Microsoft.Bot.Builder" Version="4.22.7" /> <!-- Updated from 4.22.2 to match resolved Integration pkg -->
     <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.22.7" /> <!-- Updated from 4.22.5 as it wasn't found; 4.22.7 was resolved -->
     <PackageReference Include="Microsoft.Graph" Version="5.54.0" />

@@ -1,12 +1,13 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
-using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Repositories;
+using Nucleus.Abstractions.Models.Configuration; // Corrected namespace for IPersonaConfigurationProvider
 using Nucleus.Domain.Personas.Core.Interfaces; // For IPersonaRuntime
 using Nucleus.Services.Shared.Extraction; // Added for IContentExtractor
 using System.Diagnostics;
@@ -17,7 +18,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using OpenTelemetry.Trace;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Nucleus.Domain.Processing;
 
@@ -28,38 +28,39 @@ namespace Nucleus.Domain.Processing;
 public class OrchestrationService : IOrchestrationService
 {
     private readonly ILogger<OrchestrationService> _logger;
-    private readonly IPersonaResolver _personaResolver;
-    private readonly IPersonaRuntime _personaRuntime;
+    private readonly IPersonaRuntime _personaRuntime; // Inject IPersonaRuntime directly
     private readonly IServiceProvider _serviceProvider;
     private readonly ActivitySource _activitySource;
     private readonly IEnumerable<IArtifactProvider> _artifactProviders;
     private readonly IEnumerable<IContentExtractor> _contentExtractors;
     private readonly IArtifactMetadataRepository _metadataRepository;
-    private readonly ActivationChecker _activationChecker;
-    private readonly IPersonaConfigurationProvider _personaConfigurationProvider;
+    private readonly IPersonaConfigurationProvider _personaConfigProvider;
+    private readonly IPersonaKnowledgeRepository _personaKnowledgeRepository; // Inject repository for knowledge
+    private readonly IPersonaResolver _personaResolver; // Added
 
     public OrchestrationService(
         ILogger<OrchestrationService> logger,
-        IPersonaResolver personaResolver,
-        IPersonaRuntime personaRuntime,
+        IPersonaRuntime personaRuntime, // Inject IPersonaRuntime directly
         IServiceProvider serviceProvider,
         ActivitySource activitySource,
         IEnumerable<IArtifactProvider> artifactProviders,
         IEnumerable<IContentExtractor> contentExtractors,
         IArtifactMetadataRepository metadataRepository,
-        ActivationChecker activationChecker,
-        IPersonaConfigurationProvider personaConfigurationProvider)
+        IPersonaConfigurationProvider personaConfigProvider,
+        IPersonaKnowledgeRepository personaKnowledgeRepository, // Inject repository
+        IPersonaResolver personaResolver // Added
+        )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _personaResolver = personaResolver ?? throw new ArgumentNullException(nameof(personaResolver));
-        _personaRuntime = personaRuntime ?? throw new ArgumentNullException(nameof(personaRuntime));
+        _personaRuntime = personaRuntime ?? throw new ArgumentNullException(nameof(personaRuntime)); // Assign injected runtime
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _activitySource = activitySource ?? throw new ArgumentNullException(nameof(activitySource));
         _artifactProviders = artifactProviders ?? throw new ArgumentNullException(nameof(artifactProviders));
         _contentExtractors = contentExtractors ?? throw new ArgumentNullException(nameof(contentExtractors));
         _metadataRepository = metadataRepository ?? throw new ArgumentNullException(nameof(metadataRepository));
-        _activationChecker = activationChecker ?? throw new ArgumentNullException(nameof(activationChecker));
-        _personaConfigurationProvider = personaConfigurationProvider ?? throw new ArgumentNullException(nameof(personaConfigurationProvider));
+        _personaConfigProvider = personaConfigProvider ?? throw new ArgumentNullException(nameof(personaConfigProvider));
+        _personaKnowledgeRepository = personaKnowledgeRepository ?? throw new ArgumentNullException(nameof(personaKnowledgeRepository)); // Assign injected repository
+        _personaResolver = personaResolver ?? throw new ArgumentNullException(nameof(personaResolver)); // Added
     }
 
     /// <inheritdoc />
@@ -67,106 +68,148 @@ public class OrchestrationService : IOrchestrationService
     {
         ArgumentNullException.ThrowIfNull(request); // CA1062 Fix: Validate request parameter
 
-        // Use MessageId or ConversationId for logging correlation
+        // Use conversation ID or message ID as a fallback interaction ID
         var interactionId = request.MessageId ?? request.ConversationId ?? Guid.NewGuid().ToString();
-        using var activity = _activitySource.StartActivity("ProcessInteraction", ActivityKind.Internal, default(ActivityContext), tags: new[]
+
+        // Reintroduce the activity variable declaration
+        using var activity = _activitySource.StartActivity("ProcessInteraction", ActivityKind.Internal, default(ActivityContext), tags: new Dictionary<string, object?>
         {
-            new KeyValuePair<string, object?>("nucleus.interaction.id", interactionId),
-            new KeyValuePair<string, object?>("nucleus.platform.type", request.PlatformType),
-            new KeyValuePair<string, object?>("nucleus.user.id", request.UserId),
-            new KeyValuePair<string, object?>("nucleus.conversation.id", request.ConversationId)
+            { "interactionId", interactionId },
+            { "PlatformType", request.PlatformType }, // Keep original platform string for initial tag
+            { "UserId", request.UserId },
+            { "ConversationId", request.ConversationId },
+            { "MessageId", request.MessageId }
         });
 
-        _logger.LogInformation("Starting interaction processing for ID: {InteractionId}, Platform: {PlatformType}, User: {UserId}",
-            interactionId, request.PlatformType, request.UserId);
+        // CS1503/CS7036 FIX: Parse PlatformType enum early
+        if (!Enum.TryParse<PlatformType>(request.PlatformType, ignoreCase: true, out var platformTypeEnum))
+        {
+            _logger.LogError("Invalid PlatformType '{PlatformType}' received in request {InteractionId}.", request.PlatformType, interactionId);
+            activity?.SetStatus(ActivityStatusCode.Error, "Invalid PlatformType");
+            // CS0117 FIX: Use constructor, not Failure static method
+            return new OrchestrationResult(Status: OrchestrationStatus.Failed, ErrorMessage: $"Invalid PlatformType: {request.PlatformType}");
+        }
+        activity?.SetTag("platformType", platformTypeEnum.ToString()); // Update tag with enum value
 
         try
         {
-            // 1. Parse PlatformType Enum
-            if (!Enum.TryParse<PlatformType>(request.PlatformType, true, out var platformType))
+            // 1. Resolve Persona ID
+            // CS1503 FIX: Provide platformTypeEnum
+            string? personaId = await _personaResolver.ResolvePersonaIdAsync(platformTypeEnum, request, cancellationToken).ConfigureAwait(false);
+            activity?.SetTag("resolvedPersonaId", personaId ?? "null");
+
+            // Fetch Persona Configuration if ID was resolved
+            PersonaConfiguration? personaConfig = null;
+            if (!string.IsNullOrEmpty(personaId))
             {
-                _logger.LogWarning("Invalid PlatformType '{PlatformType}' received for interaction {InteractionId}.", request.PlatformType, interactionId);
-                activity?.SetStatus(ActivityStatusCode.Error, $"Invalid PlatformType: {request.PlatformType}");
-                // Return a failure result indicating the issue.
-                return new OrchestrationResult(OrchestrationStatus.Failed,
-                    ErrorMessage: $"Invalid PlatformType: {request.PlatformType}");
+                using var configActivity = StartActivity("FetchPersonaConfiguration");
+                configActivity?.SetTag("personaId", personaId);
+                // CS1061 FIX: Use GetConfigurationAsync instead of GetPersonaConfigurationAsync
+                personaConfig = await _personaConfigProvider.GetConfigurationAsync(personaId, cancellationToken).ConfigureAwait(false);
+                configActivity?.SetTag("foundConfiguration", personaConfig != null);
+            }
+            else
+            {
+                _logger.LogWarning("Persona ID resolution failed for request {InteractionId}.", interactionId);
+                // Return specific status if resolution fails
+                // CS0117 FIX: Use constructor, not Failure static method
+                return new OrchestrationResult(
+                    Status: OrchestrationStatus.PersonaResolutionFailed,
+                    ErrorMessage: "Failed to resolve a Persona ID from the request.",
+                    // CS1061 FIX: Use ConversationId instead of SessionId
+                    ResolvedPersonaId: null); // Explicitly null as resolution failed
             }
 
-            // 2. Resolve Persona ID
-            using var resolvePersonaActivity = StartActivity("ResolvePersonaId");
-            var personaId = await _personaResolver.ResolvePersonaIdAsync(
-                platformType, // Pass parsed platformType enum
-                request, 
-                cancellationToken).ConfigureAwait(false);
-
-            // Persona resolved successfully
-            activity?.AddTag("nucleus.persona.id", personaId);
-            _logger.LogInformation("Resolved Persona {PersonaId} for interaction {InteractionId}.", personaId, interactionId);
-
-            // 3. Fetch and Extract Artifact Content
-            using var extractContentActivity = StartActivity("FetchAndExtractArtifacts");
-            var extractedArtifacts = await FetchAndExtractArtifactsAsync(request, cancellationToken).ConfigureAwait(false);
-            extractContentActivity?.SetTag("artifactCount", extractedArtifacts.Count);
-            extractContentActivity?.SetTag("extractedCount", extractedArtifacts.Count(a => a != null)); // Assuming ExtractedArtifact is not null on success
-
-            // 4. Create Interaction Context
-            using var createContextActivity = StartActivity("CreateInteractionContext");
-            var interactionContext = new InteractionContext(
-                request, 
-                platformType, // Use parsed platformType enum
-                personaId, 
-                extractedArtifacts); // Add missing extractedArtifacts
-
-            createContextActivity?.SetTag("personaId", personaId);
-            createContextActivity?.SetTag("platformType", platformType.ToString());
-
-            // 5. Get Persona Configuration
-            using var getConfigActivity = StartActivity("GetPersonaConfiguration");
-            var personaConfig = personaId != null 
-                ? await _personaConfigurationProvider.GetConfigurationAsync(personaId, cancellationToken).ConfigureAwait(false) 
-                : null;
-            getConfigActivity?.SetTag("personaId", personaId);
-            getConfigActivity?.SetTag("configFound", personaConfig != null);
-
-            // 6. Execute Persona Runtime
-            using var executeActivity = StartActivity("ExecutePersonaRuntime");
-            executeActivity?.SetTag("personaId", personaId);
-
-            // Add null check for personaConfig (addresses CS8604 warning)
+            // Handle case where configuration is not found
             if (personaConfig == null)
             {
-                _logger.LogWarning("Persona configuration not found for ID '{PersonaId}'. Cannot execute runtime.", personaId);
-                // Consider returning a specific error response or throwing a specific exception
-                // For now, returning a generic error response
-                return new OrchestrationResult(OrchestrationStatus.Failed, 
-                    ErrorMessage: "Error: Persona configuration not found."); // Return failed OrchestrationResult
+                _logger.LogError("Configuration not found for Persona ID: {PersonaId}", personaId);
+                // CS0117 FIX: Use constructor, not Failure static method
+                // CS0117 FIX: Use PersonaResolutionFailed status
+                return new OrchestrationResult(
+                    Status: OrchestrationStatus.PersonaResolutionFailed,
+                    ResolvedPersonaId: personaId, // We resolved the ID, but couldn't find config
+                    ErrorMessage: $"Persona configuration not found for ID '{personaId}'.",
+                    // CS1061 FIX: Use ConversationId instead of SessionId
+                    AdapterResponse: null); // No direct response needed here
             }
 
-            var response = await _personaRuntime.ExecuteAsync(
-                personaConfig, 
-                interactionContext, 
-                cancellationToken).ConfigureAwait(false);
+            // Fetch and extract artifacts
+            using var artifactActivity = StartActivity("FetchAndExtractArtifacts");
+            // CS1501 FIX: Pass only request and cancellationToken
+            var extractedArtifacts = await FetchAndExtractArtifactsAsync(request, cancellationToken).ConfigureAwait(false);
+            artifactActivity?.SetTag("artifactCount", extractedArtifacts.Count);
 
-            // 7. Return OrchestrationResult (Success)
-            // If persona execution succeeded, the AdapterResponse is the payload.
-            // The OrchestrationResult signals success and includes the response.
-            _logger.LogInformation("Interaction {InteractionId} processed successfully by Persona {PersonaId}. Success={Success}",
-                interactionId, personaId, response.Success);
-            activity?.SetStatus(ActivityStatusCode.Ok, "Interaction processed.");
+            // Prepare context for persona execution
+            // CS7036 FIX: Provide platformTypeEnum and personaId to constructor
+            var interactionContext = new InteractionContext(request, platformTypeEnum, personaId, extractedArtifacts);
 
-            // We return Success status with the AdapterResponse from the runtime.
+            // Declare variables outside the try block and initialize
+            AdapterResponse? personaResult = null; // Initialize to null
+            PersonaExecutionStatus personaStatus = default; // Initialize to default
+
+            try
+            {
+                // Execute the persona logic
+                using var executionActivity = StartActivity("ExecutePersonaRuntime");
+                executionActivity?.SetTag("personaId", personaConfig.PersonaId);
+
+                // CS0136/CS0165 FIX: Remove explicit type declaration to assign to outer variables
+                (personaResult, personaStatus) = await _personaRuntime.ExecuteAsync(
+                    personaConfig, 
+                    interactionContext, 
+                    cancellationToken).ConfigureAwait(false);
+
+                executionActivity?.SetTag("executionStatus", personaStatus.ToString());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Persona runtime execution failed for Persona ID: {PersonaId}", personaConfig.PersonaId);
+                activity?.SetStatus(ActivityStatusCode.Error, "Persona runtime execution failed").AddException(ex);
+                // Use correct OrchestrationResult constructor
+                // Use personaConfig.PersonaId here as personaId might be null if config fetch failed earlier
+                return new OrchestrationResult(Status: OrchestrationStatus.RuntimeExecutionFailed, ResolvedPersonaId: personaConfig.PersonaId, ErrorMessage: $"Persona runtime execution failed: {ex.Message}", Exception: ex);
+            }
+
+            // Map PersonaExecutionStatus to OrchestrationStatus
+            var finalStatus = MapPersonaStatus(personaStatus);
+
+            _logger.LogInformation("Persona execution completed for Persona ID: {PersonaId} with status: {Status}", personaConfig.PersonaId, finalStatus);
+
+            // Construct and return the final result
+            // CS1739 FIX: Remove InteractionId parameter (not part of constructor)
+            // CS1061 FIX: Use ConversationId instead of SessionId (implicit via AdapterResponse?)
+            // Note: The constructor takes ResolvedPersonaId, AdapterResponse, ErrorMessage, Exception.
+            // We need to ensure personaResult (which is AdapterResponse) is passed correctly.
             return new OrchestrationResult(
-                OrchestrationStatus.Success,
-                ResolvedPersonaId: personaId,
-                AdapterResponse: response);
-
+                Status: finalStatus,
+                ResolvedPersonaId: personaConfig.PersonaId, // Pass the resolved ID
+                AdapterResponse: personaResult, // Pass the result from ExecuteAsync
+                ErrorMessage: finalStatus != OrchestrationStatus.Success ? personaResult?.ErrorMessage : null
+                // SessionId is implicitly part of the AdapterResponse if needed by the adapter
+            );
         }
-        catch (Exception ex)
+        catch (Exception ex) // Catch any unhandled exceptions during orchestration
         {
-            _logger.LogError(ex, "Unhandled error during interaction processing {InteractionId}", interactionId);
-            activity?.SetStatus(ActivityStatusCode.Error, "Unhandled interaction error.").AddException(ex); // Use AddException
-            return new OrchestrationResult(OrchestrationStatus.UnhandledError, ErrorMessage: $"An unexpected error occurred: {ex.Message}");
+            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}", interactionId);
+            activity?.SetStatus(ActivityStatusCode.Error, "Unhandled orchestration error").AddException(ex);
+            // Return a general error result using correct constructor
+             // Wrap error message in an AdapterResponse for consistency if needed, although ErrorMessage param exists
+            return new OrchestrationResult(Status: OrchestrationStatus.UnhandledError, ErrorMessage: $"An unexpected error occurred: {ex.Message}", Exception: ex);
         }
+    }
+
+    // Helper method to map PersonaExecutionStatus to OrchestrationStatus
+    private static OrchestrationStatus MapPersonaStatus(PersonaExecutionStatus personaStatus)
+    {
+        return personaStatus switch
+        {
+            PersonaExecutionStatus.Success => OrchestrationStatus.Success, // Assuming direct success maps
+            PersonaExecutionStatus.Failed => OrchestrationStatus.RuntimeExecutionFailed, // Map specific failure
+            PersonaExecutionStatus.Filtered => OrchestrationStatus.Ignored, // Map Filtered to Ignored
+            PersonaExecutionStatus.NoActionTaken => OrchestrationStatus.Ignored, // Map NoActionTaken to Ignored
+            _ => OrchestrationStatus.UnhandledError // Default to UnhandledError for unknown status
+        };
     }
 
     private async Task<IReadOnlyList<ExtractedArtifact>> FetchAndExtractArtifactsAsync(AdapterRequest request, CancellationToken cancellationToken)
@@ -308,7 +351,7 @@ public class OrchestrationService : IOrchestrationService
         CancellationToken cancellationToken,
         ExtractionStatus extractionStatus = ExtractionStatus.Success) // Corrected type name
     {
-        using var activity = StartActivity("CreateAndSaveMetadata");
+        using var activity = _activitySource.StartActivity("CreateAndSaveMetadata");
         activity?.SetTag("sourceIdentifier", sourceIdentifier);
         activity?.SetTag("extractionStatus", extractionStatus.ToString());
 
@@ -321,7 +364,7 @@ public class OrchestrationService : IOrchestrationService
                 SourceIdentifier = sourceIdentifier,
                 SourceSystemType = MapPlatformTypeToSourceSystemType(request.PlatformType), // Map from PlatformType
                 SourceUri = reference.SourceUri,
-                TenantId = reference.TenantId, // Assuming TenantId is on AdapterRequest or Reference
+                TenantId = reference.TenantId, // Ensure TenantId is propagated
                 UserId = request.UserId,       // Assuming UserId is on AdapterRequest
 
                 // --- Optional Fields ---
@@ -332,9 +375,9 @@ public class OrchestrationService : IOrchestrationService
                 ModifiedAtSource = null, // TODO: Get from source system if available
                 // PlatformContext = request.PlatformContext, // Assuming PlatformContext exists on AdapterRequest
                 Title = content.Metadata?.TryGetValue("DisplayName", out var title) == true ? title : reference.FileName, // Use DisplayName if available, fallback to FileName
-                // Author = ...,
-                // Summary = ...,
-                // Tags = ...,
+                // Author = ..., // TODO: Populate Author if available
+                // Summary = ..., // TODO: Populate Summary if available
+                // Tags = ..., // TODO: Populate Tags if available
                 ModifiedByUserId = request.UserId // Set modifier initially
             };
 
@@ -343,7 +386,7 @@ public class OrchestrationService : IOrchestrationService
             _logger.LogInformation("Created and saved metadata for artifact: {SourceIdentifier} with ID: {MetadataId}", sourceIdentifier, savedMetadata.Id);
             activity?.SetTag("metadataId", savedMetadata.Id);
         }
-        catch (Exception ex)
+        catch (Exception ex) 
         { 
             _logger.LogError(ex, "Failed to create or save metadata for artifact: {SourceIdentifier}", sourceIdentifier);
             activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.Message);

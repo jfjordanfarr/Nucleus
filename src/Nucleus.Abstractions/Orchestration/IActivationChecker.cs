@@ -4,6 +4,8 @@
 using Nucleus.Abstractions.Models;
 using System.Threading;
 using System.Threading.Tasks;
+using Nucleus.Abstractions.Models.Configuration; 
+using System.Collections.Generic; 
 
 namespace Nucleus.Abstractions.Orchestration;
 
@@ -19,10 +21,17 @@ namespace Nucleus.Abstractions.Orchestration;
 public interface IActivationChecker
 {
     /// <summary>
-    /// Checks if the given interaction request should trigger processing.
+    /// Checks if any persona should be activated based on the incoming request and available persona configurations.
     /// </summary>
-    /// <param name="request">The incoming interaction request from the adapter.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>True if the interaction should activate processing, false otherwise.</returns>
-    Task<bool> ShouldActivateAsync(AdapterRequest request, CancellationToken cancellationToken = default);
+    /// <param name="request">The incoming adapter request.</param>
+    /// <param name="configurations">An enumerable of all available persona configurations.</param>
+    /// <param name="cancellationToken">A token for cancelling the asynchronous operation.</param>
+    /// <returns>
+    /// A task representing the asynchronous operation. The task result contains an <see cref="ActivationResult"/>
+    /// indicating whether a persona should activate, and if so, which one and its configuration.
+    /// </returns>
+    Task<ActivationResult> CheckActivationAsync(
+        AdapterRequest request,
+        IEnumerable<PersonaConfiguration> configurations,
+        CancellationToken cancellationToken = default);
 }

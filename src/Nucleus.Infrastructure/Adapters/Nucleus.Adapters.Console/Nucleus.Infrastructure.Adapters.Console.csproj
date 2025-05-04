@@ -7,6 +7,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="Services\ConsoleArtifactProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Align Hosting package with TargetFramework -->
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" /> 
@@ -16,7 +20,9 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <!-- Temporarily change to Library to avoid test host conflict -->
+    <OutputType>Library</OutputType> 
+    <!-- <OutputType>Exe</OutputType> -->
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

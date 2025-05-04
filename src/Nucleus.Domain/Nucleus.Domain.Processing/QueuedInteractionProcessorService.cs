@@ -45,19 +45,15 @@ public class QueuedInteractionProcessorService : BackgroundService
     {
         _logger.LogInformation("{ServiceName} is starting.", nameof(QueuedInteractionProcessorService));
 
-        // Cast to specific type to access DequeueAsync (or update IBackgroundTaskQueue interface)
-        if (_taskQueue is not InMemoryBackgroundTaskQueue concreteQueue)
-        {
-            _logger.LogError("Background task queue is not the expected InMemoryBackgroundTaskQueue type.");
-            return; // Cannot proceed
-        }
+        // The _taskQueue is injected as IBackgroundTaskQueue which defines DequeueAsync.
+        // The cast to a concrete implementation was incorrect and unnecessary.
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                // Wait for an item to become available
-                var ingestionRequest = await concreteQueue.DequeueAsync(stoppingToken);
+                // Wait for an item to become available directly from the interface
+                var ingestionRequest = await _taskQueue.DequeueAsync(stoppingToken);
                 _logger.LogInformation("Dequeued request for async processing. ConversationId: {ConversationId}, MessageId: {MessageId}",
                     ingestionRequest.OriginatingConversationId, ingestionRequest.OriginatingMessageId);
 

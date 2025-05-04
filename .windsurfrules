@@ -5,6 +5,23 @@ version: 1.6
 date: 2025-04-29
 ---
 
+## 0 - Step Zero
+
+"Step 0", "Step Zero", "Medium-Term-Memory Mechanism", and "session state doc" all refer to the same document:
+```
+AgentOps\02_CURRENT_SESSION_STATE.md
+```
+
+**The first file that is permitted to be edited after each user response is the session state doc.**
+
+Cascade is permitted to read/search/analyze any number of files prior to that state doc update, but it is:
+1. Expected to be the first edit_file call of any Cascade turn.
+2. Expected to happen in every Cascade turn (where "turn" is a collection of Agentic "Steps", hence the term "Step Zero")
+
+The session state document is a de-facto medium-term-memory mechanism. It exists outside of the Cascade permanent memories, which are tied to the user's IDE session. The session state document is used to carry stateful/semi-ephemeral information across multiple context windows, and has demonstrated itself to have a profound stabilizing/grounding influence on the agentic process. Step 0 is mandatory for this reason.
+
+This is not to be taken to mean that 02_CURRENT_SESSION_STATE.md is the only file that may be edited during a Cascade turn. Cascade is permitted to edit any number of files in a single turn, provided that 02_CURRENT_SESSION_STATE.md is edited first.
+
 ## 1 - Quality Over Expedience
 
 The user explicitly stated that achieving the absolute highest quality output is paramount during development sessions. Cascade should prioritize internal consistency in documentation and design, and liberally use available tools (search, context, file viewing, editing, etc.) to ensure this high standard is met. Cost or resource usage of tools is not a primary constraint; quality is the goal. Treat architecture markdown files as rigorously as source code.

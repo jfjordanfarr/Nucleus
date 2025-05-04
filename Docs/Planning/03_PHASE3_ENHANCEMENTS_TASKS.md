@@ -79,8 +79,8 @@ This document details the specific tasks required to complete Phase 3, primarily
 
 *   [ ] **TASK-P3-TEST-01:** Set up Unit Test projects for core libraries (`Nucleus.Core`, `Nucleus.Processing`, `Nucleus.Personas`).
 *   [ ] **TASK-P3-TEST-02:** Implement unit tests for key logic (extractors, persona base classes, repository interfaces mocks).
-*   [ ] **TASK-P3-TEST-03:** Set up Integration Test project for `Nucleus.Services.Api`.
-*   [ ] **TASK-P3-TEST-04:** Implement integration tests for API endpoints using `WebApplicationFactory` (testing interaction flows, basic metadata saving, persona invocation).
-*   [ ] **TASK-P3-TEST-05:** Configure CI pipeline (GitHub Actions) to run tests on push/PR.
+*   [ ] **TASK-P3-TEST-03:** Implement Unit Tests for core logic in `Nucleus.Services.Api` (e.g., service classes, input validation).
+*   [ ] **TASK-P3-TEST-04:** Implement integration tests for API endpoints using **`Aspire.Hosting.Testing`** to orchestrate the AppHost (testing interaction flows, basic metadata saving, persona invocation).
+*   [ ] **TASK-P3-TEST-05:** Explore and potentially implement basic E2E tests (e.g., using Playwright) if feasible within the phase scope.
 
 ---

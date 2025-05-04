@@ -116,6 +116,9 @@ public class ServiceBusQueueConsumerService : IHostedService, IAsyncDisposable
             _logger.LogInformation("Received message from queue '{QueueName}'. CorrelationID: {CorrelationId}, MessageId: {MessageId}, SequenceNumber: {SequenceNumber}", 
                 _queueName, correlationId, args.Message.MessageId, args.Message.SequenceNumber);
 
+            // Added for integration testing verification
+            _logger.LogInformation("Successfully deserialized message for integration test verification. CorrelationID: {CorrelationId}, MessageId: {MessageId}", correlationId, args.Message.MessageId);
+
             // --- Process the message within a DI Scope --- 
             using (var scope = _serviceProvider.CreateScope())
             {

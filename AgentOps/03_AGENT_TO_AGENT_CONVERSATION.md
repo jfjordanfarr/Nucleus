@@ -4,24 +4,41 @@ Sometimes, AI agents need to get help from other AI agents. This file will be us
 
 ## Message 1: Cascade (Via User) to Gemini 2.5 Pro
 
-**Subject:** Internal Consistency Check
-
-Internal Consistency Check:
-
-Review the following codebase and documentation set, noting the unique docs-first agentic development style, and note anything you deem to be internally inconsistent, be it:
-- Internal disagreements from code files to code files
-- Internal disagreements from documentation from documentation
-- Internal disagreements from code files to documentation or vice versa
-- Hallucinated file paths (files that do not exist but are claimed to -- files that do exist but are claimed not to)
-- Hallucinated file contents (files that do exist but are claimed to be different than they are)
+**Subject:** Full Codebase Review
 
 You are an AI with a 1 million token context window, enabling you to see for the first time an entire (young) codebase alongside its documentation, unabridged. This has opened up profound new methodologies for checking the logical consistency of a project, making sure all minds point in the same direction, toward the same shared goals.
 
 Our style of development is "docs-first", which is due to a unique agentic development style that emphasizes documentation as the primary source of truth for the codebase. This is a departure from the traditional "code-first" approach, where documentation is often seen as secondary or even secondary to code. This is noted to you so that you have a potential tie-breaker of authority when viewing internal inconsistencies of the codebase, which are expected to be present. 
 
-Workspace file census:
+### Internal Consistency Check:
 
-(base) PS D:\Projects\Nucleus> python D:\Projects\Nucleus\AgentOps\Scripts\tree_gitignore.py D:\Projects\Nucleus\    
+Review the following codebase and documentation set, noting the unique docs-first agentic development style, and note anything you deem to be internally inconsistent, be it:
+- Internal disagreements from code files to code files
+- Internal disagreements from documentation from documentation
+- Internal disagreements from code files to documentation or vice versa
+
+### Technical Debt Review:
+
+Take note of any obvious to-do items, placeholders, workarounds, or other technical debt that needs accounting for. 
+
+### Informed Next Steps:
+
+Based on the completion state of the codebase and the documentation outlining the project vision, roadmap, and goals, outline the next steps for development.
+
+### Special Requests:
+
+Professionalization/Standardization lens: 
+The codebase has just completed a series of recent changes that brought about the first successful integration test with the Aspire AppHost-orchestrated methodology. This codebase is public, open-source, and hosted on Github. Any mermaid diagrams are limited to the same limitations that Github has. Ensure that the readme file is well-kept relative to the true state of the project (very early -- just ensure that the readme doesn't say anything incorrect or out-of-date if you would). Look for citations from docs to code or code to docs in search of broken links, or links which point to a local directory on my development machine (if it starts with `D:\Projects\Nucleus\`, it's a reference to a workspace file formatted in a way which isn't friendly to Github -- relative linking is our friend, but only propose changes you are confident of). Look for any other major blemishes that would make a github public commit look bad.
+
+#### Most Recent Terminal Outputs:
+
+```PowerShell
+{Outputs}
+```
+
+### Workspace file census:
+
+(base) PS D:\Projects\Nucleus\tests\Integration\Nucleus.Services.Api.IntegrationTests> python D:\Projects\Nucleus\AgentOps\Scripts\tree_gitignore.py D:\Projects\Nucleus\      
 Nucleus/ (D:\Projects\Nucleus)
 ├── .devcontainer/
 │   └── devcontainer.json
@@ -35,7 +52,8 @@ Nucleus/ (D:\Projects\Nucleus)
 │   ├── Archive/
 │   │   ├── STORY_01_NavigatingEvolvingAILibraries.md
 │   │   ├── STORY_02_MCP_Server_Integration_Lessons.md
-│   │   └── STORY_03_LinterIntegration.md
+│   │   ├── STORY_03_LinterIntegration.md
+│   │   └── STORY_04_AspireIntegrationTestJourney.md
 │   ├── Scripts/
 │   │   ├── codebase_to_markdown.py
 │   │   ├── csharp_code_analyzer.csx
@@ -53,6 +71,7 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │   └── launchSettings.json
 │   │   ├── appsettings.Development.json
 │   │   ├── appsettings.json
+│   │   ├── mssql.conf
 │   │   ├── Nucleus.AppHost.csproj
 │   │   └── Program.cs
 │   └── Nucleus.ServiceDefaults/
@@ -91,7 +110,9 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │   ├── NAMESPACE_API_INTEGRATION_TESTS.md
 │   │   │   ├── NAMESPACE_APP_HOST.md
 │   │   │   ├── NAMESPACE_DOMAIN_PROCESSING.md
-│   │   │   ├── NAMESPACE_INFRASTRUCTURE_PERSISTENCE.md
+│   │   │   ├── NAMESPACE_INFRASTRUCTURE_DATA_PERSISTENCE.md
+│   │   │   ├── NAMESPACE_INFRASTRUCTURE_PROVIDERS.md
+│   │   │   ├── NAMESPACE_INFRASTRUCTURE_TESTING.md
 │   │   │   ├── NAMESPACE_PERSONAS_CORE.md
 │   │   │   ├── NAMESPACE_SERVICE_DEFAULTS.md
 │   │   │   ├── NAMESPACE_SERVICES_API.md
@@ -184,8 +205,13 @@ Nucleus/ (D:\Projects\Nucleus)
 │   ├── Nucleus.Abstractions/
 │   │   ├── bin/
 │   │   ├── Models/
+│   │   │   ├── Analysis/
+│   │   │   │   ├── BootstrapperAnalysisData.cs
+│   │   │   │   ├── EduFlowAnalysisData.cs
+│   │   │   │   └── ProfessionalAnalysisData.cs
 │   │   │   ├── Configuration/
 │   │   │   │   ├── AgenticStrategyParametersBase.cs
+│   │   │   │   ├── CosmosDbSettings.cs
 │   │   │   │   ├── GoogleAiOptions.cs
 │   │   │   │   ├── IPersonaConfigurationProvider.cs
 │   │   │   │   └── PersonaConfiguration.cs
@@ -195,10 +221,12 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │   ├── ArtifactMetadata.cs
 │   │   │   ├── ArtifactReference.cs
 │   │   │   ├── NucleusIngestionRequest.cs
+│   │   │   ├── PersonaKnowledgeEntry.cs
 │   │   │   ├── PlatformAttachmentReference.cs
 │   │   │   └── PlatformType.cs
 │   │   ├── obj/
 │   │   ├── Orchestration/
+│   │   │   ├── ActivationResult.cs
 │   │   │   ├── ExtractedArtifact.cs
 │   │   │   ├── IActivationChecker.cs
 │   │   │   ├── IBackgroundTaskQueue.cs
@@ -232,7 +260,6 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │   │   └── DatavizHtmlBuilder.cs
 │   │   │   ├── ActivationChecker.cs
 │   │   │   ├── DefaultPersonaResolver.cs
-│   │   │   ├── InMemoryBackgroundTaskQueue.cs
 │   │   │   ├── Nucleus.Domain.Processing.csproj
 │   │   │   ├── OrchestrationService.cs
 │   │   │   ├── QueuedInteractionProcessorService.cs
@@ -256,7 +283,6 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │   │   ├── bin/
 │   │   │   │   ├── obj/
 │   │   │   │   ├── Services/
-│   │   │   │   │   ├── ConsoleArtifactProvider.cs
 │   │   │   │   │   └── NucleusApiServiceAgent.cs
 │   │   │   │   ├── appsettings.json
 │   │   │   │   ├── Nucleus.Infrastructure.Adapters.Console.csproj
@@ -269,16 +295,24 @@ Nucleus/ (D:\Projects\Nucleus)
 │   │   │       ├── TeamsAdapterBot.cs
 │   │   │       ├── TeamsAdapterConfiguration.cs
 │   │   │       └── TeamsNotifier.cs
-│   │   └── Data/
-│   │       └── Nucleus.Infrastructure.Persistence/
-│   │           ├── bin/
-│   │           ├── Configuration/
-│   │           │   └── InMemoryPersonaConfigurationProvider.cs
-│   │           ├── obj/
-│   │           ├── Repositories/
-│   │           │   ├── CosmosDbArtifactMetadataRepository.cs
-│   │           │   └── InMemoryArtifactMetadataRepository.cs
-│   │           └── Nucleus.Infrastructure.Data.Persistence.csproj
+│   │   ├── Data/
+│   │   │   └── Nucleus.Infrastructure.Persistence/
+│   │   │       ├── bin/
+│   │   │       ├── Configuration/
+│   │   │       ├── obj/
+│   │   │       ├── Repositories/
+│   │   │       │   ├── CosmosDbArtifactMetadataRepository.cs
+│   │   │       │   └── CosmosDbPersonaKnowledgeRepository.cs
+│   │   │       ├── ConfigurationPersonaConfigurationProvider.cs
+│   │   │       ├── CosmosDbPersonaConfigurationProvider.cs
+│   │   │       ├── Nucleus.Infrastructure.Data.Persistence.csproj
+│   │   │       └── ServiceCollectionExtensions.cs
+│   │   └── Providers/
+│   │       ├── bin/
+│   │       ├── obj/
+│   │       ├── ConsoleArtifactProvider.cs
+│   │       ├── Nucleus.Infrastructure.Providers.csproj
+│   │       └── ServiceCollectionExtensions.cs
 │   └── Nucleus.Services/
 │       ├── Nucleus.Services.Api/
 │       │   ├── bin/
@@ -291,8 +325,10 @@ Nucleus/ (D:\Projects\Nucleus)
 │       │   ├── Infrastructure/
 │       │   │   ├── Messaging/
 │       │   │   │   ├── AzureServiceBusPublisher.cs
+│       │   │   │   ├── NullBackgroundTaskQueue.cs
 │       │   │   │   ├── NullMessageQueuePublisher.cs
 │       │   │   │   ├── NullPlatformNotifier.cs
+│       │   │   │   ├── ServiceBusBackgroundTaskQueue.cs
 │       │   │   │   └── ServiceBusQueueConsumerService.cs
 │       │   │   └── NullArtifactProvider.cs
 │       │   ├── obj/
@@ -314,11 +350,24 @@ Nucleus/ (D:\Projects\Nucleus)
 │           ├── MimeTypeHelper.cs
 │           └── Nucleus.Services.Shared.csproj
 ├── tests/
+│   ├── Infrastructure.Testing/
+│   │   ├── bin/
+│   │   ├── Configuration/
+│   │   │   └── InMemoryPersonaConfigurationProvider.cs
+│   │   ├── obj/
+│   │   ├── Queues/
+│   │   ├── Repositories/
+│   │   │   ├── EmulatorCosmosDbPersonaConfigurationProvider.cs
+│   │   │   ├── InMemoryArtifactMetadataRepository.cs
+│   │   │   └── InMemoryPersonaKnowledgeRepository.cs
+│   │   └── Nucleus.Infrastructure.Testing.csproj
 │   └── Integration/
 │       └── Nucleus.Services.Api.IntegrationTests/
 │           ├── bin/
 │           ├── Infrastructure/
 │           │   └── NullArtifactMetadataRepository.cs
+│           ├── Models/
+│           │   └── TestInteractionMessage.cs
 │           ├── obj/
 │           ├── TestData/
 │           │   ├── sensitive_data_test.txt
@@ -326,6 +375,7 @@ Nucleus/ (D:\Projects\Nucleus)
 │           ├── TestResults/
 │           ├── ApiIntegrationTests.cs
 │           ├── Nucleus.Services.Api.IntegrationTests.csproj
+│           ├── ServiceBusMessagingTests.cs
 │           ├── test_ingest_agent_api.ps1
 │           └── test_query_agent_api.ps1
 ├── .editorconfig
@@ -336,7 +386,7 @@ Nucleus/ (D:\Projects\Nucleus)
 ├── Nucleus.sln
 └── README.md
 
-Codebase Dump:
+### Codebase Dump:
 
 -
 --
@@ -358,7 +408,7 @@ Codebase Dump:
 
 ## Message 2: Gemini 2.5 Pro to Cascade (Via User)
 
-{Pass 1 findings}
+{Message}
 
 ---
 ---
@@ -374,11 +424,20 @@ You have correctly identified the large scale of the task given to you. This is 
 
 ## Message 4: Gemini 2.5 Pro to Cascade (Via User)
 
-Okay, Cascade, initiating Pass 2 of the internal consistency check and compiler bug investigation. I will leverage the insights from Pass 1 to perform a deeper analysis and use Google Search to explore potential workarounds or alternatives for the suspected compiler issue.
-
----
-
-{Pass 2 findings}
+{Message}
 
 ---
 ---
+
+## Message 5: Cascade to Gemini 2.5 Pro (Via User)
+
+Final Pass:
+
+This will be the last attempt given to you to inspect the full codebase and documentation set to refine, expand, and deepen your response. Utilize your latest findings to inform your choices of where to put your attention in this final pass. The "Grounding with Google Search" has been enabled for this final pass, in case you have any research or questions that require external sources, or any claims of fact that should be defined by an external citation. Thank you for your efforts. Your response will be used to bootstrap the next agentic development session (but may not include the messages before this as a means of preserving context, so you are encouraged to be comprehensive in the final response). 
+
+---
+---
+
+## Message 6: Gemini 2.5 Pro to Cascade (Via User)
+
+{Message}

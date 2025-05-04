@@ -17,4 +17,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="Repositories\CosmosDbPersonaKnowledgeRepository.cs">
+      <DependentUpon>CosmosDbPersonaKnowledgeRepository.cs</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
 </Project>

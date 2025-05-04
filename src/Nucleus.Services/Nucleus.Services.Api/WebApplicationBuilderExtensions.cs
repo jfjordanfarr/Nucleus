@@ -1,52 +1,48 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using Azure.Identity;
+using Azure.Messaging.ServiceBus;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http; 
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Serialization;
+using Microsoft.Extensions.AI; 
+using Microsoft.Extensions.Azure;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting; 
+using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.Identity.Web;
+using Mscc.GenerativeAI;
+using Mscc.GenerativeAI.Microsoft;
+using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Repositories;
 using Nucleus.Domain.Personas.Core;
+using Nucleus.Domain.Personas.Core.Interfaces;
+using Nucleus.Domain.Personas.Core.Strategies;
 using Nucleus.Domain.Processing;
-using Nucleus.Infrastructure.Data.Persistence.Repositories; // Required for CosmosDbArtifactMetadataRepository
-using Nucleus.Services.Api.Infrastructure; // Corrected namespace
+using Nucleus.Infrastructure.Data.Persistence;
+using Nucleus.Infrastructure.Data.Persistence.Repositories;
+using Nucleus.Infrastructure.Providers;
+using Nucleus.Services.Api.Configuration;
+using Nucleus.Services.Api.Diagnostics;
+using Nucleus.Services.Api.Infrastructure;
+using Nucleus.Services.Api.Infrastructure.Messaging;
+using Nucleus.Services.Shared;
+using Nucleus.Services.Shared.Extraction;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Azure.Identity;
-using Azure.Messaging.ServiceBus;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Bot.Builder;
-using Microsoft.Bot.Builder.BotFramework;
-using Microsoft.Bot.Builder.Integration.AspNet.Core;
-using Microsoft.Bot.Connector.Authentication;
-using Microsoft.Extensions.Azure;
-using Microsoft.Extensions.Caching.Memory; // ADDED for IMemoryCache
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http;
-using Microsoft.Extensions.Http.Resilience;
-using Microsoft.Extensions.Options;
-using Microsoft.Graph;
-using Microsoft.Identity.Web;
-using Mscc.GenerativeAI;
-using Mscc.GenerativeAI.Microsoft;
-using Nucleus.Abstractions;
-using Nucleus.Services.Api.Diagnostics;
-using Nucleus.Services.Api.Infrastructure.Messaging; // ADDED
-using Nucleus.Infrastructure.Adapters.Teams;
-using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Serialization;
-using Microsoft.Extensions.AI; // ADDED for IChatClient
-using Nucleus.Infrastructure.Persistence.Configuration; // ADDED for InMemoryPersonaConfigurationProvider
-using Nucleus.Services.Shared; // Added
-using Nucleus.Services.Shared.Extraction; // Added
-using Nucleus.Domain.Personas.Core.Interfaces; // Added
-using Nucleus.Domain.Personas.Core.Strategies; // Added for EchoAgenticStrategyHandler
-using Nucleus.Infrastructure.Adapters.Console.Services; // ADDED for ConsoleArtifactProvider
 
 namespace Nucleus.Services.Api;
 
@@ -80,7 +76,7 @@ public static class WebApplicationBuilderExtensions
         // We assume they are already configured before this method is called.
         services.Configure<List<PersonaConfiguration>>(configuration.GetSection(NucleusConstants.ConfigurationKeys.PersonasSection));
         services.Configure<GoogleAiOptions>(configuration.GetSection(GoogleAiOptions.SectionName));
-        services.Configure<TeamsAdapterConfiguration>(configuration.GetSection("TeamsAdapter")); // For Teams Bot
+        // Removed TeamsAdapterConfiguration binding as it's adapter-specific
 
         // --- Caching --- ADDED
         services.AddMemoryCache();
@@ -120,9 +116,15 @@ public static class WebApplicationBuilderExtensions
         string? cosmosDatabaseName = configuration["CosmosDb:DatabaseName"]; // Keep using existing config for names
         string cosmosContainerName = configuration.GetValue<string>("CosmosDb:ArtifactMetadataContainerName", CosmosDbArtifactMetadataRepository.ArtifactMetadataContainerName); // Default from constant
 
+        // --- DIAGNOSTIC LOGGING --- (Added for Aspire test debugging)
+        logger.LogInformation("Cosmos Config Check: ConnectionString='{ConnStr}', DatabaseName='{DbName}'", 
+            string.IsNullOrWhiteSpace(cosmosConnectionString) ? "<NULL_OR_EMPTY>" : "<PRESENT>", // Don't log sensitive connection string
+            cosmosDatabaseName ?? "<NULL>");
+        // --- END DIAGNOSTIC LOGGING ---
+
         if (!string.IsNullOrWhiteSpace(cosmosConnectionString) && !string.IsNullOrWhiteSpace(cosmosDatabaseName))
         {
-            logger.LogInformation("Cosmos DB connection string found. Configuring Cosmos DB Client and Container.");
+            logger.LogInformation("Cosmos DB connection string and database name found. Configuring Cosmos DB Client and Repositories.");
             try
             {
                 // <seealso cref="../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
@@ -135,70 +137,60 @@ public static class WebApplicationBuilderExtensions
                     }
                 };
 
-                // Register CosmosClient as Singleton
-                services.AddSingleton(sp => new CosmosClient(cosmosConnectionString, clientOptions));
-
-                // Register Container as Singleton, ensuring Database/Container exist.
-                // Note: Blocking on async calls during startup (GetAwaiter().GetResult()) is generally discouraged,
-                // but necessary here for synchronous registration. Consider async factories for complex scenarios.
-                services.AddSingleton(sp =>
+                // Register CosmosClient as Singleton using a factory to ensure proper disposal
+                services.AddSingleton<CosmosClient>(sp => 
+                {
+                    // This factory function will be called by the DI container
+                    // The container will manage the disposal of the returned CosmosClient
+                    return new CosmosClient(cosmosConnectionString, clientOptions);
+                });
+                
+                // Register the database instance using the registered client
+                services.AddSingleton<Database>(sp => 
                 {
                     var client = sp.GetRequiredService<CosmosClient>();
-                    var databaseResponse = client.CreateDatabaseIfNotExistsAsync(cosmosDatabaseName).GetAwaiter().GetResult();
-                    // Use /partitionKey based on repository usage of ArtifactMetadata.PartitionKey property
-                    var containerResponse = databaseResponse.Database.CreateContainerIfNotExistsAsync(cosmosContainerName, "/partitionKey").GetAwaiter().GetResult();
-                    return containerResponse.Container;
+                    return client.GetDatabase(cosmosDatabaseName);
                 });
 
-                // Register the Cosmos DB implementation
+                // Register the container instance using the registered database
+                services.AddSingleton<Container>(sp => 
+                {
+                    var database = sp.GetRequiredService<Database>();
+                    var containerName = configuration.GetValue<string>("CosmosDb:ArtifactMetadataContainerName", CosmosDbArtifactMetadataRepository.ArtifactMetadataContainerName);
+                    if (string.IsNullOrWhiteSpace(containerName))
+                    {
+                        throw new InvalidOperationException("Cosmos DB container name ('CosmosDb:ArtifactMetadataContainerName') is missing in configuration.");
+                    }
+                    // Consider adding logic here to create the container if it doesn't exist
+                    // return database.CreateContainerIfNotExistsAsync(containerName, "/id").GetAwaiter().GetResult().Container;
+                    return database.GetContainer(containerName);
+                });
+
+                // Register the production repository implementation (depends on Container)
                 services.AddSingleton<IArtifactMetadataRepository, CosmosDbArtifactMetadataRepository>();
-                logger.LogInformation("Registered CosmosDbArtifactMetadataRepository using connection string from Aspire/Configuration.");
+                logger.LogInformation("Registered CosmosClient, Database, Container, and CosmosDbArtifactMetadataRepository using database '{DatabaseName}'.", cosmosDatabaseName);
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Failed to configure Cosmos DB from connection string. Falling back to in-memory repository.");
-                services.AddSingleton<IArtifactMetadataRepository, InMemoryArtifactMetadataRepository>();
+                logger.LogError(ex, "Failed to configure Cosmos DB from connection string. Artifact metadata repository will be unavailable.");
+                // DO NOT register InMemoryArtifactMetadataRepository here. Fail explicitly.
             }
         }
         else
         {
-            logger.LogWarning("Cosmos DB connection string ('cosmosdb') or DatabaseName ('CosmosDb:DatabaseName') not found in configuration. Using InMemoryArtifactMetadataRepository.");
-            services.AddSingleton<IArtifactMetadataRepository, InMemoryArtifactMetadataRepository>();
+            logger.LogWarning("Cosmos DB connection string ('cosmosdb') or DatabaseName ('CosmosDb:DatabaseName') not found in configuration. Cosmos DB dependent repositories will be unavailable.");
+            // Removed: services.AddSingleton<IArtifactMetadataRepository, InMemoryArtifactMetadataRepository>();
+            // Removed: services.AddSingleton<IPersonaDefinitionRepository, InMemoryPersonaDefinitionRepository>();
+            // DO NOT register InMemory repositories here. Fail explicitly if required config is missing.
         }
 
         // --- Aspire Service Discovery --- (Configured in Program.cs)
 
-        // --- Messaging (Service Bus / Null) ---
-        var serviceBusConnectionString = configuration.GetConnectionString("servicebus");
-        if (!string.IsNullOrEmpty(serviceBusConnectionString))
-        {
-            logger.LogInformation("Azure Service Bus connection string found. Configuring Azure Service Bus.");
-            services.AddAzureClients(clientBuilder =>
-            {
-                clientBuilder.AddServiceBusClientWithNamespace(serviceBusConnectionString)
-                    .WithCredential(new DefaultAzureCredential());
-            });
-            // Register the typed publisher
-            services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
-            // Register the hosted service for consuming messages
-            services.AddHostedService<ServiceBusQueueConsumerService>();
-
-            // Optionally add a smoke test
-            if (builder.Environment.IsDevelopment()) // Example: Only run in Dev
-            {
-                 services.AddHostedService<ServiceBusSmokeTestService>();
-            }
-        }
-        else
-        {
-            logger.LogWarning("Azure Service Bus connection string not found. Configuring Null Message Queue Publisher.");
-            services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>));
-        }
-
         // --- Background Task Queue (In-Memory) ---
-        logger.LogInformation("Registering In-Memory Background Task Queue and Processor Service.");
-        services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
-        services.AddHostedService<QueuedInteractionProcessorService>();
+        logger.LogInformation("Registering Background Task Processor Service.");
+        services.AddSingleton<IBackgroundTaskQueue, ServiceBusBackgroundTaskQueue>();
+        // The QueuedInteractionProcessorService is added via AddNucleusDomainProcessing()
+        // services.AddHostedService<QueuedInteractionProcessorService>(); // REMOVED - Added by AddNucleusDomainProcessing
 
         // --- Authentication (Example: Microsoft Entra ID for downstream APIs / Graph) ---
         // services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -240,11 +232,21 @@ public static class WebApplicationBuilderExtensions
         logger.LogInformation("Registering Artifact Providers...");
         // Register all implementations of IArtifactProvider
         services.AddScoped<IArtifactProvider, NullArtifactProvider>();
-        services.AddScoped<IArtifactProvider, ConsoleArtifactProvider>(); 
+        services.AddScoped<IArtifactProvider, ConsoleArtifactProvider>();
         // The OrchestrationService depends on IArtifactProvider[], which DI will resolve
         // by collecting all registered IArtifactProvider services.
         services.AddScoped<IOrchestrationService, OrchestrationService>();
         logger.LogInformation("Registered IOrchestrationService with its dependencies (including IArtifactProvider implementations).");
+
+        // --- Data Persistence (Repositories) ---
+        logger.LogInformation("Registering Data Persistence Services (Repositories)...");
+        services.AddScoped<IArtifactMetadataRepository, CosmosDbArtifactMetadataRepository>();
+        services.AddScoped<IPersonaKnowledgeRepository, CosmosDbPersonaKnowledgeRepository>();
+        services.AddScoped<IPersonaConfigurationProvider, ConfigurationPersonaConfigurationProvider>(); 
+        logger.LogInformation("Registered Repositories (IArtifactMetadataRepository, IPersonaKnowledgeRepository, IPersonaConfigurationProvider). Using Configuration provider for Personas.");
+
+        // --- AI Services --- DEPRECATED BLOCK, Needs Review/Removal ---
+        // ...
 
         // --- API Controllers --- 
         services.AddControllers();
@@ -255,32 +257,56 @@ public static class WebApplicationBuilderExtensions
         services.AddSwaggerGen();
         logger.LogInformation("Registered Swagger/OpenAPI services.");
 
-        // --- Bot Framework --- 
-        logger.LogInformation("Registering Bot Framework services...");
-        services.AddHttpClient().AddTransient<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
-        services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
-        services.AddTransient<IBot, TeamsAdapterBot>(); // Register your bot
-        logger.LogInformation("Registered Bot Framework services.");
+        // --- Bot Framework Integration Removed ---
+        // Removed: services.AddHttpClient().AddTransient<IBotFrameworkHttpAdapter, AdapterWithErrorHandler>();
+        // Removed: services.AddSingleton<BotFrameworkAuthentication, ConfigurationBotFrameworkAuthentication>();
+        // Removed: services.AddTransient<IBot, TeamsAdapterBot>(); // Register your bot
 
-        services.AddSingleton<IPersonaResolver, DefaultPersonaResolver>();
-        services.AddSingleton<IActivationChecker, ActivationChecker>(); 
-        services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
-        services.AddHostedService<QueuedInteractionProcessorService>(); // Background worker
+        // Default Platform Notifier - Reverted to Null as TeamsNotifier is adapter-specific
+        services.AddSingleton<IPlatformNotifier, NullPlatformNotifier>();
 
-        // Register NullPlatformNotifier as the keyed IPlatformNotifier for PlatformType.Api
         services.AddKeyedSingleton<IPlatformNotifier, NullPlatformNotifier>(PlatformType.Api);
 
         // --- Processing Services ---
         logger.LogInformation("Registering Processing Services...");
-        services.AddSingleton<IPersonaConfigurationProvider, InMemoryPersonaConfigurationProvider>(); 
         services.AddScoped<IOrchestrationService, OrchestrationService>(); // Already exists
-        logger.LogInformation("Registered Processing Services (IOrchestrationService, IPersonaRuntime, IPersonaConfigurationProvider).");
+        logger.LogInformation("Registered Processing Services (IOrchestrationService, IPersonaRuntime). Configuration provider must be added separately.");
 
         // --- Persona Runtime and Strategies ---
         services.AddScoped<IPersonaRuntime, PersonaRuntime>();
+        // TODO: Dynamically discover and register strategy handlers from assemblies?
+        // For now, register known ones:
+        services.AddScoped<IAgenticStrategyHandler, EchoAgenticStrategyHandler>();
+        // services.AddScoped<IPersonaStrategyFactory, PersonaStrategyFactory>(); // Obsolete - PersonaRuntime uses injected IEnumerable<IAgenticStrategyHandler>
 
         // --- Messaging (Service Bus / In-Memory) ---
         // Check if Service Bus is configured for messaging
+        string? serviceBusConnectionString = configuration.GetConnectionString("servicebus"); // Ensure this is the only declaration in this scope
+        if (!string.IsNullOrWhiteSpace(serviceBusConnectionString))
+        {
+            logger.LogInformation("Service Bus connection string found. Registering Azure Service Bus client and related services.");
+            
+            // *** ADDED: Register ServiceBusClient using Aspire extension ***
+            // This correctly handles connection strings for both cloud and emulators.
+            builder.AddAzureServiceBusClient("servicebus"); // Matches resource name in AppHost
+
+            // Register publishers and consumers that DEPEND ON ServiceBusClient
+            services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
+            services.AddSingleton<IBackgroundTaskQueue, ServiceBusBackgroundTaskQueue>();
+            // TODO: Review if ServiceBusQueueConsumerService is still needed or if BackgroundTaskQueue handles consumption.
+            // services.AddHostedService<ServiceBusQueueConsumerService>(); // Potentially replace/remove
+            
+            // Add smoke test if SB is configured
+            services.AddHostedService<ServiceBusSmokeTestService>(); 
+        }
+        else
+        {
+            logger.LogWarning("Service Bus connection string 'servicebus' not found. Registering Null publishers/queues.");
+            services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>));
+            services.AddSingleton<IBackgroundTaskQueue, NullBackgroundTaskQueue>(); // Now resolves correctly
+            // No consumer or smoke test needed if Service Bus is not configured
+        }
+
         logger.LogInformation("Nucleus services registration complete.");
         return builder;
     }
@@ -310,17 +336,33 @@ public static class WebApplicationBuilderExtensions
         app.MapControllers();
         app.Logger.LogInformation("Mapped API controllers.");
 
-        // Map the Bot Framework messaging endpoint
-        app.MapPost("/api/messages", async (HttpRequest req, HttpResponse res, IBotFrameworkHttpAdapter adapter, IBot bot, ILogger<Program> logger) =>
-        {
-            logger.LogInformation("Received POST request on /api/messages endpoint.");
-            await adapter.ProcessAsync(req, res, bot);
-        });
-        app.Logger.LogInformation("Mapped Bot Framework endpoint at /api/messages.");
+        // --- Bot Framework Endpoint Removed ---
+        // Removed: app.MapBotFramework("/api/messages");
 
         // Map Aspire default endpoints (e.g., health checks)
         app.MapDefaultEndpoints();
         app.Logger.LogInformation("Mapped Aspire default endpoints.");
+
+        // --- API Endpoints ---
+        var apiGroup = app.MapGroup("/api/v1");
+
+        // Interaction Endpoint (Primary endpoint for adapters)
+        // REMOVED: Minimal API mapping - Handled by InteractionController
+        /*
+        apiGroup.MapPost("/interactions", async (AdapterRequest request, IOrchestrationService orchestrationService, ILogger<Program> logger) =>
+        {
+            // TODO: Add Authentication/Authorization
+            logger.LogInformation("Received interaction request: {RequestType}", request.InteractionType);
+            // TODO: Implement proper handling based on InteractionType
+            var result = await orchestrationService.ProcessInteractionAsync(request);
+            return Results.Ok(result);
+        })
+        .WithName("ProcessInteraction")
+        .WithSummary("Processes an interaction request from an adapter.")
+        .WithOpenApi();
+        */
+
+        // TODO: Add other API endpoints as needed (e.g., status checks, configuration)
 
         app.Logger.LogInformation("Nucleus endpoint mapping complete.");
         return app;

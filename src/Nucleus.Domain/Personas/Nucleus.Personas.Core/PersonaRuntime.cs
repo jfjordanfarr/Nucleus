@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
@@ -18,13 +19,19 @@ namespace Nucleus.Domain.Personas.Core;
 /// </summary>
 /// <seealso cref="Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md"/>
 /// <seealso cref="Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
-public class PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgenticStrategyHandler> handlers)
-    : IPersonaRuntime
+public class PersonaRuntime : IPersonaRuntime
 {
-    private readonly ILogger<PersonaRuntime> _logger = logger;
-    private readonly IEnumerable<IAgenticStrategyHandler> _handlers = handlers;
+    private readonly ILogger<PersonaRuntime> _logger;
+    private readonly IEnumerable<IAgenticStrategyHandler> _handlers;
 
-    public async Task<AdapterResponse> ExecuteAsync(
+    public PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgenticStrategyHandler> handlers)
+    {
+        _logger = logger;
+        _handlers = handlers;
+    }
+
+    /// <inheritdoc />
+    public async Task<(AdapterResponse Response, PersonaExecutionStatus Status)> ExecuteAsync(
         PersonaConfiguration personaConfig,
         InteractionContext interactionContext,
         CancellationToken cancellationToken = default)
@@ -46,8 +53,8 @@ public class PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgentic
                 personaConfig.PersonaId, 
                 interactionContext.OriginalRequest.ConversationId, 
                 interactionContext.OriginalRequest.MessageId ?? "(no message ID)");
-            // TODO: Define a more robust default/empty response
-            return new AdapterResponse(Success: false, ResponseMessage: "No strategy configured."); 
+            // Return failure using constructor
+            return (new AdapterResponse(false, "No strategy configured."), PersonaExecutionStatus.Failed);
         }
 
         var strategyKey = personaConfig.AgenticStrategy.StrategyKey;
@@ -60,8 +67,8 @@ public class PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgentic
                 personaConfig.PersonaId, 
                 interactionContext.OriginalRequest.ConversationId, 
                 interactionContext.OriginalRequest.MessageId ?? "(no message ID)");
-            // Return an error response indicating handler not found
-            return new AdapterResponse(Success: false, ResponseMessage: $"Configuration error: Strategy handler '{strategyKey}' not found.", ErrorMessage: $"Handler for strategy '{strategyKey}' is not registered or available.");
+            // Return failure using constructor
+            return (new AdapterResponse(false, $"Configuration error: Strategy handler '{strategyKey}' not found.", $"Handler for strategy '{strategyKey}' is not registered or available."), PersonaExecutionStatus.Failed);
         }
 
         try
@@ -86,10 +93,12 @@ public class PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgentic
             _logger.LogInformation("Persona {PersonaId} execution completed in {ElapsedMilliseconds}ms for conversation {ConversationId}, message {MessageId}.",
                 personaConfig.PersonaId, stopwatch.ElapsedMilliseconds, interactionContext.OriginalRequest.ConversationId, interactionContext.OriginalRequest.MessageId ?? "(no message ID)");
 
-            // Ensure the response includes necessary context
-            // TODO: Refine how AdapterResponse is constructed - perhaps handler should return more structured data?
-            return response ?? new AdapterResponse(Success: true, ResponseMessage: string.Empty);
+            // Determine the status based on the strategy response
+            // TODO: Refine status mapping - how do we determine Filtered/NoActionTaken from the strategy?
+            // For now, map Success=true to Success, Success=false to Failed.
+            var status = response.Success ? PersonaExecutionStatus.Success : PersonaExecutionStatus.Failed;
 
+            return (response, status);
         }
         catch (Exception ex)
         {
@@ -102,11 +111,11 @@ public class PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgentic
                 stopwatch.ElapsedMilliseconds);
 
             // Return an error response using the correct AdapterResponse constructor
-            return new AdapterResponse(
+            return (new AdapterResponse(
                 Success: false, 
-                ResponseMessage: "An error occurred while processing your request.", // User-friendly message
-                ErrorMessage: $"Error in strategy '{strategyKey}': {ex.Message}" // More detailed error for logs/debugging
-                );
+                ResponseMessage: "An error occurred while processing your request.", 
+                ErrorMessage: $"Error in strategy '{strategyKey}': {ex.Message}"
+            ), PersonaExecutionStatus.Failed);
         }
     }
 }
