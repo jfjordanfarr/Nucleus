@@ -17,10 +17,11 @@ AgentOps\02_CURRENT_SESSION_STATE.md
 Cascade is permitted to read/search/analyze any number of files prior to that state doc update, but it is:
 1. Expected to be the first edit_file call of any Cascade turn.
 2. Expected to happen in every Cascade turn (where "turn" is a collection of Agentic "Steps", hence the term "Step Zero")
+3. **NOT** expected to happen again **until the next user response** (this guarantees the absence of multiple edits before an "Accept" has been given and is used to prevent discrepancies between the user's view of the codebase and Cascade's view of the codebase)
 
 The session state document is a de-facto medium-term-memory mechanism. It exists outside of the Cascade permanent memories, which are tied to the user's IDE session. The session state document is used to carry stateful/semi-ephemeral information across multiple context windows, and has demonstrated itself to have a profound stabilizing/grounding influence on the agentic process. Step 0 is mandatory for this reason.
 
-This is not to be taken to mean that 02_CURRENT_SESSION_STATE.md is the only file that may be edited during a Cascade turn. Cascade is permitted to edit any number of files in a single turn, provided that 02_CURRENT_SESSION_STATE.md is edited first.
+This is not to be taken to mean that 02_CURRENT_SESSION_STATE.md is the only file that may be edited during a Cascade turn. Cascade is permitted to edit any number of files in a single turn, provided that 02_CURRENT_SESSION_STATE.md is edited first (and **not edited again until the next user response**).
 
 ## 1 - Quality Over Expedience
 

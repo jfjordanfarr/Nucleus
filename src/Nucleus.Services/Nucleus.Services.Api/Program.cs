@@ -23,11 +23,11 @@ using Nucleus.Abstractions.Repositories;
 using Nucleus.Domain.Processing;
 using Nucleus.Infrastructure.Data.Persistence;
 using Nucleus.Infrastructure.Data.Persistence.Repositories; // For CosmosDbArtifactMetadataRepository etc.
+using Nucleus.Infrastructure.Adapters.Local; // Added for LocalClientAdapter
 using Nucleus.Infrastructure.Providers;
 using Nucleus.Services.Api.Diagnostics;
 using Nucleus.Services.Api.Infrastructure; // For LocalFileArtifactProvider
-using Nucleus.Services.Api.Infrastructure.Messaging; // For ServiceBusQueueConsumerService and NullMessageQueuePublisher
-using Nucleus.Services.Shared;
+using Nucleus.Services.Api.Infrastructure.Messaging; // For NullMessageQueuePublisher
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -97,6 +97,9 @@ namespace Nucleus.Services.Api
 
             // Add Infrastructure services (Adapters, Providers)
             builder.Services.AddInfrastructureServices(builder.Configuration);
+
+            // Register LocalAdapter services
+            builder.Services.AddLocalAdapterServices();
 
             var app = builder.Build();
 

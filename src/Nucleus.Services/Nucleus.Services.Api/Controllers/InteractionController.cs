@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Orchestration;
+using Nucleus.Abstractions.Adapters.Local;
 using System;
 using System.Linq;
 using System.Threading;
@@ -13,14 +15,10 @@ using System.Text.Json;
 namespace Nucleus.Services.Api.Controllers;
 
 /// <summary>
-/// API Controller responsible for receiving interaction requests from various client adapters.
-/// It serves as the primary entry point for user interactions into the Nucleus system.
+/// API controller for handling incoming interaction requests from client adapters.
+/// It serves as the primary entry point for interactions into the Nucleus system.
 /// </summary>
-/// <remarks>
-/// This controller validates incoming requests (<see cref="AdapterRequest"/>) and forwards them
-/// to the <see cref="IOrchestrationService"/> for processing. It handles basic request validation
-/// and returns appropriate HTTP status codes based on the orchestration result.
-/// </remarks>
+/// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - API Request Received</seealso>
 /// <seealso cref="IOrchestrationService"/>
 /// <seealso cref="AdapterRequest"/>
 /// <seealso cref="OrchestrationResult"/>
@@ -32,12 +30,14 @@ public class InteractionController : ControllerBase
 {
     private readonly ILogger<InteractionController> _logger;
     private readonly IOrchestrationService _orchestrationService;
+    private readonly ILocalAdapterClient _localAdapterClient;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
 
-    public InteractionController(ILogger<InteractionController> logger, IOrchestrationService orchestrationService)
+    public InteractionController(ILogger<InteractionController> logger, IOrchestrationService orchestrationService, ILocalAdapterClient localAdapterClient)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _orchestrationService = orchestrationService ?? throw new ArgumentNullException(nameof(orchestrationService));
+        _localAdapterClient = localAdapterClient ?? throw new ArgumentNullException(nameof(localAdapterClient));
         _jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
     }
 
@@ -55,6 +55,9 @@ public class InteractionController : ControllerBase
             _logger.LogWarning("Received null request body.");
             return BadRequest("Request body cannot be null.");
         }
+
+        // Persist the interaction securely before further processing
+        await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
 
         _logger.LogInformation("Received interaction request for ConversationId: {ConversationId}", request.ConversationId);
 

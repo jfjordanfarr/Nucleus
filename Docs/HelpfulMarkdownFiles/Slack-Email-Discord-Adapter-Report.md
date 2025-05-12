@@ -4,7 +4,7 @@
 
 ### 1.1. Overview
 
-This report provides a technical validation and refinement plan for the Discord client adapter component of the Nucleus OmniRAG project. The adapter's primary function is to enable bidirectional communication between the OmniRAG system and the Discord platform. This involves connecting to Discord servers, monitoring designated channels or direct messages, processing user commands and mentions, retrieving conversational context and user-shared files, and sending responses back to users within the Discord environment.
+This report provides a technical validation and refinement plan for the Discord client adapter component of the Nucleus project. The adapter's primary function is to enable bidirectional communication between the Nucleus system and the Discord platform. This involves connecting to Discord servers, monitoring designated channels or direct messages, processing user commands and mentions, retrieving conversational context and user-shared files, and sending responses back to users within the Discord environment.
 
 ### 1.2. Prototype Goals
 
@@ -21,7 +21,7 @@ The core objectives for the initial prototype phase, addressed in this report, a
 
 ### 2.1. Library Landscape and Recommendation
 
-For developing Discord bots within the.NET ecosystem, **Discord.Net** stands out as the most mature, feature-rich, and widely adopted library. It provides comprehensive abstractions over the Discord Gateway (WebSocket) and REST APIs. While other community libraries might exist, Discord.Net's stability, extensive documentation, and active community support make it the recommended choice for the Nucleus OmniRAG Discord adapter. This analysis focuses on validating Discord.Net against the prototype requirements.
+For developing Discord bots within the.NET ecosystem, **Discord.Net** stands out as the most mature, feature-rich, and widely adopted library. It provides comprehensive abstractions over the Discord Gateway (WebSocket) and REST APIs. While other community libraries might exist, Discord.Net's stability, extensive documentation, and active community support make it the recommended choice for the Nucleus Discord adapter. This analysis focuses on validating Discord.Net against the prototype requirements.
 
 ### 2.2. Discord.Net Core Features Evaluation
 
@@ -81,7 +81,7 @@ Discord.Net supports multiple ways to handle user input:
 *   **Text Commands (`MessageReceived`):** The traditional method involves hooking the `_client.MessageReceived` event.[24, 25, 26, 27, 28] The handler parses the `message.Content` to check for a command prefix and arguments. This approach is heavily dependent on the `MESSAGE_CONTENT` privileged intent.[1, 24] Without it, `message.Content` will be empty unless the bot is mentioned.
 *   **Slash Commands/Interactions:** The modern approach uses Discord's Interaction framework. Commands are registered with Discord and invoked by users using `/command`. Discord sends an `InteractionCreated` event via the Gateway. Discord.Net provides the `InteractionService` and `InteractionModuleBase<T>` to simplify defining and handling these commands.[29] This method does *not* require the `MESSAGE_CONTENT` intent for basic command invocation and option handling, as the command structure and user input are provided directly in the interaction payload.
 
-Given the restrictions on the `MESSAGE_CONTENT` intent, **prioritizing Slash Commands using the `InteractionService` is strongly recommended** for the OmniRAG adapter.
+Given the restrictions on the `MESSAGE_CONTENT` intent, **prioritizing Slash Commands using the `InteractionService` is strongly recommended** for the Nucleus adapter.
 
 ### 2.3. Canonical C# Examples (Discord.Net)
 

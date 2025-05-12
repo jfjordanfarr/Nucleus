@@ -50,7 +50,7 @@ It strategically employs Large Language Models (LLMs) with extensive context win
     *   Personas analyze the ephemeral representation, extract structured data, identify salient snippets, generate vector embeddings *for those snippets/data*, and store/update `PersonaKnowledgeEntry` records in Cosmos DB.
     *   The `ArtifactMetadata` record for the source artifact is updated in Cosmos DB (e.g., `ProcessedByPersonaX = true`).
 6.  **Response Handling:**
-    *   The `OrchestrationService` coordinates sending any required response back to the user via the appropriate [`IPlatformNotifier`](../../src/Nucleus.Abstractions/IPlatformNotifier.cs).
+    *   The `OrchestrationService` coordinates sending any required response back to the user via the appropriate [`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs).
 7.  **Cleanup:**
     *   All ephemeral representations (fetched content streams, intermediate outputs, final Markdown) are discarded at the end of the API request processing scope (or background task completion).
 8.  **(Query Phase):**

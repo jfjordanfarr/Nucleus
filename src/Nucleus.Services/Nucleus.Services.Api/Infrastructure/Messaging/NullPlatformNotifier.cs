@@ -1,5 +1,5 @@
 using Nucleus.Abstractions.Models;
-using Nucleus.Abstractions;
+using Nucleus.Abstractions.Adapters;
 using Microsoft.Extensions.Logging;
 
 namespace Nucleus.Services.Api.Infrastructure.Messaging;

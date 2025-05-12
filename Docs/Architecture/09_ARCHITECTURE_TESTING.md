@@ -1,18 +1,18 @@
 ---
 title: Architecture - Testing Strategy
-description: Outlines the testing philosophy, levels, environments, and specific strategies for ensuring the quality and reliability of the Nucleus OmniRAG platform, adopting a layered approach centered around .NET Aspire.
-version: 2.9
-date: 2025-05-01
+description: Outlines the testing philosophy, levels, environments, and specific strategies for ensuring the quality and reliability of the Nucleus platform, adopting a layered approach centered around .NET Aspire.
+version: 3.3
+date: 2025-05-08
 ---
 
 [<- System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md)
 
-# Nucleus OmniRAG: Testing Strategy
+# Nucleus: Testing Strategy
 
-**Version:** 2.9
-**Date:** 2025-05-01
+**Version:** 3.3
+**Date:** 2025-05-08
 
-This document outlines the multi-layered testing strategy for Nucleus OmniRAG, designed to ensure quality and reliability by leveraging the best tools for different validation needs within the .NET Aspire ecosystem.
+This document outlines the multi-layered testing strategy for Nucleus, designed to ensure quality and reliability by leveraging the best tools for different validation needs within the .NET Aspire ecosystem.
 
 ## 1. Testing Philosophy
 
@@ -22,22 +22,27 @@ Our testing philosophy emphasizes pragmatism, focusing on validating core logic 
 2.  **Component Interaction Confidence:** Employ *service integration tests* (Layer 2) primarily for verifying direct interactions between collaborating *components* within a service or closely related services, potentially using `WebApplicationFactory` or similar techniques *without* full AppHost orchestration, often mocking external dependencies.
 3.  **System Integration Confidence (Primary Focus):** Utilize **.NET Aspire's testing support (`Aspire.Hosting.Testing`)** as the primary tool for System Integration testing (Layer 3). This approach orchestrates the *entire relevant subset* of the application defined in the [`Nucleus.AppHost`](../../../Aspire/Nucleus.AppHost/Nucleus.AppHost.csproj), including services and their dependencies (like **emulated Cosmos DB and Service Bus**). Tests interact with the system primarily via **direct API calls** to the orchestrated API service.
     *   **Implementation Example:** [`ApiIntegrationTests.cs`](../../../tests/Integration/Nucleus.Services.Api.IntegrationTests/ApiIntegrationTests.cs)
-4.  **Adapters as Clients:** Treat client adapters ([`Nucleus.Adapters.Console`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Nucleus.Infrastructure.Adapters.Console.csproj), [`Nucleus.Adapters.Teams`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/Nucleus.Infrastructure.Adapters.Teams.csproj)) as consumers of the API. Their integration tests focus on their specific translation logic *and* their ability to correctly interact with the `Nucleus.Services.Api` (potentially within the Layer 3 AppHost environment).
+4.  **Adapters:** 
+    *   External client adapters (e.g., [`Nucleus.Adapters.Teams`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/Nucleus.Infrastructure.Adapters.Teams.csproj)) are treated as consumers of the API. Their integration tests focus on their specific translation logic *and* their ability to correctly interact with the `Nucleus.Services.Api` (potentially within the Layer 3 AppHost environment).
+    *   Internal adapters like [`Nucleus.Infrastructure.Adapters.Local`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/Nucleus.Infrastructure.Adapters.Local.csproj) are generally tested as integrated components within the services that use them, or via focused unit/integration tests if they contain complex, separable logic.
 5.  **Avoid Brittle UI Tests:** Given the focus on backend processing and API interactions, avoid investing heavily in complex UI automation unless a specific UI client becomes a core part of the system.
 6.  **Leverage AI for Testing:** Explore opportunities to use AI (including Cascade) to generate test data, formulate complex test queries against the API, and potentially automate aspects of Layer 3 system testing by interacting with the API endpoints.
 7.  **Documentation as Test Specification:** Treat architecture documents like this one as living specifications. Tests should validate the behaviors and interactions described herein.
-8.  **Simplicity and Ergonomics:** Favor standard, potentially built-in .NET testing tools where practicable. Aim for a smaller, tighter suite of very good tests over a philosophy of broad code coverage with countless tests.
+8.  **Security and Data Governance Validation:** Actively design tests, particularly at the repository and integration layers, to prove that the data access controls, tenant isolation, and persona-specific data boundaries outlined in the [Security Architecture & Data Governance](./06_ARCHITECTURE_SECURITY.md) document are strictly enforced. This includes verifying that personas cannot access data outside their configured scope and that tenant data remains isolated.
+9.  **Simplicity and Ergonomics:** Favor standard, potentially built-in .NET testing tools where practicable. Aim for a smaller, tighter suite of very good tests over a philosophy of broad code coverage with countless tests.
 
 ## 2. Testing Layers & Tools
 
 We adopt a layered testing strategy, recognizing that different types of validation require different tools and approaches. Our primary test framework across layers is **xUnit.net**, chosen for its modern design, popularity, and strong integration with the .NET ecosystem.
 
+To support these layers, especially Layers 1 and 2, we utilize shared test infrastructure. The [`Nucleus.Infrastructure.Testing`](../../../tests/Infrastructure.Testing) project, detailed in [NAMESPACE_INFRASTRUCTURE_TESTING.md](./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md), provides common test doubles like in-memory repositories (e.g., `InMemoryArtifactMetadataRepository`), fake queue implementations (`InMemoryBackgroundTaskQueue`), and mock configuration providers. This helps create consistent and controlled test environments, distinct from the domain-specific unit tests found in `Nucleus.Domain.Tests`.
+
 ### 2.1. Layer 1: Unit Tests
 
 *   **Scope:** Individual classes, methods, and logic units within a single project/service, tested in isolation.
-*   **Purpose:** Verify the correctness of specific algorithms, state transitions, utility functions, and input validation. Dependencies are typically mocked.
-*   **Location:** Test projects colocated or logically grouped with the source project (e.g., `Nucleus.Domain.Processing.Tests`).
-*   **Tools:** **xUnit.net**, Mocking libraries (e.g., `Moq`, `NSubstitute`).
+*   **Purpose:** Verify the correctness of specific algorithms, state transitions, utility functions, and input validation. Dependencies are typically mocked using utilities from `Nucleus.Infrastructure.Testing` or standard mocking libraries.
+*   **Location:** Test projects colocated or logically grouped with the source project (e.g., `Nucleus.Domain.Processing.Tests`, whose structure and purpose are further defined in [NAMESPACE_DOMAIN_TESTS.md](./Namespaces/NAMESPACE_DOMAIN_TESTS.md)).
+*   **Tools:** **xUnit.net**, Mocking libraries (e.g., `Moq`, `NSubstitute`), and test doubles from [`Nucleus.Infrastructure.Testing`](../../../tests/Infrastructure.Testing).
 
 ### 2.2. Layer 2: Service Integration Tests
 
@@ -96,16 +101,18 @@ This describes the typical workflow for tests using `Aspire.Hosting.Testing`:
 1.  **Setup (`InitializeAsync`):**
     *   Use `DistributedApplicationTestingBuilder.CreateAsync<TAppHostProject>()` to get a builder for the AppHost.
     *   Use `builder.BuildAsync()` to create the `DistributedApplication` instance.
-    *   Use `app.StartAsync()` to start the AppHost and all defined resources (services, containers/emulators).
-    *   Use `app.ResourceNotifications.WaitForResourceAsync("resource-name", KnownResourceStates.Running)` for each critical resource (e.g., `cosmos`, `servicebus`, `nucleus-api`) to ensure they are ready.
-    *   Use `app.CreateHttpClient("api-service-name")` to get a pre-configured `HttpClient` pointing to the API service endpoint managed by Aspire.
-    *   *(Optional)* Use `app.Services.GetRequiredService<TProject>()` to get the `IServiceProvider` for a specific service if direct access to its internal dependencies (e.g., repositories for verification) is needed within the test.
+    *   Start the application using `await app.StartAsync()`.
+    *   Obtain `HttpClient` instances for services using `app.CreateHttpClient("serviceName")`.
+    *   Resolve necessary dependency instances (e.g., database contexts connected to emulators) from the AppHost's service provider if needed for verification (`app.Services.GetRequiredService<T>()`).
 2.  **Execute (Test Method):**
-    *   Use the obtained `HttpClient` to send requests to the API service endpoints (`POST /api/interaction`, `GET /health`, etc.).
+    *   Use the obtained `HttpClient` to send requests to the API service endpoints (`POST /api/v1/interactions`, `GET /health`, etc.).
 3.  **Verify (Test Method):**
-    *   Assert API responses (status code, content) using standard xUnit assertions.
-    *   If needed, use resolved dependencies (like `IArtifactMetadataRepository` obtained during setup from the API service's scope) to query the state of the database emulator (Cosmos DB) to verify persistence.
-    *   *(Optional)* Check the state of the message queue emulator (Service Bus) if verifying asynchronous processing steps.
+    *   **Initial API Response:** For asynchronous operations like `POST /api/v1/interactions`, assert the immediate API response is `HTTP 202 Accepted` and potentially validate the returned `jobId` format.
+    *   **Asynchronous Outcome:** Verify the expected *result* of the background processing:
+        *   Check the state of the database emulator (e.g., `CosmosClient` connected to the emulator) to confirm expected data was created/modified.
+        *   *(Optional)* Check the state of the message queue emulator (Service Bus) if verifying specific queuing behaviors.
+        *   *(Optional)* Implement polling logic within the test against the API's job status/result endpoints (`GET /api/v1/interactions/{jobId}/status`, `GET /api/v1/interactions/{jobId}/result`) to wait for completion and assert the final result DTO.
+    *   **Other API Responses:** For synchronous endpoints (like `/health`), assert the expected status code (e.g., `HTTP 200 OK`) and content directly.
 4.  **Teardown (`DisposeAsync`):**
     *   Call `app.DisposeAsync()` to gracefully shut down the AppHost and all its resources.
 
@@ -181,4 +188,4 @@ Verifying integration with external AI services within the Aspire testing model:
 *   **Security Testing:** Penetration testing, vulnerability scanning.
 *   **Chaos Testing:** Injecting failures into the AppHost-managed resources to test resilience.
 
-This layered testing strategy provides a robust framework for ensuring Nucleus OmniRAG quality by leveraging the strengths of different tools, centered around the orchestration capabilities of .NET Aspire.
+This layered testing strategy provides a robust framework for ensuring Nucleus quality by leveraging the strengths of different tools, centered around the orchestration capabilities of .NET Aspire.

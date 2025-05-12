@@ -8,10 +8,11 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Models.Configuration; 
 
 /// <summary>
-/// Defines the contract for retrieving Persona configurations.
-/// Implementations are responsible for fetching the appropriate <see cref="PersonaConfiguration"/>
-/// based on a persona identifier, potentially from sources like databases, files, or external services.
+/// Defines the contract for a service that provides Persona configurations.
+/// This is crucial for loading the correct operational parameters and knowledge scopes for a resolved Persona.
 /// </summary>
+/// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md">Orchestration Session Initiation - Persona Configuration Loading</seealso>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#31-ipersonaconfigurationprovidercs"/>
 public interface IPersonaConfigurationProvider
 {
     /// <summary>

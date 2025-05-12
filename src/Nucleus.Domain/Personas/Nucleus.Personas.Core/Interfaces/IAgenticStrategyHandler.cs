@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Models.Configuration; // Required for AgenticStrategyParametersBase
 using Nucleus.Abstractions.Orchestration;
 using System.Threading;

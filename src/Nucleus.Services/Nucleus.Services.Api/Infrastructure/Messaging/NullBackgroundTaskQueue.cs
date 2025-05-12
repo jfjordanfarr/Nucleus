@@ -3,7 +3,11 @@
 
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Orchestration;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Nucleus.Services.Api.Infrastructure.Messaging;
 
@@ -12,7 +16,8 @@ namespace Nucleus.Services.Api.Infrastructure.Messaging;
 /// A null implementation of <see cref="IBackgroundTaskQueue"/> that performs no operations.
 /// Used when messaging infrastructure (like Azure Service Bus) is not configured.
 /// </summary>
-internal sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
+/// <seealso href="../../../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md" />
+public sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
 {
     private readonly ILogger<NullBackgroundTaskQueue> _logger;
 
@@ -25,38 +30,47 @@ internal sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
     /// <inheritdoc />
     public ValueTask QueueBackgroundWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
     {
-        // Null implementation: Discard the item immediately.
-        // Log that we are discarding the item, including a request identifier if available.
-        _logger.LogWarning("Service Bus is not configured. Discarding background work item for PlatformType '{PlatformType}', Conversation '{ConversationId}', CorrelationId '{CorrelationId}'.",
-            request.PlatformType, request.OriginatingConversationId, request.CorrelationId ?? "N/A"); // Use CorrelationId
+        ArgumentNullException.ThrowIfNull(request);
+        _logger.LogDebug("Attempted to enqueue work item via NullBackgroundTaskQueue (Service Bus not configured). CorrelationId: {CorrelationId}", request.CorrelationId);
         return ValueTask.CompletedTask;
     }
 
     /// <inheritdoc />
-#pragma warning disable CS8613 // Nullability of reference types in return type doesn't match implicitly implemented member (expected for null object pattern).
-    public ValueTask<NucleusIngestionRequest?> DequeueAsync(CancellationToken cancellationToken)
+    public Task<DequeuedMessage<NucleusIngestionRequest>?> DequeueAsync(CancellationToken cancellationToken = default)
     {
         // Null implementation: Always return null as there's nothing to dequeue.
         _logger.LogDebug("Attempted to dequeue from NullBackgroundTaskQueue (Service Bus not configured).");
-#pragma warning disable CS8613 // Nullability of reference types in return type doesn't match implicitly implemented member.
-        // Rationale: This is the explicit behavior of the Null Object pattern here.
-        return ValueTask.FromResult<NucleusIngestionRequest?>(null);
-#pragma warning restore CS8613
+        return Task.FromResult<DequeuedMessage<NucleusIngestionRequest>?>(null);
     }
-#pragma warning restore CS8613
 
     /// <inheritdoc />
-    public ValueTask CompleteWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
+    public Task CompleteAsync(object messageContext, CancellationToken cancellationToken = default)
     {
+        _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", messageContext);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task AbandonAsync(object messageContext, Exception? exception = null, CancellationToken cancellationToken = default)
+    {
+        _logger.LogWarning(exception, "Attempted to abandon work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", messageContext);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task CompleteWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
         _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", request.CorrelationId ?? "N/A"); // Use CorrelationId
-        return ValueTask.CompletedTask;
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public ValueTask AbandonWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
+    public Task AbandonWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
         _logger.LogWarning("Attempted to abandon work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", request.CorrelationId ?? "N/A"); // Use CorrelationId
-        return ValueTask.CompletedTask;
+        return Task.CompletedTask;
     }
 }
 #pragma warning restore CA1812

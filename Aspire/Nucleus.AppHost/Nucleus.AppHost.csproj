@@ -15,15 +15,15 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
-    <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" IsAspireProjectResource="false" />
+    <!-- <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Console\Nucleus.Infrastructure.Adapters.Console.csproj" IsAspireProjectResource="false" /> -->
     <ProjectReference Include="..\..\src\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" IsAspireProjectResource="false" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.2.0" />
-    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="9.2.0" />
-    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="9.2.0" /> 
-    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.0" />
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.2.1" />
+    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" Version="9.2.1" />
+    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="9.2.1" /> 
+    <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.1" />
   </ItemGroup>
 
   <ItemGroup>

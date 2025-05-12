@@ -1,6 +1,8 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Repositories;
 using System;
 using System.Net;
@@ -21,13 +23,27 @@ public sealed class CosmosDbArtifactMetadataRepository : IArtifactMetadataReposi
     private readonly Container _container;
     private readonly ILogger<CosmosDbArtifactMetadataRepository> _logger;
 
-    // TODO: Define constant for container name - should likely come from configuration
-    public const string ArtifactMetadataContainerName = "ArtifactMetadata";
-
-    public CosmosDbArtifactMetadataRepository(Container container, ILogger<CosmosDbArtifactMetadataRepository> logger)
+    public CosmosDbArtifactMetadataRepository(
+        CosmosClient cosmosClient, 
+        IOptions<CosmosDbSettings> cosmosDbSettingsOptions, 
+        ILogger<CosmosDbArtifactMetadataRepository> logger)
     {
-        _container = container ?? throw new ArgumentNullException(nameof(container));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        ArgumentNullException.ThrowIfNull(cosmosClient);
+        ArgumentNullException.ThrowIfNull(cosmosDbSettingsOptions?.Value);
+
+        var settings = cosmosDbSettingsOptions.Value;
+        if (string.IsNullOrWhiteSpace(settings.DatabaseName))
+        {
+            throw new ArgumentException("CosmosDB DatabaseName is not configured.", nameof(settings.DatabaseName));
+        }
+        if (string.IsNullOrWhiteSpace(settings.MetadataContainerName))
+        {
+            throw new ArgumentException("CosmosDB MetadataContainerName is not configured.", nameof(settings.MetadataContainerName));
+        }
+
+        var database = cosmosClient.GetDatabase(settings.DatabaseName);
+        _container = database.GetContainer(settings.MetadataContainerName);
     }
 
     /// <inheritdoc />

@@ -1,36 +1,51 @@
 ---
-title: Namespace - Nucleus.Services.Shared
-description: Defines shared service components and abstractions used across multiple layers, focusing on infrastructure-agnostic tasks.
-version: 1.0
-date: 2025-04-29
+title: "Namespace - Nucleus.Services.Shared (DEPRECATED)"
+description: "[DEPRECATED] Formerly defined shared service components. Its responsibilities have been refactored."
+version: 1.1
+date: 2025-05-08
 parent: ../11_ARCHITECTURE_NAMESPACES_FOLDERS.md
 ---
 
-# Namespace: Nucleus.Services.Shared
+# Namespace: Nucleus.Services.Shared (DEPRECATED)
 
-## 1. Purpose and Scope
+## 1. Status: DEPRECATED
 
-The `Nucleus.Services.Shared` project and namespace contain reusable components, interfaces, and implementations that provide common functionalities needed by various parts of the Nucleus application, particularly those that bridge domain logic and infrastructure concerns without introducing direct dependencies on specific infrastructure implementations.
+**This project and namespace (`Nucleus.Services.Shared`) are deprecated and are targeted for removal in a future refactoring effort.**
 
-Key characteristics:
-*   **Cross-Cutting Concerns:** Houses logic applicable across multiple architectural layers or services.
-*   **Infrastructure Agnosticism:** Components here should ideally not depend directly on specific database technologies, external APIs (unless abstracting them), or UI frameworks.
-*   **Shared Abstractions & Implementations:** May define interfaces (`IContentExtractor`) and potentially default or common implementations (`PlainTextContentExtractor`, `HtmlContentExtractor`).
+Its original purpose was to house reusable components and interfaces, primarily for content extraction. These responsibilities have been refactored into more appropriate, specialized projects:
 
-## 2. Key Components
+*   **Abstractions for content extraction** (like `IContentExtractor` and `ContentExtractionResult`) are now located in the [**`Nucleus.Abstractions`**](../NAMESPACE_ABSTRACTIONS.md) project, specifically under the `Nucleus.Abstractions.Extraction` and `Nucleus.Abstractions.Orchestration` namespaces respectively.
+*   **Concrete implementations of content extractors** (like `PlainTextContentExtractor` and `HtmlContentExtractor`) are now located in the [**`Nucleus.Infrastructure.Providers`**](../NAMESPACE_INFRASTRUCTURE_PROVIDERS.md) project, under the `Nucleus.Infrastructure.Providers.ContentExtraction` namespace.
+
+This change aligns with clearer separation of concerns, placing abstractions in `Nucleus.Abstractions` and their concrete, potentially infrastructure-aware, implementations in `Nucleus.Infrastructure` sub-projects.
+
+## 2. Original Purpose and Scope (Historical)
+
+The `Nucleus.Services.Shared` project and namespace originally contained reusable components, interfaces, and implementations that provided common functionalities. Its primary focus was on content extraction services.
+
+Key characteristics (historical):
+*   Cross-Cutting Concerns: Housed logic applicable across multiple architectural layers or services.
+*   Infrastructure Agnosticism: Components here were intended to not depend directly on specific database technologies or external APIs.
+*   Shared Abstractions & Implementations: Defined `IContentExtractor` and its common implementations.
+
+## 3. Key Components (Moved)
+
+The following key components were previously part of this namespace but have been relocated:
 
 *   **`Extraction/`**
-    *   `IContentExtractor`: Interface for extracting textual content from various source streams based on content type.
-    *   `ContentExtractionResult`: DTO representing the outcome of an extraction operation.
-    *   `PlainTextContentExtractor`, `HtmlContentExtractor`: Concrete implementations for specific content types.
-*   **(Future components)**: Could include shared utilities for caching, validation, or other common service-level tasks.
+    *   `IContentExtractor`: Now in `Nucleus.Abstractions.Extraction`.
+    *   `ContentExtractionResult`: Now in `Nucleus.Abstractions.Orchestration`.
+    *   `PlainTextContentExtractor`, `HtmlContentExtractor`: Now in `Nucleus.Infrastructure.Providers.ContentExtraction`.
 
-## 3. Dependencies
+This project should no longer contain significant components.
 
-*   **Depends On:** `Nucleus.Abstractions` (for base models, constants).
-*   **Depended On By:** `Nucleus.Domain.Processing`, potentially `Nucleus.Application` (if created), `Nucleus.Services.Api` (for DI registration).
+## 4. Dependencies (Historical Context / Current Status)
 
-## 4. Design Principles
+*   **Original Dependencies:** Depended on `Nucleus.Abstractions`.
+*   **Original Dependents:** Was depended on by `Nucleus.Domain.Processing` and `Nucleus.Services.Api`.
+*   **Current Status:** After refactoring, other projects should no longer depend on `Nucleus.Services.Shared` for the functionalities that have been moved. The project itself should have minimal to no dependencies if it's slated for complete removal.
+
+## 5. Design Principles (Historical)
 
 *   Keep components focused and cohesive.
 *   Avoid introducing dependencies on higher-level layers (like specific Adapters or the API service).

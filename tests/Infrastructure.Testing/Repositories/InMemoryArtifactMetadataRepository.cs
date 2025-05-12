@@ -12,6 +12,8 @@ using System.Threading.Tasks;
 
 namespace Nucleus.Infrastructure.Testing.Repositories; // Updated Namespace
 
+// USER TODO (2025-05-07): This class appears to be deprecated and largely unused in favor of emulator-backed repositories.
+// Consider if this file is still necessary or if it can be removed to simplify the testing infrastructure.
 /// <summary>
 /// In-memory implementation of the <see cref="IArtifactMetadataRepository"/>.
 /// THIS IS INTENTIONALLY LEFT EMPTY AND SHOULD NOT BE USED.
@@ -23,6 +25,7 @@ namespace Nucleus.Infrastructure.Testing.Repositories; // Updated Namespace
 /// until either removed completely or updated.
 /// See: [Docs/Architecture/04_ARCHITECTURE_DATABASE.md](cci:7://file:///d:/Projects/Nucleus/Docs/Architecture/04_ARCHITECTURE_DATABASE.md:0:0-0:0)
 /// </remarks>
+/// <seealso href="../../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md" />
 public class InMemoryArtifactMetadataRepository : IArtifactMetadataRepository
 {
     // Intentionally left empty. Implementation removed as part of the shift

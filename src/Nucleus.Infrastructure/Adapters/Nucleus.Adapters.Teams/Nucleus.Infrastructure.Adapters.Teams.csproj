@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -9,16 +9,16 @@
 
   <ItemGroup>
     <!-- Core Bot Framework integration -->
-    <PackageReference Include="Microsoft.Bot.Builder" Version="4.22.7" /> 
-    <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.22.7" /> <!-- Updated version -->
+    <PackageReference Include="Microsoft.Bot.Builder" Version="4.23.0" /> 
+    <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.0" /> <!-- Updated version -->
     <!-- Microsoft Graph SDK for SharePoint/Teams integration -->
-    <PackageReference Include="Microsoft.Graph" Version="5.49.0" />
+    <PackageReference Include="Microsoft.Graph" Version="5.77.0" />
     <!-- Add Microsoft Identity Client for authentication if needed for Graph -->
-    <PackageReference Include="Microsoft.Identity.Client" Version="4.61.3" /> <!-- Updated to resolve conflict -->
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.71.1" /> <!-- Updated to resolve conflict -->
     <!-- Required for configuration binding -->
-    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.4" />
     <!-- Required for Logging -->
-     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
 
   </ItemGroup>
 

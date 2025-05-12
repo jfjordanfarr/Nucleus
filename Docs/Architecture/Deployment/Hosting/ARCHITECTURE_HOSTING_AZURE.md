@@ -1,8 +1,8 @@
 ---
 title: Architecture - Hosting Strategy: Azure
 description: Details the specific Azure services and configuration for deploying the Nucleus system.
-version: 1.5
-date: 2025-04-27
+version: 1.6
+date: 2025-05-05
 parent: ../07_ARCHITECTURE_DEPLOYMENT.md
 ---
 
@@ -32,8 +32,8 @@ Based on the [Deployment Abstractions](../ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.m
     *   **Entity Type:** **Queue**
     *   **Rationale:** Reliable enterprise messaging for decoupling long-running or asynchronous tasks. Features like dead-lettering and competing consumers are beneficial.
     *   **Implementation:** [`Nucleus.Services.Api/.../AzureServiceBusPublisher.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/AzureServiceBusPublisher.cs)
-    *   **Usage (Asynchronous Tasks):** Primarily used for scenarios like bulk ingestion or background processing initiated by the API. For example, an adapter might make a direct API call to *initiate* a large ingestion, and the API service might then place detailed work items onto a Service Bus queue for its background workers (running in ACA) to process asynchronously.
-    *   **Note on Direct API Calls:** For standard, interactive client requests (e.g., processing a chat message), Adapters typically make direct, synchronous or asynchronous **HTTPS calls** to the `Nucleus.Services.Api` endpoints (e.g., `POST /api/interactions`) hosted in ACA. Service Bus is generally reserved for decoupling background work, not replacing the primary request/response API interaction pattern.
+    *   **Usage (Asynchronous Tasks):** When the API service receives an interaction request and the Activation Check passes, the API service places a message detailing the interaction task onto the Service Bus queue. This message is then dequeued and processed by a dedicated **`Nucleus.Services.Worker` instance** (running in ACA), ensuring the API remains responsive. This pattern decouples the initial request handling from the potentially longer-running interaction processing performed by the worker service.
+    *   **Note on Direct API Calls:** For standard, interactive client requests (e.g., processing a chat message), Adapters typically make direct, asynchronous **HTTPS calls** to the `Nucleus.Services.Api` endpoints (e.g., `POST /api/v1/interactions`) hosted in ACA. The API returns `HTTP 202 Accepted` if the task is queued. Service Bus is the mechanism for the API to hand off activated tasks to the background workers, not a direct interaction point for client adapters.
     *   **Alternative:** Azure Storage Queues - Simpler and cheaper, but fewer features.
 
 3.  **Document & Vector Database:**

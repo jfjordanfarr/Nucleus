@@ -204,6 +204,18 @@ public static class NucleusConstants
         // Add other metadata keys as needed
     }
 
+    /// <summary>
+    /// Defines common names for Azure Service Bus entities and clients.
+    /// </summary>
+    public static class ServiceBusNames
+    {
+        /// <summary>
+        /// The logical name for the Service Bus client used for background task queueing.
+        /// This name is used for registration with IAzureClientFactory.
+        /// </summary>
+        public const string BackgroundTasksClientName = "sbbackgroundtasks";
+    }
+
     // Add other constant groups as needed (e.g., ServiceBus Queues, Cache Keys, etc.)
 }
 

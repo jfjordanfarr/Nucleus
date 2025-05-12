@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using System;
@@ -14,13 +15,14 @@ using System.Threading.Tasks;
 namespace Nucleus.Domain.Processing;
 
 /// <summary>
-/// Basic implementation of the activation checker.
+/// Implements the <see cref="IActivationChecker"/> interface to determine if an interaction
+/// should activate a Persona based on predefined rules.
 /// </summary>
 /// <remarks>
-/// This implementation currently uses a very simple hardcoded rule (checking for '@Nucleus' mention).
-/// Future versions should integrate with a configuration source for more complex rule management.
+/// TODO: Enhance with configurable rules, user checks, platform context, etc.
+/// Currently, it performs a basic check for a specific mention.
 /// </remarks>
-/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Activation Check</seealso>
 public class ActivationChecker : IActivationChecker
 {
     private readonly ILogger<ActivationChecker> _logger;

@@ -60,13 +60,18 @@ public class ServiceBusMessagingTests : IAsyncLifetime
 
             // Get the Service Bus connection string
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Getting Service Bus connection string...");
-            var connectionString = await _app.GetConnectionStringAsync("servicebus");
-            
+            var connectionString = await _app.GetConnectionStringAsync("sbemulatorns"); // Retrieve the connection string for the specific 'amqp' endpoint
+            _outputHelper.WriteLine($"*** Service Bus Connection String Retrieved: {connectionString}"); // Log the connection string provided by Aspire
+            _outputHelper.WriteLine($"Retrieved Service Bus Connection String: {connectionString}"); // Re-add logging
             if (string.IsNullOrEmpty(connectionString))
             {
                 throw new InvalidOperationException("Service Bus connection string was null or empty.");
             }
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Service Bus connection string obtained.");
+
+            // EXPERIMENT: Add a small delay to allow emulator internals to stabilize
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Delaying for 2 seconds before creating ServiceBusClient...");
+            await Task.Delay(2000);
 
             // Configure client options for emulator compatibility
             var clientOptions = new ServiceBusClientOptions

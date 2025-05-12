@@ -1,8 +1,8 @@
 ---
 title: Namespace - Nucleus.Abstractions
 description: Defines core interfaces, DTOs, and base types shared across the Nucleus application, forming the foundation for decoupling layers.
-version: 1.1
-date: 2025-04-30
+version: 1.2
+date: 2025-05-08
 parent: ../11_ARCHITECTURE_NAMESPACES_FOLDERS.md
 ---
 
@@ -16,8 +16,14 @@ This project defines the fundamental contracts (interfaces), data structures (DT
 
 ## 2. Key Components
 
-*   **Interfaces:** Defines contracts for services and repositories (e.g., [`IOrchestrationService`](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs), [`IArtifactMetadataRepository`](../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs), [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs), [`IAgenticStrategyHandler`](../Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs)). Found primarily in the root, `Orchestration/`, and `Repositories/` folders.
-*   **DTOs/Models:** Defines data transfer objects used for API requests/responses and internal communication (e.g., [`AdapterRequest`](../../../src/Nucleus.Abstractions/Models/AdapterRequest.cs), [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs), [`ArtifactMetadata`](../../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs)). Found primarily in the `Models/` and `Orchestration/` folders.
+*   **Interfaces:** Defines contracts for services and repositories. Found primarily in the root and sub-folders like `Orchestration/`, `Repositories/`, `Extraction/`, and `Adapters/`.
+    *   Examples: [`IOrchestrationService`](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs), [`IArtifactMetadataRepository`](../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs), [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs), [`IAgenticStrategyHandler`](../Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs), [`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs).
+    *   **Extraction Specific:**
+        *   [`IContentExtractor`](../../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs): Interface for services that extract textual content from artifact streams. Located in `Nucleus.Abstractions.Extraction`.
+*   **DTOs/Models:** Defines data transfer objects used for API requests/responses and internal communication. Found primarily in the `Models/` and `Orchestration/` folders.
+    *   Examples: [`AdapterRequest`](../../../src/Nucleus.Abstractions/Models/AdapterRequest.cs), [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs), [`ArtifactMetadata`](../../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs).
+    *   **Orchestration Specific:**
+        *   [`ContentExtractionResult`](../../../src/Nucleus.Abstractions/Orchestration/ContentExtractionResult.cs): DTO representing the outcome of a content extraction operation. Located in `Nucleus.Abstractions.Orchestration`.
 *   **Enums:** Shared enumerations (e.g., [`PlatformType`](../../../src/Nucleus.Abstractions/Models/PlatformType.cs)). Found in `Models/`.
 *   **Constants:** Shared constant values ([`NucleusConstants.cs`](../../../src/Nucleus.Abstractions/NucleusConstants.cs)).
 

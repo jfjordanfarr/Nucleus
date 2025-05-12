@@ -98,6 +98,16 @@ Security is handled through multiple layers inherent in the design:
 
 ## 6. Relationship to Client Adapters
 
-While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer (`DatavizHtmlBuilder`), the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via the Console Adapter) resides within the **specific Client Adapter** (e.g., [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0), [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Console/ConsoleAdapter.cs:0:0-0:0)) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).
+While the *request* for a visualization originates from a Persona's analysis, and the **artifact generation** (populating the templates) occurs within the **Nucleus.Processing** layer (`DatavizHtmlBuilder`), the **delivery mechanism** (e.g., Teams Task Modules, saving/displaying a file via an internal mechanism like the Local Adapter) resides within the **specific Client Adapter** (e.g., [`cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0`](cci:2://file:///d:/Projects/Nucleus/src/Adapters/Nucleus.Adapters.Teams/TeamsAdapter.cs:0:0-0:0), or an internal component utilizing `Nucleus.Infrastructure.Adapters.Local`) responsible for the user interaction context. The Adapter receives the fully formed HTML string from the Processing layer and handles its presentation according to platform capabilities and APIs (like Graph API for potential temporary storage if needed for specific platform mechanisms).
 
 **Note (Discrepancy):** As of 2025-04-28, a code search indicates that neither the Console nor the Teams adapter currently utilizes `DatavizHtmlBuilder` or explicitly handles its output. The implementation details of how adapters present this HTML remain to be defined.
+
+## 7. Security Considerations
+
+Security is handled through multiple layers inherent in the design:
+
+*   **Sandboxing:** Pyodide runs within the WebAssembly sandbox, further constrained by the browser's iframe sandbox (configured by the adapter).
+*   **Controlled Execution:** The Python code runs within a predefined template structure, limiting the scope of the AI-generated portion.
+*   **No Direct DOM Access:** Python code communicates results back to JavaScript via `postMessage`; it doesn't directly manipulate the host page DOM.
+*   **Web Worker Isolation:** Running Pyodide in a worker prevents long-running scripts from freezing the UI and allows the main thread to potentially terminate the worker if it exceeds a timeout.
+*   **Content Security Policy (CSP):** The adapter serving the `viz.html` must implement a strict CSP to control resource loading (scripts, styles) and prevent unauthorized network connections (`connect-src`).

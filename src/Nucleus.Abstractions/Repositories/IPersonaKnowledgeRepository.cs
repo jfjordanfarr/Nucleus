@@ -17,6 +17,7 @@ namespace Nucleus.Abstractions.Repositories;
 /// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#332-ipersonaknowledgerepositorycs"/>
 public interface IPersonaKnowledgeRepository
 {
     /// <summary>

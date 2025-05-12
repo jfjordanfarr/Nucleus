@@ -25,6 +25,7 @@ namespace Nucleus.Abstractions;
 /// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
 /// <seealso cref="../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
 /// <seealso cref="../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#341-iartifactprovidercs"/>
 /// </summary>
 public interface IArtifactProvider
 {

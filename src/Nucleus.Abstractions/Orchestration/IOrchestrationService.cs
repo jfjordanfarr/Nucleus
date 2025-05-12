@@ -1,9 +1,10 @@
 // Copyright (c) 2025 Jordan Sterling Farr
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using Nucleus.Abstractions.Models;
 using System.Threading;
 using System.Threading.Tasks;
+using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 
 namespace Nucleus.Abstractions.Orchestration;
 
@@ -26,6 +27,7 @@ namespace Nucleus.Abstractions.Orchestration;
 /// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md"/>
 /// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
 /// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#323-iorchestrationservicecs"/>
 public interface IOrchestrationService
 {
     /// <summary>

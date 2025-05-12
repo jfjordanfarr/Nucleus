@@ -6,7 +6,7 @@ using Microsoft.Bot.Builder.Integration.AspNet.Core;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Nucleus.Abstractions;
+using Nucleus.Abstractions.Adapters; // For IPlatformNotifier
 using System;
 using System.Threading;
 using System.Threading.Tasks;

@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Nucleus.Abstractions; // Re-added missing using directive
+using Nucleus.Abstractions.Models.ApiContracts; // Added using directive for ApiContracts
 using Nucleus.Abstractions.Models; // Contains AdapterResponse
 using Nucleus.Abstractions.Models.Configuration; // Contains PersonaConfiguration
 using Nucleus.Abstractions.Orchestration; // Contains InteractionContext

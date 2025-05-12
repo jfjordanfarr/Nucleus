@@ -28,7 +28,7 @@ Instead of relying solely on traditional methods (e.g., basic OCR, simple transc
 3.  **LLM Invocation:** Calls the appropriate multimodal LLM API (e.g., Gemini) with the prepared prompt and multimedia data. Leverage API features like **Context Caching** where applicable for efficiency.
 4.  **Receive Textual Representation:** The LLM returns a generated text string (e.g., a detailed image description, a structured meeting summary from audio, a scene description from video).
 5.  **Dispatch Text to Plaintext Processor:** Pass the generated text string downstream to the **Plaintext Processor** ([ARCHITECTURE_INGESTION_PLAINTEXT.md](./ARCHITECTURE_INGESTION_PLAINTEXT.md)) for conversion into the canonical ephemeral Markdown format.
-6.  **Provide Context for Metadata:** Contributes information relevant to the eventual update of the [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record performed by the orchestrator. This includes:
+6.  **Provide Context for Metadata:** Contributes information relevant to the eventual update of the [`ArtifactMetadata`](../../../../Nucleus.Abstractions/Models/ArtifactMetadata.cs) record performed by the orchestrator. This includes:
     *   Confirmation of successful conversion.
     *   Metadata indicating the source type (image, audio, video) and that the resulting text is a generated representation.
     *   Any relevant structured data extracted or inferred by the LLM during conversion.

@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts; 
 using System.Threading;
 using System.Threading.Tasks;
 using Nucleus.Abstractions.Models.Configuration; 
@@ -18,6 +19,7 @@ namespace Nucleus.Abstractions.Orchestration;
 /// to proceed with synchronous or asynchronous processing or to ignore the interaction.
 /// </remarks>
 /// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#321-iactivationcheckercs"/>
 public interface IActivationChecker
 {
     /// <summary>
@@ -30,6 +32,7 @@ public interface IActivationChecker
     /// A task representing the asynchronous operation. The task result contains an <see cref="ActivationResult"/>
     /// indicating whether a persona should activate, and if so, which one and its configuration.
     /// </returns>
+    /// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Activation Check</seealso>
     Task<ActivationResult> CheckActivationAsync(
         AdapterRequest request,
         IEnumerable<PersonaConfiguration> configurations,

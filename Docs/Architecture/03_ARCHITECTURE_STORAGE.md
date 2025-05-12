@@ -1,16 +1,16 @@
 ---
 title: Architecture - Storage & Metadata Management
 description: Outlines the strategy for managing artifacts and metadata, emphasizing exclusive reliance on user source system storage and internal metadata persistence, orchestrated via API service reference-based interactions.
-version: 1.13
-date: 2025-04-27
+version: 1.14
+date: 2025-05-06
 ---
 
-# Nucleus OmniRAG: Storage Architecture
+# Nucleus: Storage Architecture
 
-**Version:** 1.13
-**Date:** 2025-04-27
+**Version:** 1.14
+**Date:** 2025-05-06
 
-This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus OmniRAG system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). These interactions are orchestrated **exclusively by the `Nucleus.Services.Api` via `ArtifactReference` objects**. Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
+This document outlines the architecture for managing **artifacts** and their associated **metadata** within the Nucleus system, expanding on the concepts introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). A fundamental principle is that Nucleus **does not maintain its own persistent artifact storage**. Instead, it interacts with artifacts directly within the user's chosen source systems (e.g., Microsoft Teams/SharePoint, Slack, Email Servers) via platform-specific adapters (see [Client Architecture](./05_ARCHITECTURE_CLIENTS.md)), respecting existing permissions (see [Security Architecture](./06_ARCHITECTURE_SECURITY.md)). These interactions are orchestrated **exclusively by the `Nucleus.Services.Api` via `ArtifactReference` objects**. Nucleus's own persistent storage ([Cosmos DB](./04_ARCHITECTURE_DATABASE.md)) is reserved exclusively for **metadata** (`ArtifactMetadata`, `PersonaKnowledgeEntry`) derived from or describing these external artifacts.
 
 ## 1. Core Principles
 

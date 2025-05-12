@@ -1,3 +1,10 @@
+---
+title: AgentOps - README
+description: Overview and entry point for the AgentOps directory, guiding AI assistants on how to use the supplementary context and state management files for the Nucleus project.
+version: 1.0
+date: 2025-05-06
+---
+
 # AgentOps for Nucleus (.NET 9 / Aspire / Azure Cosmos DB)
 
 **Attention AI Assistant:** This folder contains critical context for developing the Nucleus platform. Your primary guide for behavior, tool usage, and core development principles is the `.windsurfrules` file located in the project root. Review it thoroughly before proceeding. These `AgentOps` documents provide supplementary project-specific context, state, and planning.

@@ -5,10 +5,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Domain.Personas.Core.Interfaces;
+
 using System.Diagnostics;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Nucleus.Domain.Personas.Core;
 
@@ -23,11 +27,14 @@ public class PersonaRuntime : IPersonaRuntime
 {
     private readonly ILogger<PersonaRuntime> _logger;
     private readonly IEnumerable<IAgenticStrategyHandler> _handlers;
+    
 
-    public PersonaRuntime(ILogger<PersonaRuntime> logger, IEnumerable<IAgenticStrategyHandler> handlers)
+    public PersonaRuntime(ILogger<PersonaRuntime> logger, 
+                          IEnumerable<IAgenticStrategyHandler> handlers)
     {
         _logger = logger;
         _handlers = handlers;
+        
     }
 
     /// <inheritdoc />
@@ -41,11 +48,15 @@ public class PersonaRuntime : IPersonaRuntime
 
         var stopwatch = Stopwatch.StartNew();
         // Use ConversationId and MessageId for logging correlation
-        _logger.LogInformation("Executing persona {PersonaId} with strategy {StrategyKey} for conversation {ConversationId}, message {MessageId}.",
+        _logger.LogInformation("Executing persona {PersonaId} with strategy {StrategyKey} for conversation {ConversationId}, message {MessageId}. Raw artifact count: {RawArtifactCount}",
             personaConfig.PersonaId, 
             personaConfig.AgenticStrategy?.StrategyKey ?? "None", 
             interactionContext.OriginalRequest.ConversationId, 
-            interactionContext.OriginalRequest.MessageId ?? "(no message ID)");
+            interactionContext.OriginalRequest.MessageId ?? "(no message ID)",
+            interactionContext.RawArtifacts.Count);
+
+        // Content extraction is now assumed to have happened upstream, 
+        // and interactionContext.ProcessedArtifacts is populated before this method is called.
 
         if (personaConfig.AgenticStrategy == null || string.IsNullOrEmpty(personaConfig.AgenticStrategy.StrategyKey))
         {

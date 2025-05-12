@@ -6,16 +6,15 @@ This document outlines the planned development phases for Nucleus, structured si
 
 ## Phase 1: MVP - Core API Foundation & Initial Validation
 
-**Epic:** `EPIC-MVP-API` - Establish the minimum viable **API service (`Nucleus.ApiService`)** and backend infrastructure. Prioritize building the core **unified interaction API endpoint (`/api/v1/interactions`)**, integrating the initial persona, setting up basic metadata storage (Cosmos DB), and validating these components using an **initial reference client (`Nucleus.Console`)** that passes `ArtifactReference` objects. Set up foundational architecture and deployment infrastructure (Azure, IaC) for the API.
+**Epic:** `EPIC-MVP-API` - Establish the minimum viable **API service (`Nucleus.ApiService`)** and backend infrastructure. Prioritize building the core **unified interaction API endpoint (`/api/v1/interactions`)**, integrating the initial persona, setting up basic metadata storage (Cosmos DB), and validating these components through **internal integration (e.g., using `Nucleus.Infrastructure.Adapters.Local`) and direct API testing**. Set up foundational architecture and deployment infrastructure (Azure, IaC) for the API.
 
 See also:
-*   [Requirements: MVP - Core API & Initial Console Client](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
+*   [Requirements: MVP - Core API & Internal Integration](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
 
 *   **Issue:** `ISSUE-MVP-SETUP-01`: Establish Core Project Structure & Local Environment
 *   **Issue:** `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Used by API on ephemeral content)
 *   **Issue:** `ISSUE-MVP-PERSONA-01`: Create Initial Bootstrapper Persona
 *   **Issue:** `ISSUE-MVP-API-01`: Develop Backend API (Unified Interaction Endpoint: `/api/v1/interactions`, Status Endpoint)
-*   **Issue:** `ISSUE-MVP-CONSOLE-01`: Create Minimal Console Client (Reads local files, passes ArtifactReference to API)
 *   **Issue:** `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code for API)
 *   **Issue:** `ISSUE-MVP-RETRIEVAL-01`: Implement Basic Metadata Store (`ArtifactMetadata`, `PersonaKnowledgeEntry`) & Retrieval Foundation
 

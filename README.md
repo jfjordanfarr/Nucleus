@@ -1,6 +1,6 @@
-# Nucleus OmniRAG
+# Nucleus
 
-**Nucleus OmniRAG is a platform designed to empower individuals and teams by transforming disparate digital information into actionable, contextual knowledge through specialized AI assistants ("Personas").**
+**Nucleus is a platform designed to empower individuals and teams by transforming disparate digital information into actionable, contextual knowledge through specialized AI assistants ("Personas").**
 
 It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different needs and deployment models.
 

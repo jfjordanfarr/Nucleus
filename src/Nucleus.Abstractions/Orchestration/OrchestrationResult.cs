@@ -1,11 +1,15 @@
-using Nucleus.Abstractions.Models;
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 
 namespace Nucleus.Abstractions.Orchestration;
 
 /// <summary>
 /// Enum representing the status of the initial orchestration phase.
 /// </summary>
+/// <seealso href="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md">Processing Architecture - Shared Interfaces (OrchestrationStatus)</seealso>
 public enum OrchestrationStatus
 {
     /// <summary>
@@ -24,6 +28,26 @@ public enum OrchestrationStatus
     /// An error occurred during the orchestration process.
     /// </summary>
     Failed,
+    /// <summary>
+    /// Input validation failed for the request.
+    /// </summary>
+    ValidationFailed,
+    /// <summary>
+    /// Persona activation failed (e.g., no matching persona or triggers).
+    /// </summary>
+    ActivationFailed,
+    /// <summary>
+    /// Content extraction from artifacts failed.
+    /// </summary>
+    ContentExtractionFailed,
+    /// <summary>
+    /// The request was rate-limited.
+    /// </summary>
+    RateLimited,
+    /// <summary>
+    /// The interaction was explicitly ignored by a processing step (distinct from initial activation 'Ignored').
+    /// </summary>
+    ProcessingIgnored,
     /// <summary>
     /// The required Persona could not be resolved or loaded.
     /// </summary>
@@ -55,6 +79,7 @@ public enum OrchestrationStatus
 /// <param name="AdapterResponse">The response to send back to the adapter, if generated directly (e.g., for ignored/failed requests).</param>
 /// <param name="ErrorMessage">Detailed error message if Status is Failed or other error states.</param>
 /// <param name="Exception">The exception that occurred, if any.</param>
+/// <seealso href="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md">Processing Architecture - Shared Interfaces (OrchestrationResult)</seealso>
 public record OrchestrationResult(
     OrchestrationStatus Status,
     string? ResolvedPersonaId = null,

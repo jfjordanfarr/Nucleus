@@ -1,15 +1,15 @@
 ---
 title: Data Visualization Template
 description: Specifies a skill that can be performed by personas, which involves writing structured data and simple visualization code snippets into a template pyodide-based static HTML page.
-version: 1.3
-date: 2025-04-27
+version: 1.4
+date: 2025-04-30
 parent: ../ARCHITECTURE_PROCESSING_DATAVIZ.md
 ---
 
 # Cross-Links to Code & Example
-- [`dataviz_script.js`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_script.js:0:0-0:0)
-- [`dataviz_plotly_script.py`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py:0:0-0:0)
-- [`DatavizHtmlBuilder.cs`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0)
+- [dataviz_script.js](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
+- [dataviz_plotly_script.py](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py)
+- [DatavizHtmlBuilder.cs](../../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)
 - [Working Example Output](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
 
 # Delivering AI-Generated Pyodide Visualizations in Teams via Self-Contained HTML Artifacts
@@ -29,21 +29,21 @@ The core idea is to leverage the C# bot to orchestrate the creation and storage 
 
 ## 2. Core Artifact: The `viz.html` Template
 
-The foundation of this approach is a set of template files that the C# [`DatavizHtmlBuilder`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0) populates. These templates include placeholders for branding, the Python script, and the data, along with the necessary JavaScript to load Pyodide and render the visualization.
+The foundation of this approach is a set of template files that the C# [`DatavizHtmlBuilder`](../../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs) populates. These templates include placeholders for branding, the Python script, and the data, along with the necessary JavaScript to load Pyodide and render the visualization.
 
 The key template files involved are:
 
-*   [`dataviz_template.html`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_template.html:0:0-0:0):
+*   [`dataviz_template.html`](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_template.html):
     *   Provides the main HTML structure (`<head>`, `<body>`).
     *   Includes CDN links for Pyodide and Plotly.
     *   Defines `div` elements for loading indicators, plot output, errors, buttons, and modals.
     *   Contains placeholders (`{{PLACEHOLDER}}`) where the builder injects CSS, the main script, the worker script, the original Python script (for viewing), and the JSON data (for viewing).
 
-*   [`dataviz_styles.css`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_styles.css:0:0-0:0):
+*   [`dataviz_styles.css`](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_styles.css):
     *   Contains all CSS rules for styling the page elements, including layout, fonts, colors, and modal appearance.
     *   This content is injected directly into a `<style>` tag within the final HTML's `<head>` by the builder.
 
-*   [`dataviz_script.js`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_script.js:0:0-0:0):
+*   [`dataviz_script.js`](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js):
     *   Handles the primary client-side logic.
     *   Reads the embedded Python script, JSON data, and worker script from `<script>` tags placed in the final HTML by the builder.
     *   Initializes the Pyodide Web Worker.
@@ -52,7 +52,7 @@ The key template files involved are:
     *   Contains event listeners for the export/view buttons and modal logic.
     *   Handles plot resizing logic using `ResizeObserver`.
 
-*   [`dataviz_worker.js`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_worker.js:0:0-0:0):
+*   [`dataviz_worker.js`](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_worker.js):
     *   Runs in a separate Web Worker thread.
     *   Imports and initializes the Pyodide engine.
     *   Installs necessary Python packages (e.g., `micropip`, `plotly`, `pandas`).
@@ -60,7 +60,7 @@ The key template files involved are:
     *   Executes the Python code, making the data available to it.
     *   Sends the results (rendered plot HTML/SVG or error messages) back to the main script via `postMessage`.
 
-*   [`dataviz_plotly_script.py`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py:0:0-0:0):
+*   [`dataviz_plotly_script.py`](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py):
     *   Provides the standard Python environment structure that runs inside the Pyodide worker.
     *   Includes common imports (`js`, `json`, `pandas`, `plotly`, `matplotlib`, etc.).
     *   Contains helper functions (e.g., `render_plotly_to_div_string`, `render_matplotlib_to_svg_string`).
@@ -142,7 +142,7 @@ The initial Dataviz prototype used dynamic HTML/script injection (as in the [wor
 - Until these are resolved, some “out-of-the-box” Plotly features (like SVG/PNG export) may not work as seamlessly as in the working example.
 
 **References:**
-- [`DatavizHtmlBuilder.cs`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0) (see XML comment at class level)
+- [DatavizHtmlBuilder.cs](../../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs) (see XML comment at class level)
 - [Working Example Output](./EXAMPLE_OUTPUT_nucleus_dataviz_20250415111719.html)
 
 **Next Steps:**
@@ -156,7 +156,7 @@ Repeated issues with Plotly chart resizing (especially after export or container
 - Manual relayout and resize logic is retained as a fallback for rare edge cases, but Plotly's built-in responsiveness now handles the vast majority of scenarios.
 
 **References:**
-- [`dataviz_script.js`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_script.js:0:0-0:0)
+- [dataviz_script.js](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
 - [Working Example](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
 
 ### Architecture Diagram: Responsive Rendering Pipeline
@@ -415,11 +415,11 @@ This architecture provides a robust method for delivering AI-generated, interact
 
 ## Cross-References
 - [ARCHITECTURE_PROCESSING_DATAVIZ.md](../ARCHITECTURE_PROCESSING_DATAVIZ.md)
-- [dataviz_script.js](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_script.js:0:0-0:0)
-- [dataviz_plotly_script.py](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py:0:0-0:0)
-- [DatavizHtmlBuilder.cs](cci:2://file:///d:/Projects/Nucleus/Nucleus.Processing/Services/DatavizHtmlBuilder.cs:0:0-0:0)
+- [dataviz_script.js](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_script.js)
+- [dataviz_plotly_script.py](../../../../Nucleus.Processing/Resources/Dataviz/dataviz_plotly_script.py)
+- [DatavizHtmlBuilder.cs](../../../../Nucleus.Processing/Services/DatavizHtmlBuilder.cs)
 - [EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html](./EXAMPLE_OUTPUT_nucleus_dataviz_20250416145545.html)
 
 ---
 
-_Metadata last updated: 2025-04-27_
+_Metadata last updated: 2025-04-30_

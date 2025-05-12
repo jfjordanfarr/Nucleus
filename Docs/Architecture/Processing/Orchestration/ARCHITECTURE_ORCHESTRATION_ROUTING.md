@@ -1,102 +1,102 @@
 ---
-title: Architecture - API Activation & Routing
-description: Details the process for activating interactions received via the API and routing them to appropriate synchronous or asynchronous handlers via the OrchestrationService.
-version: 2.4
-date: 2025-04-30
+title: Architecture - API Activation & Asynchronous Routing
+description: Details the process for activating interactions received via the API (resolving the target Persona) and routing them to the asynchronous background task queue via the OrchestrationService.
+version: 2.6
+date: 2025-05-07
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
-# Nucleus: API Activation & Routing
+# Nucleus: API Activation & Asynchronous Routing
 
 ## 1. Introduction
 
-This document outlines the two key stages involved after an interaction request is received by the `Nucleus.Services.Api`, following the [API Interaction Processing Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md) and adhering to the overall [API-First Architecture](../../../10_ARCHITECTURE_API.md):
+This document outlines the two key stages involved after an interaction request is received by the `Nucleus.Services.Api`, following the [Interaction Processing Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md) and adhering to the overall [API-First Architecture](../../../10_ARCHITECTURE_API.md):
 
-1.  **Activation Check:** Determining if the interaction warrants processing based on configured rules. This relies on interaction details provided by the client adapter as described in [API Client Interaction Patterns](../../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md).
-2.  **Post-Activation Routing:** Directing an *activated* interaction to the correct internal handler (synchronous or asynchronous) via the central `OrchestrationService`.
+1.  **Activation Check & Persona Resolution:** Determining if the interaction warrants processing based on configured rules and identifying the target `PersonaId`. This relies on interaction details provided by the client adapter (e.g., originating bot ID, channel context) as described in [API Client Interaction Patterns](../../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md).
+2.  **Post-Activation Routing:** Directing an *activated* interaction (now associated with a specific `PersonaId`) **exclusively** to the asynchronous background task queue (`IBackgroundTaskQueue`) via the central `OrchestrationService`.
 
-This centralized approach within the API service replaces any previous decentralized models.
+This centralized approach within the API service supports hosting multiple, distinctly scoped Personas by ensuring requests are routed to the appropriate context.
 
 ## 2. Core Components
 
 *   **API Endpoint Handler:** (e.g., `InteractionController`) Receives the initial `AdapterRequest`, performs authentication/authorization, and invokes the `IOrchestrationService`.
-*   **Orchestration Service (`IOrchestrationService`):** Central component responsible for handling the interaction lifecycle, including activation checks, context setup, and routing to sync/async paths.
-*   **Activation Checker (`IActivationChecker`):** Logic (likely used internally by `OrchestrationService`) responsible for evaluating incoming interaction metadata against configured activation rules.
-*   **Configuration Store:** Source for activation rules (e.g., `appsettings.json`, database).
-*   **Internal Task Queue (`IMessageQueuePublisher` / `IBackgroundTaskQueue`):** Used to decouple the API handler from long-running background tasks.
-*   **Background Worker Services (`QueuedInteractionProcessorService` / `ServiceBusQueueConsumerService`):** Services that listen to the task queue, dequeue messages, and invoke the `OrchestrationService` to execute the long-running processing logic.
+*   **Orchestration Service (`IOrchestrationService`):** Central component responsible for handling the interaction lifecycle, including activation checks (which incorporate Persona resolution), context setup, and **routing activated tasks (scoped to a Persona) to the background queue**.
+*   **Activation Checker (`IActivationChecker`):** Logic (likely used internally by `OrchestrationService`) responsible for evaluating incoming interaction metadata against configured activation rules to determine if processing is warranted and for which Persona.
+*   **Configuration Store:** Source for activation rules (e.g., `appsettings.json`, database), which can be defined per Persona or system-wide.
+*   **Background Task Queue (`IBackgroundTaskQueue`):** The sole mechanism for handling activated interactions. Implemented using Azure Service Bus (via `ServiceBusBackgroundTaskQueue` and Aspire's named client registration) to decouple the API handler from the actual processing.
+*   **Background Worker Service (`QueuedInteractionProcessorService`):** Service (running as a hosted service) that listens to the `IBackgroundTaskQueue`, dequeues messages (which include `TenantId` and `PersonaId`), and invokes the `OrchestrationService` (or directly the `IPersonaRuntime`) to execute the processing logic within the correct Persona's scope.
 
 ## 3. Activation Check Flow
 
-The API Endpoint Handler receives the interaction details (user, platform context, message content/metadata, **potentially including platform-specific reply identifiers if the Client Adapter detected a reply**) and invokes the `IOrchestrationService`.
+The API Endpoint Handler receives the interaction details (user, `TenantId`, platform context including originating bot/channel identifiers, message content/metadata, **potentially including platform-specific reply identifiers if the Client Adapter detected a reply**) and invokes the `IOrchestrationService`.
 
 ```mermaid
 graph TD
-    A[API Handler Receives Interaction Request] --> B(Parse Request Data + Reply Context?);
+    A[API Handler Receives Interaction Request] --> B(Parse Request Data, incl. TenantId & Persona resolution cues);
     B -- Interaction Details --> C{Orchestration Service};
-    C -- Configured Rules / Reply Context --> D{Evaluate Rules (Mention?, Scope?, User?, Direct Reply?)};
-    D -- Yes (Activate) --> E[Proceed to Post-Activation Routing];
-    D -- No (Ignore) --> F[Return HTTP 200 OK / 204 No Content];
-    E --> G[Activated Task Details];
+    C -- Configured Rules (potentially Persona-specific) / Reply Context --> D{Evaluate Rules & Resolve PersonaId (Mention?, Scope?, User?, Bot ID?, Direct Reply?)};
+    D -- Yes (Activate for Resolved PersonaId) --> E[Proceed to Post-Activation Routing];
+    D -- No (Ignore or Unresolved Persona) --> F[Return HTTP 200 OK / 204 No Content];
+    E --> G[Activated Task Details with PersonaId];
 ```
 
 **Rule Evaluation Logic:**
 
-*   The `OrchestrationService` checks the interaction against a prioritized list or set of rules associated with configured Personas or system behaviors.
-*   **Implicit Activation for Replies:** Before evaluating standard rules (mentions, scopes), the `OrchestrationService` checks if the interaction is identified as a direct reply to a message recently sent by Nucleus. This check relies on platform-specific context provided in the API request (extracted by the Client Adapter):
-    *   **Teams:** Matching `Conversation.Id` containing a `messageid` corresponding to a recent Nucleus `ActivityId`.
-    *   **Discord:** Presence of a `message.reference.message_id` corresponding to a recent Nucleus message ID.
-    *   **Slack:** Presence of a `thread_ts` corresponding to the `ts` of a recent Nucleus message.
-    *   If a direct reply is detected, the interaction is implicitly activated, bypassing other rules.
-*   **Standard Activation Rules (Examples):**
-    *   Does the message text contain `@{PersonaName}`?
-    *   Does the interaction originate from a channel/chat ID configured for unconditional monitoring?
-    *   Does the interaction originate from a user ID on a specific watchlist?
-    *   Is the interaction type a specific system command?
-*   The first matching rule typically determines activation (and potentially the target Persona/action).
-*   Configuration needs to allow defining these rules (e.g., in `appsettings.json` or a database). Example structure:
+*   The `OrchestrationService` checks the interaction against a prioritized list or set of rules. These rules can be associated with specific configured Personas or be system-wide behaviors. The `AdapterRequest` must provide sufficient information (e.g., target bot ID from Teams, specific channel) to help the `OrchestrationService` select the relevant set of rules or directly identify the target Persona.
+*   **Implicit Activation for Replies:** Before evaluating standard rules, the `OrchestrationService` checks if the interaction is identified as a direct reply to a message recently sent by Nucleus. This check relies on platform-specific context provided in the API request.
+    *   If a direct reply is detected, the interaction is implicitly activated, and the target `PersonaId` is inferred from the original message context.
+*   **Standard Activation Rules (Examples):** These rules help determine both if activation should occur and which `PersonaId` is the target.
+    *   Does the message text contain `@{PersonaName}` where `PersonaName` maps to a known `PersonaId`?
+    *   Does the interaction originate from a channel/chat ID configured for unconditional monitoring by a specific `PersonaId`?
+    *   Does the interaction originate from a user ID on a specific watchlist for a `PersonaId`?
+    *   Does the originating bot identifier in the `AdapterRequest` map directly to a `PersonaId`?
+    *   Is the interaction type a specific system command intended for a particular Persona?
+*   The first matching rule typically determines activation and the target `PersonaId`.
+*   Configuration needs to allow defining these rules, potentially scoped by `TenantId` and associated with `PersonaName` or `PersonaId`. Example structure:
 
 ```json
 "ActivationRules": {
-  "Default_v1": [
-    { "Type": "Mention", "Pattern": "@Default" },
-    { "Type": "Scope", "Platform": "Teams", "ScopeId": "channel-id-123" }
-  ],
-  "Educator_v1": [
-    { "Type": "Mention", "Pattern": "@Educator" },
-    { "Type": "User", "Platform": "*", "UserId": "boss-user-id" }
-  ]
+  "Tenant_XYZ": {
+    "ITPersona_v1": [
+      { "Type": "Mention", "Pattern": "@ITHelp" },
+      { "Type": "SourceBotId", "Platform": "Teams", "BotId": "it-support-bot-app-id" },
+      { "Type": "Scope", "Platform": "Teams", "ScopeId": "it-support-channel-id" }
+    ],
+    "BusinessPersona_v1": [
+      { "Type": "Mention", "Pattern": "@BizInsights" },
+      { "Type": "SourceBotId", "Platform": "Teams", "BotId": "biz-insights-bot-app-id" }
+    ]
+  }
 }
 ```
 
-## 4. Post-Activation Routing
+## 4. Post-Activation Routing (Always Asynchronous)
 
-Once an interaction is activated, the `OrchestrationService` determines the execution path and routes the task accordingly.
+Once an interaction is activated for a specific `PersonaId`, the `OrchestrationService` **always** routes the task to the `IBackgroundTaskQueue` for asynchronous processing.
 
 ```mermaid
 graph TD
-    A[Activated Task Details] --> B{Determine Execution Path (Sync vs Async)};
-    B -- Synchronous --> C[Identify Target Sync Handler];
-    C -- Task --> D[Invoke Synchronous Service];
-    D -- Result --> E[Return HTTP Response];
-
-    B -- Asynchronous --> F[Identify Target Async Task Type/Queue];
-    F -- Task --> G[Construct Task Message];
-    G --> H(Publish to Internal Task Queue);
-    H --> I[Return HTTP 202 Accepted + JobId];
+    A[Activated Task Details with PersonaId] --> B{OrchestrationService prepares Reference Message};
+    B -- Reference Message (IDs, ArtifactRefs, TenantId, PersonaId) --> C[Enqueue via IBackgroundTaskQueue (Service Bus)];
+    C --> D(API Returns HTTP 202 Accepted);
+    subgraph Background Processing (Scoped to PersonaId)
+        E[QueuedInteractionProcessorService Dequeues Message]
+        E --> F[Hydrate Context & Fetch Content Ephemerally (scoped by PersonaConfiguration)]
+        F --> G[Invoke IPersonaRuntime (with specific PersonaConfiguration)]
+        G --> H[Process Interaction]
+        H --> I[Send Result via IPlatformNotifier]
+    end
+    C -.-> E;
 ```
 
 **Routing Logic:**
 
-*   The decision between sync/async might be based on:
-    *   The specific API endpoint hit initially.
-    *   The nature of the activated task (e.g., ingestion is typically async, simple status check is sync).
-    *   Parameters in the request indicating complexity or size.
-*   **Synchronous Routing:** The `OrchestrationService` resolves (e.g., via DI) and invokes the appropriate internal service interface based on the task type.
-*   **Asynchronous Routing:**
-    *   The `OrchestrationService` identifies the correct *type* of task message and the target *queue* (if multiple queues exist for different priorities or worker types).
-    *   It packages all necessary context (user info, interaction details, target persona, artifact references) into the message body.
-    *   It publishes the message to the designated internal queue.
+1.  **Activated Task with Persona Context:** The `OrchestrationService` confirms the task is activated and has an associated `TenantId` and `PersonaId`.
+2.  **Reference Message Creation:** It gathers the necessary references and identifiers (`InteractionId`, Context IDs, `ArtifactReference` list, `TenantId`, `PersonaId`) into a message suitable for the queue, ensuring no raw content is included (as detailed in the [Interaction Lifecycle](./ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)).
+3.  **Enqueueing:** It uses the injected `IBackgroundTaskQueue` implementation to publish the reference message to the configured Azure Service Bus queue (`nucleus-background-tasks`).
+4.  **API Response:** The API endpoint handler returns `HTTP 202 Accepted` immediately.
+
+There is **no synchronous execution path** for activated interactions initiated via the main API endpoints. This ensures that all substantive processing occurs within the controlled, scoped environment of a background worker dedicated to the resolved Persona.
 
 ## 5. Handling Corrections & Updates (Async Context)
 
@@ -114,14 +114,16 @@ The chosen approach depends on the desired user experience and the interruptibil
 ## 6. Trade-offs
 
 *   **Pros:**
-    *   **Simplified Activation:** Centralized rules are easier to manage and understand than distributed salience checks.
-    *   **Clear Responsibility:** API handles activation; workers handle execution.
+    *   **Targeted Activation:** Centralized, persona-aware rules allow for precise activation, reducing unnecessary processing for non-target personas.
+    *   **Clear Responsibility & Scoping:** API handles activation and queuing for a specific persona; workers handle execution within that persona's defined boundaries.
     *   **Performance:** Avoids broadcast overhead for non-relevant messages.
-    *   **Flexibility:** Supports both quick synchronous and robust asynchronous execution paths.
+    *   **Scalability & Resilience:** Leverages Azure Service Bus for robust, scalable background task handling.
+    *   **Decoupling:** API responsiveness is maintained as processing is offloaded.
 *   **Cons:**
     *   **Centralization:** API activation becomes a potential bottleneck if rule evaluation is extremely complex (though likely faster than broadcast).
-    *   **Configuration Management:** Requires a robust way to define and manage activation rules.
-    *   **State Management (Async):** Retrieving results/status for async jobs requires careful handling of `jobId`s and potentially polling or callback mechanisms by the client adapters.
+    *   **Configuration Management:** Requires a robust way to define and manage activation rules, potentially on a per-persona basis.
+    *   **Latency:** All activated tasks incur the latency of the queueing mechanism, even if they *could* theoretically complete quickly (this is a deliberate trade-off for consistency and decoupling).
+    *   **State Management:** Retrieving results/status requires careful handling of `jobId`s and potentially polling or callback mechanisms by the client adapters, coordinated with the `IPlatformNotifier` mechanism.
 
 ## 7. Related Core Components
 
@@ -131,18 +133,15 @@ The activation and routing logic described above involves the following key inte
     -   `InteractionController` ([`Nucleus.Services.Api/Controllers/InteractionController.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)): Receives the initial `AdapterRequest`.
 -   **Orchestration Hub:**
     -   `IOrchestrationService` ([`Nucleus.Abstractions/Orchestration/IOrchestrationService.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)): Defines the orchestration contract.
-    -   `OrchestrationService` ([`Nucleus.Domain/Processing/OrchestrationService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs)): Implements the core orchestration, activation checks, and routing.
+    -   `OrchestrationService` ([`Nucleus.Domain/Processing/OrchestrationService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs)): Implements the core orchestration, **persona-aware activation checks**, and **routing to the queue**.
 -   **Activation Check:**
-    -   `IActivationChecker` ([`Nucleus.Abstractions/Orchestration/IActivationChecker.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)): Defines the contract for activation checks.
-    -   `ActivationChecker` ([`Nucleus.Domain/Processing/ActivationChecker.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)): A basic implementation of the activation check, used by `OrchestrationService`.
--   **Asynchronous Processing (Queueing):**
-    -   `IBackgroundTaskQueue` ([`Nucleus.Abstractions/IBackgroundTaskQueue.cs`](../../../../src/Nucleus.Abstractions/IBackgroundTaskQueue.cs)): Interface for the internal queue.
-    -   `InMemoryBackgroundTaskQueue` ([`Nucleus.Domain/Processing/InMemoryBackgroundTaskQueue.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/InMemoryBackgroundTaskQueue.cs)): In-memory implementation of the queue.
-    -   `QueuedInteractionProcessorService` ([`Nucleus.Domain/Processing/QueuedInteractionProcessorService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs)): Background service processing items from `IBackgroundTaskQueue`.
--   **Asynchronous Processing (External Message Queue):**
-    -   `IMessageQueuePublisher<T>` ([`Nucleus.Abstractions/IMessageQueuePublisher.cs`](../../../../src/Nucleus.Abstractions/IMessageQueuePublisher.cs)): Interface for publishing to an external queue.
-    -   `NullMessageQueuePublisher<T>` ([`Nucleus.Services.Api/Infrastructure/Messaging/NullMessageQueuePublisher.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/NullMessageQueuePublisher.cs)): A null implementation for development/testing.
-    -   `ServiceBusQueueConsumerService` ([`Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusQueueConsumerService.cs)): Background service consuming messages from Azure Service Bus (example external queue consumer).
+    -   `IActivationChecker` ([`Nucleus.Abstractions/Orchestration/IActivationChecker.cs`](../../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)): Defines the contract for activation checks, which must support Persona resolution.
+    -   `ActivationChecker` ([`Nucleus.Domain/Processing/ActivationChecker.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)): A basic implementation of the activation check, used by `OrchestrationService`, adaptable for multi-persona rule evaluation.
+-   **Asynchronous Processing (Queueing & Execution):**
+    -   `IBackgroundTaskQueue` ([`Nucleus.Abstractions/IBackgroundTaskQueue.cs`](../../../../src/Nucleus.Abstractions/IBackgroundTaskQueue.cs)): Interface for the background task queue.
+    -   `ServiceBusBackgroundTaskQueue` ([`Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusBackgroundTaskQueue.cs`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusBackgroundTaskQueue.cs)): Implementation using Azure Service Bus (registered via `WebApplicationBuilderExtensions`).
+    -   `QueuedInteractionProcessorService` ([`Nucleus.Domain/Processing/QueuedInteractionProcessorService.cs`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs)): Background service processing items dequeued from `IBackgroundTaskQueue`.
+    -   `IPlatformNotifier` ([`Nucleus.Abstractions/Adapters/IPlatformNotifier.cs`](../../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs): Interface used by the worker to send results back to the originating platform.
 
 ---
 

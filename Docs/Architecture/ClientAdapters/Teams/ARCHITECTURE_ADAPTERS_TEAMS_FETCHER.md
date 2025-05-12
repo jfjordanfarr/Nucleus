@@ -32,7 +32,7 @@ This document now describes the *modified* role of the component within the Team
 -   **`Nucleus.Abstractions`:** Defines models like [`ArtifactReference`](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) which is used to package the references for the API.
 -   **Microsoft Graph API:** The underlying service used to access Teams file data.
 
-*Self-Note: The interface [`IPlatformAttachmentFetcher`](../../../src/Nucleus.Abstractions/IPlatformAttachmentFetcher.cs) defines the contract for actually **fetching content**. This is implemented and used by the **API Service**, not the Teams Adapter itself.*
+*Self-Note: The interface [`IPlatformAttachmentFetcher`](../../../../src/Nucleus.Abstractions/Adapters/IPlatformAttachmentFetcher.cs) defines the contract for actually **fetching content**. This is implemented and used by the **API Service**, not the Teams Adapter itself.*
 
 ## Implementation Details
 

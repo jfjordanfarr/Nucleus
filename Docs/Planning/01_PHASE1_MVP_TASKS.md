@@ -1,8 +1,8 @@
 ---
 title: "Phase 1: MVP - Core API Foundation & Initial Validation Tasks"
-description: "Detailed tasks for implementing the Nucleus Minimum Viable Product (MVP) focused on the core backend API Service and its validation via an initial Console client."
-version: 1.5
-date: 2025-04-27
+description: "Detailed tasks for implementing the Nucleus Minimum Viable Product (MVP) focused on the core backend API Service and its validation via internal integration (e.g., `LocalAdapter`) and direct API testing."
+version: 1.7
+date: 2025-05-06
 ---
 
 # Phase 1: MVP - Core **API Foundation** & Initial Validation Tasks
@@ -11,7 +11,7 @@ date: 2025-04-27
 **Requirements:** [`01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md`](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
 **Architecture:** [`00_ARCHITECTURE_OVERVIEW.md`](../Architecture/00_ARCHITECTURE_OVERVIEW.md), [`10_ARCHITECTURE_API.md`](../Architecture/10_ARCHITECTURE_API.md)
 
-This document details the specific tasks required to complete Phase 1. The focus is on establishing the **Core API Service (`Nucleus.ApiService`)** and its foundational components (backend logic, persona integration, basic data storage). An initial **Console Application (`Nucleus.Console`)** will be developed concurrently to serve as a **reference client for validating** the API endpoints and interaction flows. This approach prioritizes building a robust API foundation first, enabling parallel development and testing.
+This document details the specific tasks required to complete Phase 1. The focus is on establishing the **Core API Service (`Nucleus.ApiService`)** and its foundational components (backend logic, persona integration, basic data storage). Validation will occur through **internal integration (e.g., using `Nucleus.Infrastructure.Adapters.Local`) and direct API testing**. This approach prioritizes building a robust API foundation first.
 
 We will leverage **.NET 9 and Aspire** for local development orchestration and service configuration, including emulated Azure services (Cosmos DB).
 
@@ -21,8 +21,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [X] **TASK-MVP-SETUP-03:** Configure Aspire AppHost to launch required emulated services (Cosmos DB). *(Queues/Service Bus emulation deferred)*. (Ref Code: `Nucleus.AppHost/Program.cs`)
 *   [X] **TASK-MVP-SETUP-04:** Create core projects: `Nucleus.Abstractions`, `Nucleus.Core`, `Nucleus.Infrastructure`, `Nucleus.Processing`, `Nucleus.Personas`. (Ref Code: `Nucleus.sln`)
 *   [X] **TASK-MVP-SETUP-05:** Create `Nucleus.ApiService` (ASP.NET Core WebAPI) project and add to AppHost. (Ref Code: `Nucleus.ApiService/`, `Nucleus.AppHost/Program.cs`)
-*   [X] **TASK-MVP-SETUP-06:** Create `Nucleus.Console` (.NET Console App) project and add to AppHost. (Ref Code: `Nucleus.Console/`, `Nucleus.AppHost/Program.cs`)
-*   [X] **TASK-MVP-SETUP-07:** Ensure AppHost correctly injects connection strings/service URIs into `Nucleus.ApiService` and `Nucleus.Console`. (Ref Config: Aspire Configuration)
+*   [X] **TASK-MVP-SETUP-07:** Ensure AppHost correctly injects connection strings/service URIs into `Nucleus.ApiService`. (Ref Config: Aspire Configuration)
 *   [X] **TASK-MVP-SETUP-08:** Configure preferred LLM provider (e.g., Google Gemini) and necessary configuration (API keys via user secrets/env vars).
 
 ## `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Foundation for API Processing)
@@ -34,7 +33,7 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 
 ## `ISSUE-MVP-PERSONA-01`: Create Initial **Bootstrapper Persona**
 *(Ref Arch: [`02_ARCHITECTURE_PERSONAS.md`](../Architecture/02_ARCHITECTURE_PERSONAS.md), [`ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md`](../Architecture/Personas/ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md))*
-*   [ ] **TASK-MVP-PER-01:** Define the output C# record model(s) for the `BootstrapperPersona`'s structured analysis/knowledge representation. (Ref Code: `Nucleus.Personas/Bootstrapper/Models/` - TBD)
+*   [ ] **TASK-MVP-PER-01:** Define the expected JSON structure for the `BootstrapperPersona`'s analytical output (to be stored in `PersonaKnowledgeEntry.AnalysisData`). (Ref Arch: `ARCHITECTURE_PERSONAS_BOOTSTRAPPER.md` for schema details)
 *   [ ] **TASK-MVP-PER-02:** Implement `BootstrapperPersona` logic (`AnalyzeContentAsync`, `HandleInteractionAsync`).
 *   [ ] **TASK-MVP-PER-03:** Integrate `BootstrapperPersona` into the API's interaction handling flow.
 
@@ -45,32 +44,18 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-API-03:** Define DTOs for the unified interaction model (`InteractionRequest`, `InteractionResponse`, `ArtifactReference`, `ProcessingStatus`, etc.). (Ref Code: `Nucleus.Core/Models/Api/` - TBD)
 *   [ ] **TASK-MVP-API-04:** Implement core logic within the `/interactions` endpoint:
     *   [ ] Receive `InteractionRequest`.
-    *   [ ] If `ArtifactReference` is present, invoke `IArtifactProvider` to get content ephemerally (Note: MVP has only `LocalFileArtifactProvider` initially, called by Console).
+    *   [ ] If `ArtifactReference` is present, invoke `IArtifactProvider` to get content ephemerally (Note: MVP has only `LocalFileArtifactProvider` initially, called by API directly).
     *   [ ] Invoke `IContentExtractor` (if content retrieved).
     *   [ ] Route to appropriate `IPersona` (`BootstrapperPersona` for MVP).
     *   [ ] Handle synchronous response or initiate async processing (via queue/orchestrator later - MVP likely sync).
     *   [ ] Return `InteractionResponse` (with sync result or Job ID).
 *   [ ] **TASK-MVP-API-05:** Implement API endpoint for querying job status (e.g., `GET /api/v1/jobs/{jobId}/status`).
 *   [ ] **TASK-MVP-API-06:** Implement basic health checks (`/healthz`).
-*   [ ] **TASK-MVP-API-07:** Implement initial `IArtifactProvider` for local files (`LocalFileArtifactProvider`) - potentially within `Nucleus.Infrastructure` or `Nucleus.ApiService` for MVP simplicity. *(Note: This is technically used by the Console client indirectly via the API call in MVP)*
-
-## `ISSUE-MVP-CONSOLE-01`: Create Minimal **Console Client** (Reads local files, passes ArtifactReference to API)
-*(Ref Arch: [`05_ARCHITECTURE_CLIENTS.md`](../Architecture/05_ARCHITECTURE_CLIENTS.md), [`ARCHITECTURE_ADAPTERS_CONSOLE.md`](../Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md))*
-*   [ ] **TASK-MVP-CON-01:** Set up `Nucleus.Console` project structure (e.g., using `System.CommandLine` or similar library for command parsing). (Ref Code: `Nucleus.Console/Program.cs`)
-*   [ ] **TASK-MVP-CON-02:** Implement basic command structure (e.g., `nucleus ask "<query>" [--file <path>]`, `nucleus status <jobId>`).
-*   [ ] **TASK-MVP-CON-03:** Implement HTTP client logic within `Nucleus.Console` to call the `Nucleus.ApiService` endpoints (`/interactions`, `/jobs/.../status`).
-    *   Ensure `HttpClient` is configured correctly (base address injected by Aspire). (Ref Code: `Nucleus.Console/Services/ApiClient.cs` - TBD)
-*   [ ] **TASK-MVP-CON-04:** Implement logic for the `ask` command:
-    *   [ ] Construct `InteractionRequest` DTO.
-    *   [ ] If `--file` is provided, **read the local file metadata (path, name, type)** and create an appropriate `ArtifactReference` (e.g., using a `file://` scheme or specific type indicator for local files).
-    *   [ ] Call `POST /api/v1/interactions` with the request DTO.
-    *   [ ] Display the `InteractionResponse` (sync result or Job ID).
-*   [ ] **TASK-MVP-CON-05:** Implement logic for the `status` command to call `GET /api/v1/jobs/{jobId}/status` and display the result.
-*   [ ] **TASK-MVP-CON-06:** Implement basic error handling and display for API call failures.
+*   [ ] **TASK-MVP-API-07:** Implement initial `IArtifactProvider` for local files (`LocalFileArtifactProvider`) - potentially within `Nucleus.Infrastructure` or `Nucleus.ApiService` for MVP simplicity. *(Note: This is technically used by the API directly for MVP)*
 
 ## `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code)
 *(Ref Arch: [`07_ARCHITECTURE_DEPLOYMENT.md`](../Architecture/07_ARCHITECTURE_DEPLOYMENT.md), [`ARCHITECTURE_HOSTING_AZURE.md`](../Architecture/Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md))*
-*   [ ] **TASK-MVP-INFRA-01:** Define basic infrastructure required for hosting the **API** (e.g., App Service/Container App). *(Console App runs locally via AppHost for MVP)*.
+*   [ ] **TASK-MVP-INFRA-01:** Define basic infrastructure required for hosting the **API** (e.g., App Service/Container App).
 *   [ ] **TASK-MVP-INFRA-02:** Define Azure resources needed:
     *   App Service Plan / Container Apps Environment
     *   API App/Container App for Backend (**`Nucleus.ApiService`**)

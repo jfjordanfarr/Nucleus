@@ -1,4 +1,5 @@
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +15,7 @@ namespace Nucleus.Abstractions.Orchestration;
 /// See: ../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md
 /// See: ../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md
 /// </remarks>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#324-ipersonaresolvercs"/>
 public interface IPersonaResolver
 {
     /// <summary>
@@ -23,5 +25,6 @@ public interface IPersonaResolver
     /// <param name="request">The original request data containing platform identifiers.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The resolved Persona ID (string) or null if resolution fails.</returns>
+    /// <seealso href="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Persona Resolution</seealso>
     Task<string?> ResolvePersonaIdAsync(PlatformType platformType, AdapterRequest request, CancellationToken cancellationToken = default);
 }

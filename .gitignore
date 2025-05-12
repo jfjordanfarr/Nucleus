@@ -369,8 +369,11 @@ Nucleus.ApiService/LocalTeamDirectory/
 .CodebaseDump.md
 
 # Project-specific untracked data folder
-/_LocalData/
+# /_LocalData/ # Removed - Consolidated into .nucleus/console_outputs
 
 # --- Keep specific 'Artifacts' directories needed for the project ---
 !Nucleus.Services/Nucleus.Services.Api/Infrastructure/Artifacts/
 !Nucleus.Services/Nucleus.Services.Api/Infrastructure/Artifacts/*
+
+# Nucleus Console Adapter Outputs
+**/.nucleus/console_outputs/

@@ -1,16 +1,16 @@
 ---
 title: Architecture - Personas & Multi-Platform Interaction
 description: Details the architecture for Personas, including multi-platform identities, interaction patterns, and persona-to-persona communication, all within the API-First model.
-version: 2.3
-date: 2025-05-03
+version: 2.4
+date: 2025-05-06
 ---
 
 # Nucleus: Persona Architecture
 
-**Version:** 2.3
-**Date:** 2025-05-03
+**Version:** 2.4
+**Date:** 2025-05-06
 
-This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus OmniRAG platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate as **agentic entities** coordinated via the `Nucleus.Services.Api`, leveraging **ephemeral content retrieval** based on **artifact references** executed by a central **Persona Runtime/Engine** based on configuration.
+This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate as **agentic entities** coordinated via the `Nucleus.Services.Api`, leveraging **ephemeral content retrieval** based on **artifact references** executed by a central **Persona Runtime/Engine** based on configuration.
 
 *   **Related Architecture:**
     *   [Overall System Architecture](./00_ARCHITECTURE_OVERVIEW.md)

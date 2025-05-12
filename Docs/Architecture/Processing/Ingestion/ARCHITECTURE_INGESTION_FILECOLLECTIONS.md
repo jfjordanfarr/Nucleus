@@ -38,7 +38,7 @@ This ensures adherence to the overall ingestion principles ([ARCHITECTURE_PROCES
 6.  **Invoke Plaintext Processor (Synthesis):** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) sends the complete **bundle** to the **Plaintext Processor** with a specific instruction (e.g., "Synthesize a single coherent Markdown document representing the original container artifact `[Container Name]` from these components, preserving structure where possible.").
 7.  **Receive Synthesized Markdown:** The [Orchestration Service](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) receives the final, synthesized Markdown string from the Plaintext Processor.
 8.  **Finalize Metadata & Cleanup:** The [**Orchestration Service**](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs):
-    *   Updates the *original container's* [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record, marking processing as complete and indicating that the synthesized Markdown representation is available (e.g., via a signal or by storing a handle/reference, *not* the content itself in metadata).
+    *   Updates the *original container's* [ArtifactMetadata](../../../../Nucleus.Abstractions/Models/ArtifactMetadata.cs) record, marking processing as complete and indicating that the synthesized Markdown representation is available (e.g., via a signal or by storing a handle/reference, *not* the content itself in metadata).
     *   Initiates cleanup of the temporary unpacked files and intermediate component data.
 
 ## 3. Key Principles & Considerations

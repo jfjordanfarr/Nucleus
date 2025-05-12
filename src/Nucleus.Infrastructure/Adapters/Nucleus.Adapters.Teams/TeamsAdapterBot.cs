@@ -12,12 +12,14 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options; // For configuration
-using Nucleus.Abstractions;
+using Nucleus.Abstractions.Adapters; // For IPlatformNotifier
 using System; // For DateTimeOffset, ArgumentNullException, InvalidOperationException
 using Newtonsoft.Json.Linq; // For parsing attachment content
 using Microsoft.Extensions.Configuration; // Added
 using Nucleus.Abstractions.Models; // Added for AdapterRequest/Response, ArtifactReference
+using Nucleus.Abstractions.Models.ApiContracts; // Added
 using System.Text.Json; // Added for JsonSerializerOptions, JsonSerializerDefaults
+using Nucleus.Abstractions.Adapters.Local; // Added for ILocalAdapterClient
 
 namespace Nucleus.Infrastructure.Adapters.Teams
 {
@@ -35,6 +37,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
         private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
         private readonly TeamsAdapterConfiguration _config; // Still useful for other potential config
         private readonly IConfiguration _configuration; // Still potentially useful
+        private readonly ILocalAdapterClient _localAdapterClient; // Added
 
         /// <summary>
         /// The reference type used for Microsoft Graph drive items.
@@ -46,13 +49,15 @@ namespace Nucleus.Infrastructure.Adapters.Teams
             IPlatformNotifier platformNotifier,
             HttpClient httpClient, // Inject HttpClient
             IOptions<TeamsAdapterConfiguration> configOptions,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ILocalAdapterClient localAdapterClient) // Added
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _platformNotifier = platformNotifier ?? throw new ArgumentNullException(nameof(platformNotifier));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _config = configOptions?.Value ?? throw new ArgumentNullException(nameof(configOptions));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+            _localAdapterClient = localAdapterClient ?? throw new ArgumentNullException(nameof(localAdapterClient)); // Added
 
             // Base address for HttpClient should be configured during DI registration
             if (_httpClient.BaseAddress == null)
@@ -83,7 +88,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
         {
             ArgumentNullException.ThrowIfNull(turnContext);
             var activity = turnContext.Activity;
-            _logger.LogInformation("Message received (ActivityId: {ActivityId}, ConversationId: {ConversationId}): {Text}", activity.Id, activity.Conversation?.Id, activity.Text);
+            _logger.LogInformation("Message received (ActivityId: {ActivityId}, ConversationId: {ConversationId})", activity.Id, activity.Conversation?.Id);
 
             // Check if the bot was mentioned
             var mention = activity.GetMentions()?.FirstOrDefault(m => m.Mentioned.Id == activity.Recipient.Id);
@@ -109,7 +114,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
 
             // --- Create Standard AdapterRequest ---
             var request = new AdapterRequest(
-                PlatformType: "Teams", // Platform identifier
+                PlatformType: PlatformType.Teams, // Platform identifier
                 ConversationId: activity.Conversation?.Id ?? "UnknownConversation", // Ensure non-null
                 UserId: activity.From?.AadObjectId ?? activity.From?.Id ?? "UnknownUser", // Use AAD ID or fallback
                 QueryText: cleanedText, // The user's message text (mention removed)
@@ -124,7 +129,10 @@ namespace Nucleus.Infrastructure.Adapters.Teams
                 }
             );
 
-            _logger.LogInformation("Attempting to send interaction request to API for ActivityId: {ActivityId}", activity.Id);
+            // Securely persist the interaction details
+            await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
+
+            _logger.LogInformation("TeamsAdapterBot: Sending AdapterRequest (InteractionId: {InteractionId}) to Nucleus API.", request.MessageId);
 
             // Send an initial acknowledgement via Teams Notifier
             try
@@ -316,7 +324,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
             ArgumentNullException.ThrowIfNull(membersAdded);
             ArgumentNullException.ThrowIfNull(turnContext);
 
-            var welcomeText = "Hello and welcome to the Nucleus OmniRAG Teams Adapter Prototype!";
+            var welcomeText = "Hello and welcome to the Nucleus Teams Adapter Prototype!";
             foreach (var member in membersAdded)
             {
                 // Greet anyone else besides the bot itself

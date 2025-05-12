@@ -23,10 +23,10 @@ public enum PlatformType
     Slack,
 
     /// <summary>
-    /// Local Console application adapter.
-    /// Reference: [ARCHITECTURE_ADAPTERS_CONSOLE.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_CONSOLE.md)
+    /// Local application adapter.
+    /// Reference: [ARCHITECTURE_ADAPTERS_LOCAL.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md)
     /// </summary>
-    Console,
+    Local,
 
     /// <summary>
     /// Direct API interaction.
@@ -44,7 +44,12 @@ public enum PlatformType
     /// Discord platform.
     /// Reference: [ARCHITECTURE_ADAPTERS_DISCORD.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_DISCORD.md)
     /// </summary>
-    Discord
+    Discord,
+
+    /// <summary>
+    /// Platform type for testing purposes.
+    /// </summary>
+    Test
 
     // Add other platforms as needed
 }

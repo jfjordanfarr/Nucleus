@@ -30,7 +30,7 @@ Its core responsibility is to **convert the incoming textual data into a canonic
         *   Invoke the LLM, relying on its large context window and common-sense reasoning to interpret the relationships between the components (e.g., OOXML structure) and generate **one single, coherent, well-structured Markdown document** representing the original artifact.
 3.  **Minimal Cleanup (Optional):** Perform final normalization on the generated/synthesized Markdown.
 4.  **Return Ephemeral Markdown:** Provides the generated, canonical Markdown content (as a string or stream) to the next stage in the processing pipeline (typically a [Persona processor](../../Personas/02_ARCHITECTURE_PERSONAS.md)).
-5.  **Provide Context for Metadata:** Contributes information *relevant* to the final [`ArtifactMetadata`](cci:2://file:///d:/Projects/Nucleus/Nucleus.Abstractions/Models/ArtifactMetadata.cs:0:0-0:0) record (e.g., confirming successful text processing, potentially identifying a title), but does not perform the final metadata update or link to persisted content (as there is none).
+5.  **Provide Context for Metadata:** Contributes information *relevant* to the final [`ArtifactMetadata`](../../../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs) record (e.g., confirming successful text processing, potentially identifying a title), but does not perform the final metadata update or link to persisted content (as there is none).
 
 ## 3. Key Principles
 

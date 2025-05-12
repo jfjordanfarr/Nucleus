@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -70,7 +71,7 @@ public class ServiceBusSmokeTestService : IHostedService
 
             // Create the test request using the correct constructor
             var testRequest = new NucleusIngestionRequest(
-                PlatformType: "SmokeTest", // Required: Use a specific type for tests
+                PlatformType: PlatformType.Test, // Required: Use a specific type for tests
                 OriginatingUserId: "smoke-test-user", // Required
                 OriginatingConversationId: "smoke-test-conversation", // Required
                 TimestampUtc: DateTimeOffset.UtcNow, // Required: Use DateTimeOffset

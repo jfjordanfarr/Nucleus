@@ -2,10 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Nucleus.Services\Nucleus.Services.Shared\Nucleus.Services.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup> <!-- Updated references -->
-    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.4.0-preview.1.25207.5" />
+    <PackageReference Include="Microsoft.Extensions.AI.Abstractions" Version="9.4.3-preview.1.25230.7" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.4" /> 
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.4" />

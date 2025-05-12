@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Models.Configuration; // Required for AgenticStrategyParametersBase
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Domain.Personas.Core.Interfaces;
@@ -44,6 +45,13 @@ public class EchoAgenticStrategyHandler : IAgenticStrategyHandler
     {
         if (interactionContext == null) throw new ArgumentNullException(nameof(interactionContext));
         if (personaConfig == null) throw new ArgumentNullException(nameof(personaConfig));
+
+        // TODO: Implement actual salience check logic here.
+        // This placeholder always assumes the interaction is salient for the Echo strategy.
+        if (true) // Placeholder for salience check
+        {
+            _logger.LogInformation("Salience check passed for EchoStrategy. Processing interaction.");
+        }
 
         // Optional: Validate or use parameters if they were defined and passed
         // EchoStrategyParameters? echoParams = strategyParameters as EchoStrategyParameters;

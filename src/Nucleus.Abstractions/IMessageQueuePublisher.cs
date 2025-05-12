@@ -13,6 +13,7 @@ namespace Nucleus.Abstractions;
 /// </summary>
 /// <typeparam name="T">The type of the message payload.</typeparam>
 /// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#342-imessagequeuepublishercs"/>
 public interface IMessageQueuePublisher<in T>
 {
     /// <summary>

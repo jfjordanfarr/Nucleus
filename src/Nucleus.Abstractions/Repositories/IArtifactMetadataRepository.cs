@@ -12,6 +12,7 @@ namespace Nucleus.Abstractions.Repositories;
 /// <seealso cref="../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
 /// <seealso cref="../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#331-iartifactmetadatarepositorycs"/>
 /// </summary>
 public interface IArtifactMetadataRepository
 {

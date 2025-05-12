@@ -1,15 +1,15 @@
 ---
-title: Nucleus OmniRAG System Architecture Overview
-description: A high-level overview of the Nucleus OmniRAG platform architecture, components, deployment models, and codebase structure, emphasizing an API-First approach with reference-based, ephemeral data processing.
-version: 1.3
-date: 2025-04-27
+title: Nucleus System Architecture Overview
+description: A high-level overview of the Nucleus platform architecture, components, deployment models, and codebase structure, emphasizing an API-First approach with reference-based, ephemeral data processing.
+version: 1.5
+date: 2025-05-06
 ---
 
-# Nucleus OmniRAG: System Architecture Overview
+# Nucleus: System Architecture Overview
 
 ## 1. Introduction & Vision
 
-Nucleus OmniRAG is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized **agentic AI assistants ("Personas")**. It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central `Nucleus.Services.Api` project orchestrates all interactions and core logic. **Crucially, Nucleus adheres to strict, non-negotiable security principles**: *It maintains Zero Trust for user file content, meaning the backend never stores or persists raw user files. Instead, files remain in user-controlled storage (e.g., OneDrive, local disk) and the API interacts with them solely via secure `ArtifactReference` objects.* Content is retrieved ephemerally only when necessary for processing ([Security](./06_ARCHITECTURE_SECURITY.md), [Processing](./01_ARCHITECTURE_PROCESSING.md), [Personas](./02_ARCHITECTURE_PERSONAS.md)).
+Nucleus is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized **agentic AI assistants ("Personas")**. It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central `Nucleus.Services.Api` project orchestrates all interactions and core logic. **Crucially, Nucleus adheres to strict, non-negotiable security principles**: *It maintains Zero Trust for user file content, meaning the backend never stores or persists raw user files. Instead, files remain in user-controlled storage (e.g., OneDrive, local disk) and the API interacts with them solely via secure `ArtifactReference` objects.* Content is retrieved ephemerally only when necessary for processing ([Security](./06_ARCHITECTURE_SECURITY.md), [Processing](./01_ARCHITECTURE_PROCESSING.md), [Personas](./02_ARCHITECTURE_PERSONAS.md)).
 
 **Core Goal:** To serve as the central "nucleus" processing information provided by users ("mitochondria") using configured resources (AI models, compute budget/"ATP") to produce insightful outputs ("transcriptome"), as outlined in the [Project Mandate](../Requirements/00_PROJECT_MANDATE.md).
 
@@ -36,6 +36,11 @@ This section provides links to detailed architecture documents for major compone
 
 *   [03_ARCHITECTURE_STORAGE.md](./03_ARCHITECTURE_STORAGE.md) - General storage concepts (embeddings, metadata, source content, accessed via the API service).
 *   [04_ARCHITECTURE_DATABASE.md](./04_ARCHITECTURE_DATABASE.md) - Database schema and interaction patterns (likely Cosmos DB, accessed via the API service).
+
+#### Codebase & Data Structure
+
+*   [11_ARCHITECTURE_NAMESPACES_FOLDERS.md](./11_ARCHITECTURE_NAMESPACES_FOLDERS.md) - Defines the standard namespace and folder structure for the Nucleus project.
+*   [12_ARCHITECTURE_DOMAIN_MODELS.md](./12_ARCHITECTURE_DOMAIN_MODELS.md) - Describes the core data models and entities used throughout the Nucleus system.
 
 #### Interaction & Clients
 

@@ -1,15 +1,15 @@
 ---
 title: Architecture - Nucleus API Service
 description: Overview of the API-First design principles, core responsibilities, endpoint structure, security model, and reference-based interaction patterns for the Nucleus API service.
-version: 0.5
-date: 2025-04-28
-parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
+version: 0.7
+date: 2025-05-06
+parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
 # Nucleus API Service Architecture
 
-**Version:** 0.5
-**Date:** 2025-04-28
+**Version:** 0.7
+**Date:** 2025-05-06
 
 ## 1. Introduction & Principles
 
@@ -24,9 +24,8 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
 *   Authentication & Authorization
 *   Interaction Ingestion & Initial Validation
 *   Activation Check (Link to [API Activation & Routing](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md))
-*   Routing to Synchronous Handlers
-*   Queuing for Asynchronous Processing
-*   Providing Status/Results for Asynchronous Jobs (Mechanism TBD - polling, webhooks?)
+*   Queuing Activated Interactions for Asynchronous Processing
+*   Providing Status/Results for Asynchronous Jobs (via polling endpoints)
 *   Serving Core Data/Metadata (e.g., Persona listing - if applicable via API)
 *   Enforcing Security Boundaries
 
@@ -52,7 +51,7 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
         *   [`AdapterRequest`](../../../Nucleus.Abstractions/Models/AdapterRequest.cs) (Source Code)
     *   **`ArtifactReference`:** Contained within `AdapterRequest`. Provides details needed by the API service's `IArtifactProvider` to locate and ephemerally fetch content from the user's source system. See:
         *   [`ArtifactReference`](../../../Nucleus.Abstractions/Models/ArtifactReference.cs) (Source Code)
-    *   **`InteractionResponse`:** The typical synchronous response DTO (or asynchronous result) containing processing output, status, and potentially references to generated artifacts.
+    *   **`InteractionResponse`:** The DTO containing the final results delivered once an asynchronous interaction job completes successfully. Contains processing output, status, and potentially references to generated artifacts.
     *   **`AsyncJobStatus`:** Response from the status polling endpoint (`GET /interactions/{jobId}/status`), indicating the job's current state (`Queued`, `Processing`, `Completed`, `Failed`).
 *   Error Handling (Standard HTTP status codes, structured JSON error response body)
 
@@ -64,10 +63,10 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md # Assuming a top-level overview exists
 
 ## 6. Asynchronous Processing Pattern
 
-When an API request (e.g., `POST /interactions`) triggers processing expected to be long-running, the API adopts an asynchronous pattern to avoid holding the client connection open.
+When an API request (e.g., `POST /interactions`) results in an activated interaction requiring processing, the API adopts an asynchronous pattern.
 
 *   **Job Submission Response:**
-    *   The API immediately responds with `HTTP 202 Accepted`.
+    *   The API immediately responds with `HTTP 202 Accepted` after successfully validating the request and queueing the interaction task.
     *   The response body **must** include a unique `jobId` (e.g., a GUID string) that the client will use to track the job's progress.
     *   Optionally, the response **may** include a `Location` header pointing to the status endpoint (e.g., `Location: /api/v1/interactions/{jobId}/status`).
     ```json

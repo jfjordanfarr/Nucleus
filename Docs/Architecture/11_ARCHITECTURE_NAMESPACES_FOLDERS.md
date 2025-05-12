@@ -1,8 +1,8 @@
 ---
 title: Architecture - Namespaces and Folder Structure
 description: Defines the standard namespace and folder structure for the Nucleus project, following .NET Aspire conventions and Clean Architecture principles.
-version: 2.2
-date: 2025-05-03
+version: 2.4
+date: 2025-05-07
 parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
@@ -36,7 +36,9 @@ The project root follows the standard .NET Aspire convention:
 ├── tests/                    # Test projects
 │   ├── Integration/          # Integration test projects
 │   │   └── Nucleus.Services.Api.IntegrationTests/
-│   └── (Unit/EndToEnd planned)
+│   ├── Unit/                   # Unit test projects
+│   │   └── Nucleus.Domain.Tests/
+│   └── (EndToEnd planned)
 ├── .gitignore
 ├── Nucleus.sln
 └── README.md
@@ -45,7 +47,7 @@ The project root follows the standard .NET Aspire convention:
 *   **`Aspire/`**: Contains projects specific to .NET Aspire's development-time orchestration (`AppHost`) and shared runtime configurations (`ServiceDefaults`).
 *   **`Docs/`**: Contains all project documentation, including architecture specifications.
 *   **`src/`**: Contains all core source code for the Nucleus application, organized by architectural layer.
-*   **`tests/`**: Contains all automated test projects. Currently focused on Integration tests, with Unit and End-to-End tests planned for the future.
+*   **`tests/`**: Contains all automated test projects. Includes Integration, Unit, and planned End-to-End tests.
 
 ## 3. `src/` Layer Structure
 
@@ -66,8 +68,8 @@ This section lists the individual projects within the Nucleus solution and links
     *   Data persistence implementation (Cosmos DB Repositories).
 *   **[`Nucleus.Infrastructure.Providers`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS.md)** (`src/Nucleus.Infrastructure/Providers/`)
     *   Implementations for accessing external data/resources (e.g., Artifact Providers).
-*   **[`Nucleus.Adapters.Console`](./Namespaces/NAMESPACE_ADAPTERS_CONSOLE.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/`)
-    *   Console client adapter.
+*   **[`Nucleus.Infrastructure.Adapters.Local`](./Namespaces/NAMESPACE_ADAPTERS_LOCAL.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/`)
+    *   Local client adapter.
 *   **[`Nucleus.Adapters.Teams`](./Namespaces/NAMESPACE_ADAPTERS_TEAMS.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/`)
     *   Microsoft Teams client adapter (Bot).
 *   **[`Nucleus.Services.Api`](./Namespaces/NAMESPACE_SERVICES_API.md)** (`src/Nucleus.Services/Nucleus.Services.Api/`)
@@ -77,19 +79,25 @@ This section lists the individual projects within the Nucleus solution and links
 *   **[`Nucleus.ServiceDefaults`](./Namespaces/NAMESPACE_SERVICE_DEFAULTS.md)** (`Aspire/Nucleus.ServiceDefaults/`)
     *   Shared configurations (Telemetry, Health Checks) for Aspire services.
 *   **(Placeholder for `Nucleus.Services.Api.IntegrationTests`)** (`tests/Integration/Nucleus.Services.Api.IntegrationTests/`)
+*   **[`Nucleus.Domain.Tests`](./Namespaces/NAMESPACE_DOMAIN_TESTS.md)** (`tests/Unit/Nucleus.Domain.Tests/`)
+    *   Unit tests for the `Nucleus.Domain` projects, focusing on individual components and logic within the domain layer.
 
-## 5. Naming Conventions
+## 5. `tests/` Layer Structure
 
-*   **Namespaces:** Follow the folder structure precisely. Example: `Nucleus.Infrastructure.Adapters.Teams`.
-*   **Project Files:** `.csproj` files should match the primary namespace and folder name. Example: `src/Infrastructure/Adapters/Nucleus.Adapters.Teams/Nucleus.Infrastructure.Adapters.Teams.csproj`.
+The `tests/` directory is organized by test type, including Integration, Unit, and planned End-to-End tests.
 
-## 6. Dependency Rules
+## 6. Naming Conventions
+
+*   **Namespaces:** Follow the folder structure precisely. Example: `Nucleus.Infrastructure.Adapters.Local`.
+*   **Project Files:** `.csproj` files should match the primary namespace and folder name. Example: `src/Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/Nucleus.Infrastructure.Adapters.Local.csproj`.
+
+## 7. Dependency Rules
 
 *   **Direction:** Dependencies flow inwards: `Services` -> `Infrastructure` -> `Application` -> `Domain`. `Abstractions` can be referenced by any layer except `Domain` (which only references `Abstractions`).
 *   **API-First:** Client Adapters located in `Infrastructure` explicitly depend on and call `Nucleus.Services.Api`. This is an intentional pattern.
 *   **No Circular Dependencies:** Direct circular dependencies between layers (e.g., `Domain` depending on `Application`) are forbidden.
 
-## 7. Dependency Graph
+## 8. Dependency Graph
 
 ```mermaid
 graph LR
@@ -104,7 +112,8 @@ graph LR
     %% Tests Layer
     subgraph tests/
         T_Integration[Integration/Nucleus.Services.Api.IntegrationTests]
-        %% T_Unit(Unit)
+        T_Unit_Domain[Unit/Nucleus.Domain.Tests]
+        T_Infra_Testing[Infrastructure.Testing]
         %% T_EndToEnd(EndToEnd)
     end
 
@@ -123,7 +132,7 @@ graph LR
                  I_Providers[Nucleus.Infrastructure.Providers]
             end
             subgraph Adapters
-                 I_Console[Nucleus.Adapters.Console]
+                 I_Local[Nucleus.Infrastructure.Adapters.Local]
                  I_Teams[Nucleus.Adapters.Teams]
             end
         end
@@ -150,16 +159,15 @@ graph LR
     S_Api --> A;
     S_Api --> I_Data_Persistence;
     S_Api --> I_Providers;
-    S_Api --> I_Console; %% Via DI for potential shared services, not direct calls
+    S_Api --> I_Local; %% Via DI for potential shared services, not direct calls
     S_Api --> I_Teams;   %% Via DI for potential shared services, not direct calls
     S_Api --> D_Processing; %% OrchestrationService lives here
     S_Api --> D_Personas; %% PersonaManager lives here
     S_Api --> Abs;
 
-    I_Data_Persistence --> A; %% Implements App/Abstractions interfaces
     I_Data_Persistence --> Abs;
     I_Providers --> Abs;
-    I_Console --> Abs;
+    I_Local --> Abs;
     I_Teams --> Abs;
 
     A --> D_Processing;
@@ -170,7 +178,6 @@ graph LR
     D_Personas --> Abs;
 
     %% API-First Adapter Dependency (Specific to Adapters)
-    I_Console -- Calls API --> S_Api;
     I_Teams -- Calls API --> S_Api;
 
     %% Aspire Dependencies
@@ -179,29 +186,31 @@ graph LR
     S_Api --> SVC_DEFAULTS; %% Services use shared defaults
 
     %% Test Dependencies
-    %% T_Unit --> A;
-    %% T_Unit --> D_Processing;
+    T_Unit_Domain --> D_Processing;
+    T_Unit_Domain --> D_Personas;
+    T_Unit_Domain --> Abs;
+    T_Unit_Domain -- uses --> T_Infra_Testing;
     T_Integration --> S_Api;
+    T_Integration -- uses --> T_Infra_Testing;
     %% T_Integration --> I_Data_Persistence;
     %% T_EndToEnd --> S_Api; %% Typically tests the API surface
 
     %% Style API First links
-    linkStyle 13 stroke:red,stroke-width:2px,stroke-dasharray: 5 5;
-    linkStyle 14 stroke:red,stroke-width:2px,stroke-dasharray: 5 5;
-
+    linkStyle 21 stroke:red,stroke-width:2px,stroke-dasharray: 5 5; %% For I_Teams -- Calls API --> S_Api (index 21)
 ```
 
-## 8. Testing (`tests/`)
+## 9. Testing (`tests/`)
 
-*   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md) (Placeholder).
-*   **`tests/Unit/`**: Planned for unit tests, currently not implemented.
+*   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/TESTS_API_INTEGRATION.md) (Placeholder).
+*   **`tests/Unit/`**: Contains unit test projects.
+    *   **`Nucleus.Domain.Tests`**: Unit tests for the domain layer components. See [NAMESPACE_DOMAIN_TESTS.md](./Namespaces/NAMESPACE_DOMAIN_TESTS.md).
 *   **`tests/EndToEnd/`**: Planned for end-to-end tests, currently not implemented.
 *   **`Nucleus.Services.Api.IntegrationTests`**: Integration tests specifically targeting the `Nucleus.Services.Api` project, often involving spinning up the web host and making real HTTP requests.
-    *   *Details*: [./11_ARCHITECTURE_NAMESPACES_FOLDERS/TESTS_API_INTEGRATION.md](./11_ARCHITECTURE_NAMESPACES_FOLDERS/TESTS_API_INTEGRATION.md)
+    *   *Details*: [./Namespaces/TESTS_API_INTEGRATION.md](./Namespaces/TESTS_API_INTEGRATION.md)
 *   **`Nucleus.Infrastructure.Testing`**: Contains shared test doubles (mocks, fakes, stubs) and helper classes used by various test projects. This ensures test infrastructure is separate from production code.
-    *   *Details*: [./12_NAMESPACE_INFRASTRUCTURE_TESTING.md](./12_NAMESPACE_INFRASTRUCTURE_TESTING.md)
+    *   *Details*: [./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md](./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md)
 
-## 9. Related Documents
+## 10. Related Documents
 
 *   [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
 *   [10_ARCHITECTURE_API.md](./10_ARCHITECTURE_API.md)

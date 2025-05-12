@@ -154,7 +154,7 @@ dotnet_diagnostic.CA1040.severity = suggestion  # Avoid empty interfaces
 dotnet_diagnostic.CA1724.severity = warning  # Type names should not match namespaces
 dotnet_diagnostic.CA1711.severity = suggestion  # Identifiers should not have incorrect suffix
 
-# Azure and Cosmos DB Patterns (especially relevant for your Nucleus-OmniRAG project)
+# Azure and Cosmos DB Patterns (especially relevant for your Nucleus project)
 dotnet_diagnostic.CA2252.severity = warning  # Prefers StringComparison overloads
 dotnet_diagnostic.CA1834.severity = suggestion  # Use StringBuilder.Append(char) for single character strings
 dotnet_diagnostic.CA1310.severity = warning  # Specify StringComparison for correctness (important for cloud apps)

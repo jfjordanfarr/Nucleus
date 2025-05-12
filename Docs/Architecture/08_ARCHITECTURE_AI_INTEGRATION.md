@@ -1,15 +1,15 @@
 ---
 title: "Architecture: AI Integration (Microsoft.Extensions.AI)"
 description: "Overview of strategies for integrating external AI models using Microsoft.Extensions.AI, emphasizing ephemeral content retrieval via the API service and IArtifactProvider."
-version: 1.8
-date: 2025-04-28
+version: 1.9
+date: 2025-05-06
 ---
 
 # Architecture: AI Integration (using `Microsoft.Extensions.AI`)
 
 **Parent:** [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
-**Version:** 1.8
-**Date:** 2025-04-28
+**Version:** 1.9
+**Date:** 2025-05-06
 
 ## 1. Overview
 

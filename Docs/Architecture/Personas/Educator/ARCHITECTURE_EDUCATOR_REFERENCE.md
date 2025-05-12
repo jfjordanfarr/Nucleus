@@ -1,6 +1,6 @@
 ---
 title: Reference Implementation - Educator Persona
-description: Outlines a conceptual reference implementation for the EduFlow OmniEducator persona within Nucleus OmniRAG.
+description: Outlines a conceptual reference implementation for the EduFlow OmniEducator persona within Nucleus.
 version: 0.1
 date: 2025-04-22
 parent: ../ARCHITECTURE_PERSONAS_EDUCATOR.md

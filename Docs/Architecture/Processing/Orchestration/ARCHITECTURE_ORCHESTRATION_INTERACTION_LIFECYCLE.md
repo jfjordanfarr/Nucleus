@@ -1,112 +1,92 @@
 ---
-title: Architecture - API Interaction Lifecycle (Activation & Hybrid Execution)
-description: Details the process for handling user interactions via the Nucleus API, including initial activation checks (mentions, rules) and subsequent synchronous or asynchronous execution, leveraging the IPersonaRuntime.
-version: 4.5
-date: 2025-04-30
+title: Architecture - Interaction Lifecycle (Activation & Queued Execution)
+description: Details the process for handling user interactions via the Nucleus API, including initial activation checks and subsequent asynchronous execution via the background task queue, leveraging IPersonaRuntime within potentially multi-persona environments.
+version: 4.9
+date: 2025-05-07
 parent: ../ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 ---
 
-# Nucleus: API Interaction Processing Lifecycle (Activation & Hybrid Execution)
+# Nucleus: Interaction Processing Lifecycle (Activation & Queued Execution)
 
 ## 1. Introduction
 
-This document describes the end-to-end lifecycle for processing user interactions initiated via the `Nucleus.Services.Api`, adhering to the [API-First principle](../../10_ARCHITECTURE_API.md). It outlines a model incorporating:
+This document describes the end-to-end lifecycle for processing user interactions initiated via the `Nucleus.Services.Api`, adhering to the [API-First principle](../../10_ARCHITECTURE_API.md). It outlines a model for a system that may host multiple, distinctly scoped Personas, incorporating:
 
-1.  **Activation Check:** An initial step within the API to determine if an incoming interaction warrants processing based on configured rules (e.g., explicit mentions like `@{PersonaName}`, specific scopes, user lists).
-2.  **Hybrid Execution:** Subsequent processing via either:
-    *   **Synchronous Processing:** For quick tasks handled directly.
-    *   **Asynchronous Processing:** For long-running tasks handled by background workers via an internal task queue.
+1.  **Activation Check:** An initial step within the API to determine if an incoming interaction warrants processing based on configured rules (e.g., explicit mentions like `@{PersonaName}`, specific scopes, user lists) and to identify the target Persona.
+2.  **Queued Execution:** Subsequent processing is *always* handled asynchronously via the internal background task queue (`nucleus-background-tasks`) for activated interactions, ensuring operations are correctly scoped to the resolved Persona.
 
 ## 2. API Request Received (Common Starting Point)
 
 All potential interactions begin when a Client Adapter sends an **HTTP request** to a designated `Nucleus.Services.Api` endpoint (e.g., `POST /api/v1/interactions`).
 
 *   **Authentication & Authorization:** Standard checks are performed.
-*   **Request Parsing & Validation:** Request data (message content/metadata, user info, channel/context info, crucially `ArtifactReference` list) is extracted and validated.
+*   **Request Parsing & Validation:** Request data (message content/metadata, user info, channel/context info, crucially `ArtifactReference` list, and identifiers necessary for Persona resolution like originating bot ID or channel ID) is extracted and validated.
 
 ## 3. Activation Check (Within API)
 
 Before any significant processing occurs, the API handler performs an **activation check** based on centrally configured rules:
 
-*   **Rule Evaluation:** The interaction details are compared against rules such as:
+*   **Rule Evaluation:** The interaction details (including `TenantId` and any data from `AdapterRequest` useful for identifying the target Persona) are compared against rules such as:
     *   Presence of a specific mention (e.g., `@{PersonaName}`).
-    *   Originating from a pre-configured scope (channel, team, chat) where the Persona should listen unconditionally.
-    *   Originating from a specific user the Persona is configured to monitor.
+    *   Originating from a pre-configured scope (channel, team, chat) where a specific Persona should listen unconditionally.
+    *   Originating from a specific user a Persona is configured to monitor.
+    *   The originating bot/adapter identifier implying a specific target Persona.
     *   Other custom logic defined for the Persona or system-wide.
+*   **Persona Resolution:** A key outcome of this step is the resolution of the target `PersonaId` (or multiple, if applicable and supported).
 *   **Decision:**
-    *   **If NO activation rule matches:** The API logs the check (optional) and returns a non-committal success response (e.g., `HTTP 200 OK` or `HTTP 204 No Content`). No further Nucleus processing occurs for this interaction.
-    *   **If an activation rule DOES match:** The interaction is deemed relevant, and processing proceeds to the execution phase.
+    *   **If NO activation rule matches OR no target Persona can be resolved:** The API logs the check (optional) and returns a non-committal success response (e.g., `HTTP 200 OK` or `HTTP 204 No Content`). No further Nucleus processing occurs for this interaction.
+    *   **If an activation rule DOES match AND a PersonaId is resolved:** The interaction is deemed relevant, and processing proceeds to the queuing phase, scoped to the resolved `PersonaId`.
 
-## 4. Execution Path Decision (Post-Activation)
+## 4. Interaction Queuing (Post-Activation)
 
-For activated interactions, the API handler determines the appropriate execution path based on the nature of the request (inferred from endpoint, parameters, or initial analysis):
+For all activated interactions, the API handler prepares and enqueues a message for background processing:
 
-*   **Synchronous Path Chosen:** For requests expected to complete quickly.
-*   **Asynchronous Path Chosen:** For tasks expected to be long-running or resource-intensive.
+1.  **Reference Message Creation:**
+    *   The API service gathers the essential **references and identifiers** needed for the background worker to reconstruct the context. This **must not** include raw message content or file content, adhering to the Zero Trust principle ([Security Architecture](../../06_ARCHITECTURE_SECURITY.md#L1-163)). The resolved `PersonaId` is critical here as it dictates all subsequent scoped access.
+    *   Essential data includes:
+        *   `InteractionId` (unique identifier for this specific interaction event).
+        *   `TenantId`.
+        *   Relevant Context IDs (e.g., `UserId`, `SessionId`, `PlatformContextId`).
+        *   List of `ArtifactReference` objects from the original request.
+        *   Resolved `PersonaId`(s) targeted by the activation.
+        *   Correlation ID.
+2.  **Enqueueing the Task:**
+    *   The reference message is serialized and placed onto the `nucleus-background-tasks` Azure Service Bus Queue using the `IBackgroundTaskQueue` abstraction.
+    *   The message includes necessary metadata for routing and processing.
+3.  **API Response:**
+    *   The API handler immediately returns `HTTP 202 Accepted` to the Client Adapter, potentially including a unique `jobId` (if status tracking is implemented) to allow the client to poll for results if needed (though direct notification via `IPlatformNotifier` is preferred).
 
-## 5. Synchronous Interaction Lifecycle ("Fast Path")
+## 5. Background Processing Lifecycle (Asynchronous)
 
-(Activated interactions suitable for immediate response)
+(Handles all activated interactions via the queue)
 
-1.  **Persona Resolution & Configuration Loading:** Resolve the appropriate Persona ID based on the interaction context using `IPersonaResolver`. Load the corresponding `PersonaConfiguration` using `IPersonaConfigurationProvider`.
-2.  **Context Establishment & Ephemeral Content Fetching:** Gather necessary context (`InteractionContext`: user, session, history, request details, `ArtifactReference` list). 
-    *   **Metadata Search (Implicit):** Query the secure metadata index ([`IArtifactMetadataRepository`](../../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs)) based on the interaction context and query to identify potentially relevant artifacts known to the system.
-    *   **Context Ranking (4 R System):** If multiple relevant artifacts are identified via metadata, apply a ranking algorithm to prioritize which ones are most salient for the current task. This **"4 R Ranking System"** typically considers:
-        1.  **Recency:** Last modified/created date of the artifact or related message.
-        2.  **Relevancy:** Semantic and keyword similarity score between the artifact's metadata/summary and the user's query.
-        3.  **Richness:** A metric indicating the substance or completeness of the artifact (e.g., unique word count, length).
-        4.  **Reputation:** User-provided signals like explicit votes (+1/-1), endorsements, or feedback associated with the artifact metadata.
-    *   **Selective Ephemeral Fetching:** Based on the ranking and persona configuration (e.g., `MaxContextDocuments`), request the full content of the *top-ranked* artifacts ephemerally using `IArtifactProvider.GetContentAsync` with the relevant `ArtifactReference`(s) from the original request or metadata search results. *Only the necessary, highly-ranked content is fetched.* Add fetched content (`ArtifactContent`) to the `InteractionContext.ExtractedContents` list.
-3.  **Invoke Core Processing Logic:** Call the shared internal processing method (`ProcessInteractionCoreAsync` in `OrchestrationService`) *synchronously*, passing the `PersonaConfiguration` and the established `InteractionContext` (now including fetched ephemeral content).
-    *   This core logic retrieves the central `IPersonaRuntime` service.
-    *   It then invokes the runtime's processing method (`ExecuteAsync`), providing the `PersonaConfiguration` and `InteractionContext`.
-4.  **Persona Processing (within Runtime/Handler):** The `IPersonaRuntime` resolves the appropriate `IAgenticStrategyHandler` based on the configuration and invokes its `HandleAsync` method. The handler performs its work using the provided data, generating a primary result (`AdapterResponse`) and potentially content for a 'Show Your Work' artifact.
-5.  **Response Generation & Artifact Handling:**
-    *   The `OrchestrationService` receives the `AdapterResponse` (containing the primary result) and potentially any 'Show Your Work' content back from the `IPersonaRuntime`.
-    *   **Conditional Artifact Saving ("Show Your Work"):**
-        *   The configuration for `ShowYourWork` should **default to `true`** for most Personas.
-        *   If true, use the appropriate `IArtifactProvider.SaveAsync` implementation (passing the 'Show Your Work' content and context like Persona ID, interaction details) to persist the artifact in the designated location (e.g., `.Nucleus/Personas/{PersonaId}/ShowYourWork/` in the user's storage). The `IArtifactProvider` handles platform specifics (e.g., Graph API).
-        *   **Rationale:** Saving these artifacts by default is crucial. It enhances the knowledge base by creating pointers (`ArtifactMetadata`) in CosmosDB to detailed reasoning stored securely in user storage. This allows future interactions to leverage past work, improving accuracy not just in responses but also in analyzing and refining tool usage patterns.
-        *   The `AdapterResponse` may include metadata about the saved artifact (e.g., `GeneratedArtifactReference`).
-6.  **HTTP Response:** Return the `AdapterResponse` received from the `IPersonaRuntime` directly in the HTTP response body. Where feasible (depending on platform capabilities surfaced by the Client Adapter), the final message sent to the user should include a link or attachment pointing to the saved 'Show Your Work' artifact.
+1.  **Dequeuing (by `QueuedInteractionProcessorService`):**
+    *   A background service (`QueuedInteractionProcessorService`, typically running as a hosted service) continuously monitors the `nucleus-background-tasks` queue using `IBackgroundTaskQueue.DequeueAsync()`. 
+    *   `DequeueAsync` attempts to retrieve the next available message.
+    *   If successful, it returns a `DequeuedMessage<NucleusIngestionRequest>` object which contains both the deserialized `NucleusIngestionRequest` (the reference message created in Step 4) and the raw `ServiceBusReceivedMessage` context necessary for later completion or abandonment.
 
-## 6. Asynchronous Interaction Lifecycle ("Background Task")
+2.  **Context Reconstruction & Content Fetching (by `QueuedInteractionProcessorService`):**
+    *   Using the `NucleusIngestionRequest` payload (which includes the `TenantId` and `PersonaId`), the service reconstructs the necessary `InteractionContext`.
+    *   This involves using the `ArtifactReference` list and `IArtifactProvider` implementations (like `FileArtifactProvider`, `TeamsAttachmentProvider`, etc.) to fetch the *actual* content of mentioned files or attachments. **Access via `IArtifactProvider` must be scoped and constrained by the permissions and knowledge boundaries defined in the `PersonaConfiguration` associated with the resolved `PersonaId` and `TenantId`.**
+    *   The fetched content (`ArtifactContent` including streams and metadata) is added to the `InteractionContext`.
 
-(Activated interactions suitable for background processing)
+3.  **Persona Execution (Invoking `IPersonaRuntime`):**
+    *   The `QueuedInteractionProcessorService` resolves the `IPersonaRuntime` service.
+    *   It loads the relevant `PersonaConfiguration` using `IPersonaConfigurationProvider` based on the `TenantId` and `ResolvedPersonaId` from the request. This configuration dictates the Persona's behavior, accessible knowledge (e.g., specific SharePoint sites, CosmosDB containers/partitions), and permissions.
+    *   It invokes `IPersonaRuntime.ExecuteAsync()`, passing the loaded (and therefore scoped) `PersonaConfiguration` and the fully reconstructed `InteractionContext`.
+    *   The `PersonaRuntime` executes the appropriate `IAgenticStrategyHandler` based on the persona's configuration.
+    *   The persona logic operates on the ephemerally fetched content and context, adhering to the scopes defined in its configuration to ensure data isolation between different Personas.
 
-1.  **Enqueue Task:**
-    *   The API handler validates the request and activation as per steps 2 & 3.
-    *   It gathers minimal necessary context (request details, user info, resolved Persona ID, `ArtifactReference` list) into a task message (`NucleusIngestionRequest`).
-    *   It places the task message onto a persistent queue (e.g., Azure Queue Storage, Service Bus) via `IMessageQueuePublisher<NucleusIngestionRequest>`.
-    *   The API handler immediately returns `HTTP 202 Accepted` to the Client Adapter, including potentially a unique `jobId` (if status tracking is implemented).
-2.  **Background Worker Processing:**
-    *   Dedicated worker services (`QueuedInteractionProcessorService`) pick tasks from the queue.
-    *   The worker re-hydrates context, resolves the Persona ID, loads the `PersonaConfiguration`, performs **Context Ranking and Selective Ephemeral Fetching** similar to the synchronous path (using the "4 R Ranking System"), populates an `InteractionContext`, and invokes the core processing logic (`ProcessInteractionCoreAsync` which calls `IPersonaRuntime.ExecuteAsync`).
-    *   **Response Generation & Artifact Handling (by Worker/Orchestrator):**
-        *   The worker service (or `ProcessInteractionCoreAsync`/`IPersonaRuntime`) receives the `AdapterResponse`.
-        *   **Conditional Artifact Saving ("Show Your Work"):**
-            *   Configuration should **default to `ShowYourWork: true`**.
-            *   If true, use `IArtifactProvider.SaveAsync` (passing content and context) to persist the artifact. `IArtifactProvider` handles platform specifics.
-            *   **Rationale:** As with the synchronous path, saving this enhances the knowledge base.
-3.  **Result Handling & Client Notification:**
-    *   Worker uses `IPlatformNotifier` to send the primary result (`AdapterResponse.ResponseMessage`) and potentially metadata about the saved 'Show Your Work' artifact back to the originating platform/user.
-    *   Alternatively, results could be stored for polling/webhook retrieval, but direct notification via `IPlatformNotifier` is preferred for simplicity.
+4.  **Execution Result & Message Completion (by `QueuedInteractionProcessorService`):**
+    *   `IPersonaRuntime.ExecuteAsync()` returns a tuple containing the `AdapterResponse` and the `PersonaExecutionStatus`.
+    *   The `QueuedInteractionProcessorService` examines the `PersonaExecutionStatus`:
+        *   **Success / Filtered / NoActionTaken:** These statuses indicate the interaction was processed successfully from the queue's perspective. The service calls `IBackgroundTaskQueue.CompleteAsync()`, passing the message context from the original `DequeuedMessage`, to permanently remove the message from the queue (ACK).
+        *   **Failed / Unknown:** These statuses indicate a failure during persona execution. The service calls `IBackgroundTaskQueue.AbandonAsync()`, passing the message context, to make the message visible again on the queue for potential retries or dead-lettering (NACK).
+    *   Any exceptions caught during steps 1-4 (e.g., failure to fetch content, runtime exceptions) will also typically lead to the message being abandoned via `AbandonAsync` in the service's error handling.
+    *   The `AdapterResponse` payload (if `Success` was true) contains the result generated by the persona. If a response needs to be sent back to the originating platform, the `PersonaRuntime` or its strategy handler is responsible for invoking the appropriate `IPlatformNotifier` (This is **not** handled directly by the `QueuedInteractionProcessorService`).
+    *   Artifacts generated or modified by the persona (e.g., summaries, analysis results) should be saved to persistent storage (e.g., via `IArtifactMetadataRepository`, ensuring data is stored in a way that respects persona/tenant isolation, such as using persona-specific containers or partition keys) by the `PersonaRuntime` or its strategy handler during execution.
 
-## 7. Ephemeral Scratchpad (Conceptual)
-
-Remains relevant during the *active processing phase* (within the `IAgenticStrategyHandler` invoked by `IPersonaRuntime`) to hold temporary state for the activated task.
-
-## 8. Client Adapter Responsibility
-
-Client adapters interact *only* with the API endpoints. They are responsible for:
-*   Sending interaction details (including `ArtifactReference` list) to the API (e.g., `POST /api/v1/interactions`).
-*   Handling the immediate API response:
-    *   If non-activating (`200 OK`/`204 No Content`), no further action needed.
-    *   If synchronous result (`200 OK` with body), present it to the user.
-    *   If asynchronous acknowledgment (`202 Accepted`), store the `jobId` (if provided) and implement a mechanism (polling, webhook receiver) to retrieve and present the final result later.
-*   **(See Section 9) Monitoring for and reporting user feedback reactions.**
-
-## 9. Capturing User Feedback (Ranking Signal)
+## 6. Capturing User Feedback (Ranking Signal)
 
 To continuously improve Persona performance and response quality, capturing explicit user feedback is essential.
 
@@ -126,32 +106,42 @@ To continuously improve Persona performance and response quality, capturing expl
     *   It updates the metadata (or a related feedback entity/field) to store this ranking signal (e.g., incrementing a `PositiveFeedbackCount` or `NegativeFeedbackCount`, or storing timestamped feedback events).
     *   This feedback data becomes a valuable signal for future analysis, fine-tuning, and potentially influencing retrieval or generation strategies.
 
-## 10. Related Core Components
+## 7. Related Core Components
 
 The interaction lifecycle described involves several key components:
 
-*   **Orchestration Service:** Coordinates the overall flow.
+*   **API Interaction Controller:** Entry point for all interactions, receives requests from Client Adapters.
+    *   Implementation: [`InteractionController`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
+*   **Orchestration Service:** Coordinates the overall flow, including activation and queuing.
     *   Interface: [`IOrchestrationService`](../../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)
     *   Implementation: [`OrchestrationService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs)
+*   **Activation Checker:** Determines if an interaction should activate a Persona based on configured rules.
+    *   Interface: [`IActivationChecker`](../../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)
+    *   Implementation (Example): [`ActivationChecker`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)
+*   **Persona Resolver:** Identifies the target `PersonaId` based on the incoming request and platform context.
+    *   Interface: [`IPersonaResolver`](../../../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)
+    *   Implementation (Example): [`DefaultPersonaResolver`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/DefaultPersonaResolver.cs)
 *   **Persona Runtime:** Handles execution based on configuration.
     *   Interface: [`IPersonaRuntime`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs)
     *   Implementation: [`PersonaRuntime`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/PersonaRuntime.cs)
 *   **Agentic Strategy Handler:** Implements specific persona logic.
     *   Interface: [`IAgenticStrategyHandler`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs)
     *   Implementation (Example): [`EchoAgenticStrategyHandler`](../../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Strategies/EchoAgenticStrategyHandler.cs)
-*   **Persona Configuration:** Provides persona settings.
+*   **Persona Configuration:** Provides persona settings, including knowledge scopes and operational parameters. It is critical for multi-persona isolation.
     *   Interface: [`IPersonaConfigurationProvider`](../../../../src/Nucleus.Abstractions/Models/Configuration/IPersonaConfigurationProvider.cs)
     *   Implementation (Example): [`InMemoryPersonaConfigurationProvider`](../../../../src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/Configuration/InMemoryPersonaConfigurationProvider.cs)
-*   **Artifact Handling:** Manages access to external content.
+*   **Artifact Handling:** Manages access to external content, **operating within the scopes defined by the active Persona's configuration.**
     *   Interface: [`IArtifactProvider`](../../../../src/Nucleus.Abstractions/IArtifactProvider.cs)
-    *   Implementation (Example): [`ConsoleArtifactProvider`](../../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Services/ConsoleArtifactProvider.cs)
-*   **Metadata Storage:** Persists information about artifacts.
+    *   Implementation (Example): `LocalFileArtifactProvider` (Conceptual example for handling local file system paths)
+*   **Metadata Storage:** Persists information about artifacts, **ensuring data is segregated or partitioned appropriately for multi-tenant/multi-persona scenarios.**
     *   Interface: [`IArtifactMetadataRepository`](../../../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs)
     *   Implementations:
         *   [`CosmosDbArtifactMetadataRepository`](../../../../src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/Repositories/CosmosDbArtifactMetadataRepository.cs)
         *   [`InMemoryArtifactMetadataRepository`](../../../../src/Nucleus.Infrastructure/Data/Nucleus.Infrastructure.Persistence/Repositories/InMemoryArtifactMetadataRepository.cs)
 *   **Asynchronous Processing:** Handles background tasks.
-    *   Implementation: [`QueuedInteractionProcessorService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs) (*Handles dequeuing and processing*)
-    *   Interface (Notification): [`IPlatformNotifier`](../../../../src/Nucleus.Abstractions/Orchestration/IPlatformNotifier.cs) (*Used by worker to send results*)
+    *   Interface (Queue): [`IBackgroundTaskQueue`](../../../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs) (*Defines queue operations like Enqueue, Dequeue, Complete, Abandon*)
+    *   Implementation (Queue): [`ServiceBusBackgroundTaskQueue`](../../../../src/Nucleus.Services/Nucleus.Services.Api/Infrastructure/Messaging/ServiceBusBackgroundTaskQueue.cs) (*Azure Service Bus implementation*)
+    *   Implementation (Processor): [`QueuedInteractionProcessorService`](../../../../src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs) (*Hosted service that dequeues, orchestrates processing via PersonaRuntime, and manages message lifecycle [ACK/NACK]*)
+    *   Interface (Notification): [`IPlatformNotifier`](../../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs) (*Used by PersonaRuntime/Strategies to send results*)
 
-This refined model separates the initial *activation decision* from the subsequent *execution strategy* driven by `IPersonaRuntime`, ensuring proper separation of concerns for data handling and incorporating valuable user feedback loops.
+This refined model separates the initial *activation decision* (including Persona resolution) from the subsequent *queued execution*, ensuring all processing happens asynchronously via background workers, adhering to security principles by passing only references, enforcing persona-specific scopes for data access, and incorporating valuable user feedback loops.

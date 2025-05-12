@@ -1,13 +1,13 @@
 ---
 title: Architecture - Database (Azure Cosmos DB)
 description: Details the Azure Cosmos DB structure for storing ArtifactMetadata and PersonaKnowledgeEntry records (using JsonElement for analysis data), managed exclusively via the API service.
-version: 2.5
-date: 2025-05-03
+version: 2.6
+date: 2025-05-06
 ---
 
 # Nucleus: Database Architecture (Azure Cosmos DB)
 
-This document details the architecture of the backend database used by Nucleus OmniRAG, utilizing Azure Cosmos DB for NoSQL, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). Cosmos DB serves as the central persistence layer for **all** Nucleus-managed metadata, including both the primary **`ArtifactMetadata`** records describing source artifacts (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)) and the **`PersonaKnowledgeEntry`** records containing persona-specific analysis (see [Persona Architecture](./02_ARCHITECTURE_PERSONAS.md)). **Crucially, all database operations are managed and mediated exclusively by the `Nucleus.Services.Api` layer.**
+This document details the architecture of the backend database used by Nucleus, utilizing Azure Cosmos DB for NoSQL, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). Cosmos DB serves as the central persistence layer for **all** Nucleus-managed metadata, including both the primary **`ArtifactMetadata`** records describing source artifacts (see [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)) and the **`PersonaKnowledgeEntry`** records containing persona-specific analysis (see [Persona Architecture](./02_ARCHITECTURE_PERSONAS.md)). **Crucially, all database operations are managed and mediated exclusively by the `Nucleus.Services.Api` layer.**
 
 ## 1. Core Principle: Centralized Metadata in Cosmos DB, Managed via API
 

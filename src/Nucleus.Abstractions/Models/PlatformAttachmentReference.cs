@@ -3,8 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using Nucleus.Abstractions.Adapters;
 
-namespace Nucleus.Abstractions;
+namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Represents a reference to an attachment or file originating from a specific platform.

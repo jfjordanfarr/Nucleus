@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Orchestration;
 using System;
 using System.Threading;
@@ -24,6 +25,11 @@ public class DefaultPersonaResolver : IPersonaResolver
     private readonly ILogger<DefaultPersonaResolver> _logger;
     private const string DefaultPersonaId = "Default_v1"; // Define the default ID
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DefaultPersonaResolver"/> class.
+    /// </summary>
+    /// <param name="logger">The logger.</param>
+    /// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Persona Resolution</seealso>
     public DefaultPersonaResolver(ILogger<DefaultPersonaResolver> logger)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));

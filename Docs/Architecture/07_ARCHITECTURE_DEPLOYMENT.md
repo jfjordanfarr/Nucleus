@@ -1,14 +1,12 @@
 ---
-title: Nucleus OmniRAG Deployment Architecture Overview
+title: Nucleus Deployment Architecture Overview
 description: Provides an overview of deployment strategies and links to detailed architectures for Azure, Cloudflare, and Self-Hosting.
-version: 2.6
-date: 2025-04-28
+version: 2.7
+date: 2025-05-06
 ---
 
-# Nucleus OmniRAG: Deployment Architecture Overview
+# Nucleus: Deployment Architecture Overview
 
-**Version:** 2.6
-**Date:** 2025-04-28
 
 This document provides a high-level overview of the deployment architecture for the Nucleus OmniRAG system, complementing the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It establishes the core principles and links to detailed strategies for specific deployment targets.
 
@@ -24,7 +22,7 @@ The deployment architecture prioritizes:
 
 ## 2. Abstract Deployment Requirements
 
-Regardless of the specific target environment, Nucleus OmniRAG fundamentally requires a set of core infrastructure capabilities. These abstract requirements are defined in detail in:
+Regardless of the specific target environment, Nucleus fundamentally requires a set of core infrastructure capabilities. These abstract requirements are defined in detail in:
 
 *   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md):** Defines the conceptual building blocks (Compute Runtime, Messaging Queue, Document/Vector Database) needed, independent of specific providers. The primary code implementation of the Compute Runtime is the [Nucleus API Service](../../src/Nucleus.Services/Nucleus.Services.Api/Program.cs).
 

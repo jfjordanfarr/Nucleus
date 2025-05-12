@@ -1,18 +1,15 @@
 ---
-title: Nucleus OmniRAG Security Architecture & Data Governance
-description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus OmniRAG platform.
-version: 1.5
-date: 2025-04-27
+title: Nucleus Security Architecture & Data Governance
+description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus platform.
+version: 1.7
+date: 2025-05-06
 ---
 
-# Nucleus OmniRAG: Security Architecture & Data Governance
-
-**Version:** 1.5
-**Date:** 2025-04-27
+# Nucleus: Security Architecture & Data Governance
 
 ## 1. Introduction
 
-Security and responsible data governance are paramount for the Nucleus OmniRAG platform, especially given its interaction with potentially sensitive user information and its deployment in both individual (Cloud-Hosted) and team/organizational (Self-Hosted) contexts, as outlined in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). This document outlines the core security principles, data boundaries, authentication/authorization strategies, and responsibilities.
+Security and responsible data governance are paramount for the Nucleus platform, especially given its interaction with potentially sensitive user information and its deployment in both individual (Cloud-Hosted) and team/organizational (Self-Hosted) contexts, as outlined in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). This document outlines the core security principles, data boundaries, authentication/authorization strategies, and responsibilities.
 
 ## 2. Data Governance & Boundaries
 
@@ -22,7 +19,7 @@ Nucleus is designed to process user data, not to be its primary custodian. The c
 *   **API File Interaction:**
     *   The Nucleus API Service (`Nucleus.Services.Api`) **DOES NOT support direct file uploads**. This capability has been explicitly removed to minimize attack surface and enforce the zero-trust principle.
     *   The API interacts with files **only** through secure `ArtifactReference` objects provided within API request payloads. These references point to content in the user's controlled storage.
-    *   The [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations are responsible for resolving these references and retrieving content *ephemerally* when requested by a persona during processing.
+    *   The [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations are responsible for resolving these references and retrieving content *ephemerally* when requested by a persona **during asynchronous processing within a background worker**.
 *   **Nucleus ArtifactMetadata:**
     *   Stored within the **Nucleus [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md)**.
     *   Contains sanitized metadata *about* the source file (identifiers, hashes, timestamps, content type, [processing](./01_ARCHITECTURE_PROCESSING.md) status, originating context, etc.). Crucially, this metadata serves as a **Secure Index** for personas to understand available knowledge without accessing raw content.
@@ -53,7 +50,7 @@ graph TD
         KV[Key Vault]
         Teams[Teams Client]
         Adapter[Nucleus Adapter/API]
-        Proc[Processing Service]
+        Proc[Processing/Orchestration (Worker)]
         Persona[Persona Modules]
         AI[AI Service]
         Cosmos[Cosmos DB]
@@ -65,7 +62,7 @@ graph TD
     Adapter -- Authenticate --> Api
     Api -- Retrieves Secrets --> KV
     Api -- Uses OAuth Token --> CS
-    Api -- Fetches Source Data --> Proc
+    Api -- Queues Task --> Proc
     Proc -- Processes Data --> Persona
     Persona -- Uses AI --> AI
     Proc -- Stores Metadata --> Cosmos
@@ -75,17 +72,16 @@ graph TD
 *   The **User's Domain** holds the original sensitive artifacts in their designated cloud storage.
 *   The **Nucleus Domain** contains the application components:
     *   [Adapters/API](./05_ARCHITECTURE_CLIENTS.md) handle user interaction and external requests.
-    *   Transient [Processing Services](./01_ARCHITECTURE_PROCESSING.md) handle sensitive data ephemerally during analysis.
-    *   [Persona Modules](./02_ARCHITECTURE_PERSONAS.md) perform specialized analysis.
+    *   [Processing/Orchestration](./01_ARCHITECTURE_PROCESSING.md) components (primarily **background workers**) handle the analysis and generation of derived data (knowledge entries, embeddings).
+    *   [`Nucleus.Services.Api`](../../../src/Nucleus.Services/Nucleus.Services.Api/Program.cs) orchestrates interactions, performs activation checks, **queues activated tasks**, manages OAuth flows (if applicable for storage providers), retrieves secrets, and handles `ArtifactReference` objects.
     *   The [Database (Cosmos DB)](./04_ARCHITECTURE_DATABASE.md) stores only derived metadata and knowledge.
     *   Key Vault secures credentials.
-    *   **[`Nucleus.Services.Api`](../../../src/Nucleus.Services/Nucleus.Services.Api/Program.cs)** orchestrates interactions, manages OAuth flows (if applicable for storage providers), retrieves secrets, and handles `ArtifactReference` objects.
-*   **Interactions:**
-    *   Adapters authenticate primarily with their respective platforms (e.g., Teams Bot authentication).
-    *   The **`Nucleus.Services.Api`** authenticates with Key Vault to retrieve secrets for core backend services (Database, AI, etc.).
-    *   The **API service orchestrates** interactions with external storage *via `ArtifactReference` resolution*. It may direct adapters on how to interact (e.g., providing specific tokens or parameters obtained securely) or handle the interaction directly via [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations within the context of the [`OrchestrationService`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs).
-    *   Data flows ephemerally through processing and persona layers only when content retrieval is explicitly requested based on an `ArtifactReference`.
-*   Access to user data is governed by the permissions granted during the OAuth consent flow, respecting the source system's controls.
+    *   **Interactions:**
+        *   Adapters authenticate primarily with their respective platforms (e.g., Teams Bot authentication).
+        *   The **`Nucleus.Services.Api`** authenticates with Key Vault to retrieve secrets for core backend services (Database, AI, etc.).
+        *   The **API service orchestrates** interactions with external storage *via `ArtifactReference` resolution*. It may direct adapters on how to interact (e.g., providing specific tokens or parameters obtained securely) or handle the interaction directly via [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) implementations within the context of the [`OrchestrationService`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/OrchestrationService.cs).
+        *   Data flows ephemerally through processing and persona layers only when content retrieval is explicitly requested based on an `ArtifactReference`.
+    *   Access to user data is governed by the permissions granted during the OAuth consent flow, respecting the source system's controls.
 
 ### Where Sensitive Information is Okay
 
@@ -120,13 +116,12 @@ A multi-layered approach handles user identity and access to resources.
     *   **Hosted Model (Transitory Access):**
         *   **MUST NOT** request the `offline_access` scope during the storage OAuth flow.
         *   Obtains short-lived **access tokens** only.
-        *   Access tokens are used for immediate operations and then discarded.
-    *   **Self-Hosted Model (Optional Persistent Access):**
-        *   Persistent background access requires an **explicit configuration flag** (`EnableBackgroundStorageAccess: true`) and explicit user/admin consent for `offline_access`.
-        *   If enabled, **MAY** request the `offline_access` scope during storage OAuth flow.
-        *   If requested and granted, receives a **refresh token** in addition to the access token.
-        *   **CRITICAL:** The **`Nucleus.Services.Api`** is responsible for securely retrieving refresh tokens from the configured secure store (e.g., Azure Key Vault, HashiCorp Vault, HSM-backed encryption) provided by the hosting organization. The hosting organization is responsible for the secure *provisioning and infrastructure* of that store.
-        *   The **API service's background workers** securely use the refresh token to obtain new access tokens as needed.
+        *   Tokens are cached securely (e.g., encrypted in memory or a secure cache like Redis if scaled out) by the API service for the duration of the user's session or token lifetime.
+        *   **No refresh tokens** are stored or used in this model.
+    *   **Self-Hosted Model (Persistent Access):**
+        *   **MAY** request the `offline_access` scope (configurable) to obtain **refresh tokens**.
+        *   Refresh tokens **MUST** be stored encrypted at rest (e.g., in Azure Key Vault or equivalent).
+        *   The **API service's background workers** (or potentially the API service itself when initiating tasks) securely use the refresh token to obtain new access tokens as needed.
 *   **RBAC Delegation:** Nucleus operates within the permissions granted through the OAuth consent flow. Access control to specific files/folders within the user/team storage is **governed by the underlying storage provider's RBAC rules** ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), not by Nucleus itself.
 
 ## 4. Secrets Management
@@ -159,4 +154,4 @@ Leverage platform capabilities and best practices.
 
 *   **Audit Logs (Future):** While not detailed in V1.0, future iterations, particularly for team/enterprise use, may require robust audit logging of user actions, data access, and administrative changes. The architecture should facilitate adding such capabilities later (e.g., logging interactions via the [API layer](./07_ARCHITECTURE_DEPLOYMENT.md), [processing events](./01_ARCHITECTURE_PROCESSING.md)).
 
-This document serves as the guiding framework for security decisions within the Nucleus OmniRAG project. It will be updated as the architecture evolves.
+This document serves as the guiding framework for security decisions within the Nucleus project. It will be updated as the architecture evolves.

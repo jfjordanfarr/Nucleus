@@ -61,6 +61,13 @@ public class PersonaConfiguration
     #region Operational Settings (2.2)
 
     /// <summary>
+    /// Indicates whether this persona configuration is currently active and should be processed.
+    /// If false, interactions for this persona will typically be abandoned with a warning.
+    /// Optional. Defaults to true.
+    /// </summary>
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
     /// If true, the Persona Runtime's interaction processing will generate an internal reasoning/planning artifact ('ShowYourWork').
     /// The Client Adapter is responsible for persisting this artifact.
     /// Optional, Defaults to true.
@@ -106,6 +113,12 @@ public class PersonaConfiguration
     /// Optional.
     /// </summary>
     public List<string> EnabledTools { get; } = new();
+
+    /// <summary>
+    /// Configuration for data governance, including allowed tenants and conversation IDs.
+    /// Optional.
+    /// </summary>
+    public DataGovernanceConfiguration DataGovernance { get; set; } = new();
 
     /// <summary>
     /// Defines how the persona accesses user knowledge artifacts and dedicated knowledge containers.
@@ -320,4 +333,26 @@ public enum AgenticStrategyType
     /// Key: "Echo"
     /// </summary>
     Echo // Added Echo strategy type
+}
+
+/// <summary>
+/// Defines data governance settings for a persona, such as restrictions on tenant or conversation access.
+/// </summary>
+public class DataGovernanceConfiguration
+{
+    /// <summary>
+    /// If populated, the persona will only activate or process requests originating from these Tenant IDs.
+    /// An empty list implies no tenant-based restriction at this level.
+    /// Optional.
+    /// </summary>
+    public List<string> AllowedTenantIds { get; init; } = new();
+
+    /// <summary>
+    /// If populated, the persona will only activate or process requests within these specific Conversation IDs.
+    /// An empty list implies no conversation-based restriction at this level.
+    /// Optional.
+    /// </summary>
+    public List<string> AllowedConversationIds { get; init; } = new();
+
+    // Future: May include settings for data retention, PII handling, logging levels related to data access, etc.
 }

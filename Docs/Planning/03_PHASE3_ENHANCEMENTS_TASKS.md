@@ -1,8 +1,8 @@
 ---
 title: "Phase 3: API Enhancements & Advanced Personas Tasks"
 description: "Detailed tasks for implementing Nucleus Phase 3 enhancements, focusing on sophisticated personas, advanced metadata extraction, 4 R ranking, caching, and configuration."
-version: 1.3
-date: 2025-04-27
+version: 1.4
+date: 2025-05-06
 ---
 
 # Phase 3: API Enhancements & Advanced Personas Tasks
@@ -17,7 +17,7 @@ This document details the specific tasks required to complete Phase 3, primarily
 ## `ISSUE-ENH-PERSONA-01`: Develop Sophisticated Personas (within ApiService)
 
 *   [ ] **TASK-P3-PER-E01:** Design specialized Persona capability requirements (e.g., for Education, Code Assistance):
-    *   Define specific analytical goals and desired structured output models (e.g., `EduFlowAnalysis`, `CodeCompanionAnalysis` C# records).
+    *   Define specific analytical goals and desired structured JSON output (to be stored in `PersonaKnowledgeEntry.AnalysisData`) for different persona capabilities (e.g., for Education, for Code Assistance).
     *   Define agentic workflow steps (e.g., initial analysis of ephemeral content, use of `IRetrievalService` for related metadata/knowledge, synthesis steps).
     *   Define prompts for analysis and query handling specific to the capability.
 *   [ ] **TASK-P3-PER-E02:** Implement new `IPersona` classes incorporating agentic steps:

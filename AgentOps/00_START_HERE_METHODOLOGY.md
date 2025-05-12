@@ -1,8 +1,8 @@
 ---
 title: AgentOps - Nucleus Development Methodology
 description: Supplementary AgentOps methodology for AI-assisted development within the Nucleus project.
-version: 1.1
-date: 2025-04-18
+version: 1.2
+date: 2025-05-06
 ---
 
 # AgentOps Methodology for Nucleus (.NET 9 / Aspire / Azure Cosmos DB Backend)

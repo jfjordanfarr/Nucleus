@@ -1,19 +1,19 @@
 ---
 title: Architecture - API Client Interaction Pattern
-description: Defines how Nucleus Client Adapters should interact with the Nucleus API Service using AdapterRequest and ArtifactReferences, including request construction, response handling (sync/async), and polling.
-version: 0.3
-date: 2025-04-27
+description: Defines how Nucleus Client Adapters should interact with the Nucleus API Service using AdapterRequest and ArtifactReferences, including request construction, response handling (async), and polling.
+version: 0.5
+date: 2025-05-05
 parent: ../10_ARCHITECTURE_API.md
 ---
 
 # API Client Interaction Pattern
 
-**Version:** 0.3
-**Date:** 2025-04-27
+**Version:** 0.5
+**Date:** 2025-05-05
 
 ## 1. Introduction
 
-This document details the standard pattern Client Adapters (e.g., Teams, Console, Email) **must** follow when interacting with the central `Nucleus.Services.Api`. It acts as the bridge between platform-specific logic within an adapter and the core processing capabilities exposed by the API.
+This document details the standard pattern Client Adapters (e.g., Teams, Local, Email) **must** follow when interacting with the central `Nucleus.Services.Api`. It acts as the bridge between platform-specific logic within an adapter and the core processing capabilities exposed by the API.
 
 This pattern covers all interactions submitted via the primary `POST /api/v1/interactions` endpoint, utilizing the `AdapterRequest` DTO which includes `ArtifactReference` objects for context.
 
@@ -23,7 +23,7 @@ Adherence to this pattern ensures consistency and leverages the API-First archit
 
 *   **Purpose:** Translating a platform-specific event (message, command, file share) into the standardized `AdapterRequest` DTO.
 *   **Key Fields to Populate (Refer to [`AdapterRequest.cs`](../../../src/Nucleus.Abstractions/Models/AdapterRequest.cs) for definitive structure):**
-    *   `PlatformType` (e.g., "Teams", "Console", "Email").
+    *   `PlatformType` (e.g., "Teams", "Local", "Email").
     *   `UserId` (Platform-specific user identifier).
     *   `ConversationId` (Platform-specific channel/chat/session identifier).
     *   `MessageId` (Platform-specific message identifier, if applicable).
@@ -42,19 +42,16 @@ Adherence to this pattern ensures consistency and leverages the API-First archit
 
 Adapters must handle different HTTP status codes returned by `POST /interactions`:
 
-*   **HTTP 200 OK (Synchronous Completion):**
-    *   The API processed the request synchronously and successfully.
-    *   The response body contains the result (e.g., `InteractionResponse` DTO).
-    *   Adapter translates this result back to the platform format (e.g., send reply message).
 *   **HTTP 202 Accepted (Asynchronous Accepted):**
-    *   The API accepted the request for asynchronous processing.
+    *   The API successfully validated the request and accepted it for asynchronous processing by queueing the interaction task.
     *   The response body contains the `jobId`.
     *   The adapter **must** store this `jobId` (potentially associated with the original platform context) and initiate the polling process (see Section 4).
 *   **HTTP 204 No Content (Activation Check Failed / No Action):**
     *   The API received the request, but the Activation Check determined no action was required.
     *   The adapter should typically do nothing further.
 *   **HTTP 4xx/5xx (Errors):**
-    *   Handle standard HTTP errors (e.g., 400 Bad Request, 401 Unauthorized, 500 Internal Server Error).
+    *   Handle standard HTTP errors (e.g., 400 Bad Request for invalid input, 401 Unauthorized, 500 Internal Server Error).
+    *   These errors indicate the request could not be successfully validated or queued.
     *   Log the error, potentially notify the user/admin on the platform.
 
 ## 4. Polling for Asynchronous Job Status
@@ -75,7 +72,8 @@ Once the status is `Completed`:
 *   **API Endpoint:** `GET /api/v1/interactions/{jobId}/result`
 *   **Handling Result Response:**
     *   The response body contains the final output (e.g., `InteractionResponse` DTO, potentially other formats indicated by `Content-Type`).
-    *   Adapter translates this result back to the platform format (e.g., send reply message, upload generated file).
+    *   Adapter translates this result back to the platform format (e.g., create a Teams Activity, return data to the calling process, compose an email).
+    *   Handle potential artifact links or generated files as required by the platform, noting that generated artifacts are also saved back to the user's source system via the API and adapters.
 
 ## 6. Error Handling Considerations
 
@@ -85,8 +83,8 @@ Once the status is `Completed`:
 ## 7. Translating Results Back to Platform
 
 *   This is the reverse of Step 2.
-*   Take the `InteractionResponse` (or other result format) from the API (received synchronously or via async result retrieval).
-*   Format it appropriately for the target platform (e.g., create a Teams Activity, format console output, compose an email).
+*   Take the `InteractionResponse` (or other result format) retrieved from the API's asynchronous result endpoint (`GET /interactions/{jobId}/result`).
+*   Format it appropriately for the target platform (e.g., create a Teams Activity, return data to the calling process, compose an email).
 *   Handle potential artifact links or generated files as required by the platform, noting that generated artifacts are also saved back to the user's source system via the API and adapters.
 
 ## 8. Related Documents
@@ -99,8 +97,5 @@ Once the status is `Completed`:
 
 ## 9. Implementation Examples
 
-*   **Console Adapter:**
-    *   Request Construction/Sending: [`Program.cs#HandleInteractiveAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Program.cs)
-    *   API Agent: [`NucleusApiServiceAgent.cs#SendInteractionAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Console/Services/NucleusApiServiceAgent.cs)
 *   **Teams Adapter:**
     *   Request Construction/Sending: [`TeamsAdapterBot.cs#OnMessageActivityAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs)

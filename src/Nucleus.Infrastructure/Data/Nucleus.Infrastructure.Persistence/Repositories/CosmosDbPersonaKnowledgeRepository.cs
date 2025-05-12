@@ -1,9 +1,8 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Nucleus.Abstractions;
 using Nucleus.Abstractions.Models;
-using Nucleus.Abstractions.Models.Configuration; 
+using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Repositories;
 using System;
 using System.Collections.Generic;
@@ -14,37 +13,34 @@ using System.Threading.Tasks;
 namespace Nucleus.Infrastructure.Data.Persistence.Repositories;
 
 /// <summary>
-/// Cosmos DB implementation for storing and retrieving PersonaKnowledgeEntry records.
-/// Corresponds to architecture doc: ARCHITECTURE_PERSISTENCE_REPOSITORIES.md
+/// Implements the <see cref="IPersonaKnowledgeRepository"/> for Azure Cosmos DB.
 /// </summary>
 public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
 {
-    private readonly CosmosClient _cosmosClient;
-    private readonly string _databaseName;
-    private readonly string _containerName;
     private readonly Container _container;
     private readonly ILogger<CosmosDbPersonaKnowledgeRepository> _logger;
 
-    public CosmosDbPersonaKnowledgeRepository(CosmosClient cosmosClient, IOptions<CosmosDbSettings> cosmosDbOptions, ILogger<CosmosDbPersonaKnowledgeRepository> logger)
+    public CosmosDbPersonaKnowledgeRepository(
+        CosmosClient cosmosClient,
+        IOptions<CosmosDbSettings> cosmosDbSettingsOptions,
+        ILogger<CosmosDbPersonaKnowledgeRepository> logger)
     {
-        _cosmosClient = cosmosClient ?? throw new ArgumentNullException(nameof(cosmosClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        var settings = cosmosDbOptions?.Value ?? throw new ArgumentNullException(nameof(cosmosDbOptions), "CosmosDbSettings cannot be null.");
+        ArgumentNullException.ThrowIfNull(cosmosClient);
+        ArgumentNullException.ThrowIfNull(cosmosDbSettingsOptions?.Value);
 
-        _databaseName = settings.DatabaseName;
-        _containerName = settings.KnowledgeContainerName;
-
-        if (string.IsNullOrWhiteSpace(_databaseName))
+        var settings = cosmosDbSettingsOptions.Value;
+        if (string.IsNullOrWhiteSpace(settings.DatabaseName))
         {
-            throw new ArgumentException("Cosmos DB DatabaseName cannot be null or empty in settings.", nameof(cosmosDbOptions));
+            throw new ArgumentException("CosmosDB DatabaseName is not configured.", nameof(settings.DatabaseName));
         }
-        if (string.IsNullOrWhiteSpace(_containerName))
+        if (string.IsNullOrWhiteSpace(settings.KnowledgeContainerName))
         {
-            throw new ArgumentException("Cosmos DB KnowledgeContainerName cannot be null or empty in settings.", nameof(cosmosDbOptions));
+            throw new ArgumentException("CosmosDB KnowledgeContainerName is not configured.", nameof(settings.KnowledgeContainerName));
         }
 
-        _container = _cosmosClient.GetContainer(_databaseName, _containerName);
-        _logger.LogInformation("CosmosDbPersonaKnowledgeRepository initialized for Database '{DatabaseName}', Container '{ContainerName}'.", _databaseName, _containerName);
+        var database = cosmosClient.GetDatabase(settings.DatabaseName);
+        _container = database.GetContainer(settings.KnowledgeContainerName);
     }
 
     // Partition key is TenantId for PersonaKnowledge
@@ -58,6 +54,7 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
         return new PartitionKey(tenantId);
     }
 
+    /// <inheritdoc />
     public async Task<PersonaKnowledgeEntry?> GetByIdAsync(string id, string partitionKey) // partitionKey here is TenantId
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -89,6 +86,7 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
         }
     }
 
+    /// <inheritdoc />
     public async Task<IEnumerable<PersonaKnowledgeEntry>> GetByArtifactIdAsync(string artifactId, string partitionKey) // partitionKey here is TenantId
     {
         if (string.IsNullOrWhiteSpace(artifactId))
@@ -134,18 +132,10 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
         }
     }
 
+    /// <inheritdoc />
     public async Task<PersonaKnowledgeEntry> SaveAsync(PersonaKnowledgeEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry, nameof(entry));
-
-        // ID is now a required init-only property, set during object creation.
-        // If an ID needs to be generated here, the model definition or creation logic needs adjustment.
-        // Assuming Id is correctly set before calling SaveAsync.
-        // Example (if Id generation was needed here, which contradicts 'init'):
-        // var entryToSave = string.IsNullOrWhiteSpace(entry.Id)
-        //     ? entry with { Id = Guid.NewGuid().ToString() }
-        //     : entry;
-        // _logger.LogDebug("Ensured ID '{Id}' for PersonaKnowledgeEntry.", entryToSave.Id);
 
         // Ensure TenantId is present for partition key
         if (string.IsNullOrWhiteSpace(entry.TenantId))
@@ -156,7 +146,6 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
 
         try
         {
-            // Upsert the original entry, assuming Id is correctly initialized
             ItemResponse<PersonaKnowledgeEntry> response = await _container.UpsertItemAsync(entry, GetPartitionKey(entry.TenantId));
             _logger.LogInformation("Saved knowledge entry with ID '{Id}' and partition key '{PartitionKey}'. Status Code: {StatusCode}, Charge: {Charge} RU.", entry.Id, entry.TenantId, response.StatusCode, response.RequestCharge);
             return response.Resource;
@@ -168,6 +157,7 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
         }
     }
 
+    /// <inheritdoc />
     public async Task DeleteAsync(string id, string partitionKey) // partitionKey here is TenantId
     {
          if (string.IsNullOrWhiteSpace(id))
@@ -188,9 +178,7 @@ public class CosmosDbPersonaKnowledgeRepository : IPersonaKnowledgeRepository
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            // Log a warning if attempting to delete an item that doesn't exist
             _logger.LogWarning("Attempted to delete a non-existent knowledge entry with ID '{Id}', PartitionKey '{PartitionKey}'. Charge: {Charge} RU.", id, partitionKey, ex.RequestCharge);
-            // Depending on requirements, might not need to re-throw here.
         }
         catch (CosmosException ex)
         {
