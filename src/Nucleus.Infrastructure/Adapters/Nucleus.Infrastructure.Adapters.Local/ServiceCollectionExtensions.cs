@@ -13,7 +13,7 @@ namespace Nucleus.Infrastructure.Adapters.Local
     /// </summary>
     /// <remarks>
     /// This allows for easy registration of the <see cref="LocalAdapter"/> and its dependencies.
-    /// See <see cref="Docs.Architecture.ClientAdapters.ARCHITECTURE_ADAPTERS_LOCAL.md"/> for architectural details.
+    /// See <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md"/> for architectural details.
     /// </remarks>
     public static class ServiceCollectionExtensions
     {

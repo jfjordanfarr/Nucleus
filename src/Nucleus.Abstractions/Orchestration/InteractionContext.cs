@@ -13,6 +13,7 @@ namespace Nucleus.Abstractions.Orchestration;
 /// This context is typically created by the OrchestrationService after an interaction passes activation checks,
 /// and is enriched by the QueuedInteractionProcessorService with fetched artifact data.
 /// </remarks>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#22-data-structure-interactioncontext">Nucleus Processing Architecture - InteractionContext</seealso>
 /// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md"/>
 public class InteractionContext
 {

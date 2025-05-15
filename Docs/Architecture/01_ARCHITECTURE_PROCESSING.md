@@ -18,7 +18,7 @@ A central tenet of the Nucleus architecture is that interpreting meaning from di
 1.  **No One-Size-Fits-All Interpretation**: Different artifacts, domains, and user goals require different analytical perspectives.
 2.  **Persona-Centric Analysis**: Value is maximized when Personas analyze artifacts within their domain context, extracting relevant insights and summaries rather than relying on generic pre-chunking.
 3.  **Contextual Relevance**: Personas determine what constitutes a relevant snippet or summary based on the artifact content and the persona's purpose.
-4.  **Focus on Knowledge, Not Just Text**: The goal is to store structured knowledge ([`PersonaKnowledgeEntry`](../../src/Abstractions/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)) derived by personas, not just fragmented text.
+4.  **Focus on Knowledge, Not Just Text**: The goal is to store structured knowledge ([`PersonaKnowledgeEntry`](../../src/Nucleus.Abstractions/Models/PersonaKnowledgeEntry.cs)) derived by personas, not just fragmented text.
 5.  **Extensibility**: The architecture supports adding new personas and content extractors to handle evolving needs and artifact types.
 
 ## 2. Initial Artifact Content Extraction & Structuring
@@ -180,7 +180,7 @@ The **asynchronous retrieval process** generally follows these steps:
 
 1.  The `ApiService` receives the query via `POST /api/v1/interactions`.
 2.  The `ApiService` performs the **Activation Check**.
-3.  If activated, it determines the relevant persona(s) (potentially using `IPersonaResolver`).
+3.  If activated, it determines the relevant persona(s) (potentially using [`IPersonaResolver`](../../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)).
 4.  The `ApiService` **enqueues a retrieval task** onto the `InternalQueue`, including the query, persona ID, and context identifiers.
 5.  The `ApiService` returns `HTTP 202 Accepted`.
 6.  A `BackgroundWorker` dequeues the retrieval task.
@@ -221,7 +221,9 @@ This ensures that even retrieval follows the robust, scalable asynchronous patte
 *   **`IArtifactMetadataService`**: Manages CRUD operations for [`ArtifactMetadata`](../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs) in the central Storage repository. (Repository Interface: [`IArtifactMetadataRepository`](../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs))
 *   **`IContentExtractor`**: Interface for services that extract raw text/structured content from various artifact MIME types (PDF, DOCX, HTML, etc.). Implementations handle specific formats. Defined in [`ARCHITECTURE_PROCESSING_INTERFACES.md`](./Processing/ARCHITECTURE_PROCESSING_INTERFACES.md). Concrete implementations (e.g., `PlainTextContentExtractor`, `HtmlContentExtractor`) reside in the `Nucleus.Infrastructure.Providers.ContentExtraction` namespace.
 *   **[`IPersona`](../../src/Nucleus.Abstractions/IPersona.cs)**: The core interface defining a persona's analytical capabilities, primarily through `AnalyzeContentAsync` (defined in the generic version `IPersona<TAnalysisData>`).
-*   **`IChatClient` (from `Microsoft.Extensions.AI`)**: The standard abstraction for interacting with LLMs for chat completions. Implementations will handle provider-specific details, including context caching integration.
+*   **`IChatClient` (from `Microsoft.Extensions.AI`)**: The standard abstraction for interacting with LLMs for chat completions. Implementations will handle provider-specific details, including context caching integration. Service registration for the underlying AI clients occurs in `Nucleus.Services.Api.WebApplicationBuilderExtensions.AddNucleusServices` (see [code](../../../src/Nucleus.Services/Nucleus.Services.Api/WebApplicationBuilderExtensions.cs)).
 *   **`IEmbeddingGenerator` (from `Microsoft.Extensions.AI`)**: The standard abstraction for generating text embeddings.
-*   **[`IPersonaKnowledgeRepository`](../../src/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)**: Interface for services managing the storage and retrieval of `PersonaKnowledgeEntry` documents in the persona-specific data stores (Cosmos DB).
+*   **[`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)**: Defines the contract for sending notifications or responses back to the originating client platform (e.g., Teams, Slack, Console). The default implementation, `NullPlatformNotifier`, is registered in `Nucleus.Services.Api.WebApplicationBuilderExtensions.AddNucleusServices` (see [code](../../../src/Nucleus.Services/Nucleus.Services.Api/WebApplicationBuilderExtensions.cs#L254-L258) for registration details), primarily for API-direct interactions. Specific platform adapters provide their own implementations (e.g., `TeamsNotifier`).
+*   **[`IPersonaResolver`](../../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)**: Interface responsible for determining the canonical Persona ID based on the incoming request context. Its default implementation, [`DefaultPersonaResolver`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/DefaultPersonaResolver.cs), is registered in `Nucleus.Domain.Processing.ServiceCollectionExtensions.AddProcessingServices` (see [registration details](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ServiceCollectionExtensions.cs)). 
+*   **[`IPersonaKnowledgeRepository`](../../../src/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)**: Interface for services managing the storage and retrieval of `PersonaKnowledgeEntry` documents in the persona-specific data stores (Cosmos DB).
 *   **`ICacheManagementService` (Planned for Phase 2+)**: Abstraction responsible for interacting with the underlying AI provider's prompt/context caching mechanisms. It handles creating, retrieving, and potentially managing the lifecycle (TTL) of cached content linked to a `SourceIdentifier`.

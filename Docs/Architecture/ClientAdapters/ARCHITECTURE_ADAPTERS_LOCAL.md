@@ -1,13 +1,13 @@
 ---
 title: Client Adapter - Local
 description: Describes the Nucleus Local Adapter library, designed for in-process, programmatic interaction with the Nucleus API services by other local components.
-version: 1.3
-date: 2025-05-07
+version: 1.4
+date: 2025-05-14
 parent: ../05_ARCHITECTURE_CLIENTS.md
 grand_parent: ../00_ARCHITECTURE_OVERVIEW.md
 see_also:
   - title: "Namespace: Nucleus.Infrastructure.Adapters.Local"
-    link: "../Namespaces/NAMESPACE_ADAPTERS_LOCAL.md"
+    link: "../namespaces/NAMESPACE_ADAPTERS_LOCAL.md"
 ---
 
 # Client Adapter: Local (`Nucleus.Infrastructure.Adapters.Local`)
@@ -18,7 +18,7 @@ This document describes the `Nucleus.Infrastructure.Adapters.Local` class librar
 
 Its primary purpose is to provide a clean, integrated way for the `Nucleus.Services.Api` itself (or other local services) to initiate interactions or operations that would typically flow through the standard adapter model, but without the overhead of network communication or separate process execution. This is useful for internal system tasks, scheduled jobs, or scenarios where a "local agent" needs to interact with the core system logic.
 
-It translates internal requests or method calls into the appropriate DTOs (like `AdapterRequest`) if necessary and interacts directly with the relevant application or domain services. It **does not** function as a standalone executable or provide a user-facing interface. It is a library intended for consumption by other parts of the Nucleus system.
+It translates internal requests or method calls into the appropriate DTOs (like `AdapterRequest`) if necessary and interacts directly with the relevant application or domain services via the `Nucleus.Services.Api`. It **does not** function as a standalone executable or provide a user-facing interface. It is a library intended for consumption by other parts of the Nucleus system.
 
 ## Interaction Flow & Service Invocation
 
@@ -30,25 +30,31 @@ The Local Adapter facilitates direct, in-process communication:
     *   `ConversationId` and `UserId` might be system-generated or passed from the originating context.
     *   Populates `QueryText` or other relevant data.
     *   Constructs `ArtifactReference` objects for any local file paths or in-memory data identifiers.
-3.  **Direct Service Invocation / In-Process Request:** The adapter's logic directly calls the appropriate service methods within the `Nucleus.Services.Api`'s application or domain layers, or sends an in-process request that mimics an external API call.
-    *   This bypasses HTTP communication, directly utilizing the registered services via dependency injection.
-4.  **Receive Response:** The adapter receives a response DTO (e.g., `AdapterResponse`) or direct return values from the invoked services.
+3.  **Direct Service Invocation / In-Process Request:** The adapter's logic makes an in-process call to the relevant `Nucleus.Services.Api` endpoints. The API layer then routes the request to the appropriate application or domain services.
+    *   This leverages the API contracts even for in-process communication, ensuring consistent behavior and security enforcement.
+4.  **Receive Response:** The adapter receives a response DTO (e.g., `AdapterResponse`) or direct return values from the `Nucleus.Services.Api`.
     *   This response is then passed back to the initiating internal component.
 
 ## Generated Artifact Handling
 
 The Local Adapter's interaction with artifacts depends on the specific use case:
 
-*   **Sending Artifact References:** If interacting with services that expect `ArtifactReference` objects (e.g., for file-based data), the adapter will construct these references. The path resolution and content reading would still typically be handled by the core services (like `LocalFileArtifactProvider`) to maintain consistency.
-*   **In-Memory Data:** For purely in-process operations, the adapter might handle or pass around in-memory data directly if the target services support this, potentially without creating formal `ArtifactReference` objects for temporary data.
+*   **Sending Artifact References:** If interacting with services that expect `ArtifactReference` objects (e.g., for file-based data), the adapter will construct these references. The path resolution and content reading for `file:///` URIs are handled by an `IArtifactProvider` implementation registered within and invoked by `Nucleus.Services.Api` to maintain consistency and adhere to the API-First principle.
+*   **In-Memory Data:** For purely in-process operations, the adapter might handle or pass around in-memory data directly if the target services (via the API) support this, potentially without creating formal `ArtifactReference` objects for temporary data.
 
 ## Implementation Details
 
 The core logic will reside within the `Nucleus.Infrastructure.Adapters.Local` project:
 
 *   **Service Registration:** An extension method (e.g., `AddLocalAdapterServices`) to register its services with the host's dependency injection container.
-*   **Interaction Service(s):** Classes responsible for orchestrating the interaction with the core API services, preparing requests, and processing responses.
+*   **Interaction Service(s):** Classes responsible for orchestrating the interaction with the `Nucleus.Services.Api` endpoints, preparing requests, and processing responses.
 *   **DTOs:** Utilizes shared DTOs from `Nucleus.Abstractions` (`AdapterRequest`, `AdapterResponse`, etc.).
+
+### Key Code Files
+
+*   **Interface:** [`ILocalAdapterClient.cs`](../../../../../src/Nucleus.Abstractions/Adapters/Local/ILocalAdapterClient.cs)
+*   **Implementation:** [`LocalAdapter.cs`](../../../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/LocalAdapter.cs)
+*   **Dependency Injection:** [`ServiceCollectionExtensions.cs`](../../../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/ServiceCollectionExtensions.cs)
 
 ## Limitations
 
@@ -61,7 +67,7 @@ The core logic will reside within the `Nucleus.Infrastructure.Adapters.Local` pr
 
 This document outlines the conventions and mechanisms for simulating local conversation contexts, persona-specific data, and associated file storage when interacting with the Nucleus system via the `LocalAdapter`. This scheme is primarily intended for development, testing (e.g., using PowerShell scripts), and scenarios where the `LocalAdapter` is used for in-process interactions.
 
-The `LocalAdapter` itself does not directly manage or create physical directories or files. Instead, it relies on the information provided within the `AdapterRequest` DTO, which is then processed by the `IOrchestrationService` and subsequently by components like `IPersonaResolver`, `IPersonaRuntime`, and `IArtifactProvider` (specifically `LocalFileArtifactProvider` for file-based artifacts).
+The `LocalAdapter` itself does not directly manage or create physical directories or files. Instead, it relies on the information provided within the `AdapterRequest` DTO, which is then processed by the `IOrchestrationService` and subsequently by components like `IPersonaResolver`, `IPersonaRuntime`, and `IArtifactProvider` (specifically for file-based artifacts).
 
 ### 1. Key `AdapterRequest` Fields for Context
 
@@ -76,7 +82,7 @@ The following fields in the `AdapterRequest` DTO are crucial for defining the co
 
 ### 2. Directory Structure Convention (Conceptual)
 
-While not strictly enforced by the `LocalAdapter` itself, a recommended conceptual directory structure for organizing local test data and artifacts is as follows. This structure would primarily be utilized by the `LocalFileArtifactProvider` or similar mechanisms during testing.
+While not strictly enforced by the `LocalAdapter` itself, a recommended conceptual directory structure for organizing local test data and artifacts is as follows. This structure would primarily be utilized by the `IArtifactProvider` implementation within `Nucleus.Services.Api` during testing.
 
 ```
 <BaseLocalDataPath>/
@@ -97,24 +103,24 @@ While not strictly enforced by the `LocalAdapter` itself, a recommended conceptu
     └── shared_template.docx
 ```
 
-*   **`<BaseLocalDataPath>`**: A root directory on the local filesystem configured for Nucleus local data (e.g., `D:\NucleusTestData\`). This path would typically be a configuration setting for the `LocalFileArtifactProvider`.
+*   **`<BaseLocalDataPath>`**: A root directory on the local filesystem configured for Nucleus local data (e.g., `D:\NucleusTestData\`). This path would typically be a configuration setting for the `IArtifactProvider` implementation within `Nucleus.Services.Api`.
 *   **`<PersonaId>`**: A directory named after the `PersonaId` from the `AdapterRequest`. This allows for persona-specific data isolation.
 *   **`conversations/<ConversationId>`**: Subdirectories for each unique `ConversationId`, allowing conversation-specific artifact storage.
 *   **`files/`**: A subdirectory within a conversation to store files explicitly referenced in an `AdapterRequest` for that conversation.
 
-**Note:** This structure is a *recommendation* for organizing test data. The `LocalFileArtifactProvider` would be configured with a base path and would resolve `file:///` URIs relative to that base or use absolute paths as provided.
+**Note:** This structure is a *recommendation* for organizing test data. The `IArtifactProvider` implementation within `Nucleus.Services.Api` responsible for `file:///` URIs would be configured with a base path and would resolve `file:///` URIs relative to that base or use absolute paths as provided.
 
 #### Identifier-Based Path Construction and Data Isolation
 
-The `AdapterRequest` DTO contains several key identifiers (`TenantId`, `PersonaId`, `ConversationId`, `UserId`) that are critical for routing, context, and data isolation. When the `LocalAdapter` is used for testing, particularly with the `LocalFileArtifactProvider`, these identifiers can inform how local file paths are constructed or interpreted for storing and retrieving data like conversation artifacts, logs, or persona-specific files.
+The `AdapterRequest` DTO contains several key identifiers (`TenantId`, `PersonaId`, `ConversationId`, `UserId`) that are critical for routing, context, and data isolation. When the `LocalAdapter` is used for testing, particularly with the `IArtifactProvider` implementation within `Nucleus.Services.Api`, these identifiers can inform how local file paths are constructed or interpreted for storing and retrieving data like conversation artifacts, logs, or persona-specific files.
 
 *   **`BaseLocalDataPath`**:
     *   This is the foundational root directory on the local filesystem (e.g., `D:\NucleusTestData\`).
-    *   It's typically a configuration setting supplied to the `LocalFileArtifactProvider`.
+    *   It's typically a configuration setting supplied to the `IArtifactProvider` implementation within `Nucleus.Services.Api`.
     *   All dynamically constructed paths for local file storage related to simulated interactions would be relative to this base path.
 
 *   **`TenantId`**:
-    *   If a `TenantId` is provided in the `AdapterRequest` and the `LocalFileArtifactProvider` (or similar mechanism) is designed to be tenant-aware for path generation, the `TenantId` should form the first level of hierarchy immediately under the `BaseLocalDataPath`.
+    *   If a `TenantId` is provided in the `AdapterRequest` and the `IArtifactProvider` implementation within `Nucleus.Services.Api` is designed to be tenant-aware for path generation, the `TenantId` should form the first level of hierarchy immediately under the `BaseLocalDataPath`.
     *   Example: `<BaseLocalDataPath>/<TenantId>/...`
     *   If `TenantId` is not provided, or if the local simulation setup does not require tenant-level segregation in the file system, this path segment would be omitted, and paths would start with the next relevant identifier (e.g., `PersonaId`).
     *   This allows for simulating multi-tenant data isolation in the local file structure.
@@ -140,7 +146,7 @@ This approach ensures that file-based data can be organized logically, reflectin
 
 ### 2.4. Scope Enforcement and Data Governance Testing
 
-While the `LocalAdapter` itself primarily facilitates passing `AdapterRequest` objects to the `IOrchestrationService`, its design, in conjunction with the conceptual local file structure and `PersonaConfiguration`, is critical for enabling robust testing of data governance and scope enforcement. The actual enforcement logic resides in downstream services (e.g., `IActivationChecker`, `IPersonaRuntime`, `IArtifactProvider` implementations driven by persona configuration).
+While the `LocalAdapter` itself primarily facilitates passing `AdapterRequest` objects to the `Nucleus.Services.Api`, its design, in conjunction with the conceptual local file structure and `PersonaConfiguration`, is critical for enabling robust testing of data governance and scope enforcement. The actual enforcement logic resides in downstream services (e.g., `IActivationChecker`, `IPersonaRuntime`, `IArtifactProvider` implementations driven by persona configuration).
 
 **Key Principles:**
 
@@ -157,7 +163,7 @@ While the `LocalAdapter` itself primarily facilitates passing `AdapterRequest` o
 
 3.  **Downstream Enforcement Verification:**
     *   **Activation Checks (`IActivationChecker`):** Tests can verify that a persona activation is denied if the `AdapterRequest`'s context (e.g., `TenantId`, `ConversationId`) does not match the persona's allowed scopes in its `PersonaConfiguration`.
-    *   **Artifact Access (`IArtifactProvider` via `IPersonaRuntime`):** Tests can verify that attempts to read or write artifacts (e.g., using `file:///` URIs via `LocalFileArtifactProvider`) are denied if the target path or context is outside the persona's configured access rights. For instance, Persona A should not be able to access files in Persona B's designated local storage path, or files from a `ConversationId` it's not authorized for, even within the same `TenantId`.
+    *   **Artifact Access (`IArtifactProvider` via `IPersonaRuntime`):** Tests can verify that attempts to read or write artifacts (e.g., using `file:///` URIs via the `IArtifactProvider` implementation within `Nucleus.Services.Api`) are denied if the target path or context is outside the persona's configured access rights. For instance, Persona A should not be able to access files in Persona B's designated local storage path, or files from a `ConversationId` it's not authorized for, even within the same `TenantId`.
     *   **Cross-Tenant Isolation:** Critical tests must prove that a persona configured for `TenantId: "TenantA"` cannot, under any circumstances, access data or resources associated with `TenantId: "TenantB"`.
 
 4.  **Simulating Platform Primitives for Test Scenarios:**
@@ -172,9 +178,9 @@ By designing test cases that explicitly attempt to violate these configured boun
 When submitting an `AdapterRequest` via the `LocalAdapter` with `ArtifactReference` objects:
 
 1.  The `Uri` property of an `ArtifactReference` should be a valid absolute `file:///` path (e.g., `file:///D:/NucleusTestData/PersonaAlpha/conversations/conv123/files/input.txt`).
-2.  The `LocalAdapter` passes these `ArtifactReference` objects to the `IOrchestrationService` as part of the `AdapterRequest`.
-3.  When the `IPersonaRuntime` or other core services need to access the content of these artifacts, they will use an `IArtifactProvider`.
-4.  The `LocalFileArtifactProvider`, if registered and appropriate for `file:///` URIs, will be responsible for:
+2.  The `LocalAdapter` passes these `ArtifactReference` objects to the `IOrchestrationService` (via `Nucleus.Services.Api`) as part of the `AdapterRequest`.
+3.  When the `IPersonaRuntime` or other core services (invoked by the API) need to access the content of these artifacts, they will use an `IArtifactProvider`.
+4.  `Nucleus.Services.Api`, upon receiving an `AdapterRequest` containing `ArtifactReference` objects with `file:///` URIs, will delegate to its registered `IArtifactProvider` capable of handling such URIs. This provider will be responsible for:
     *   Resolving the `file:///` URI to an absolute file path.
     *   Reading the file content.
     *   Returning it as an `ArtifactContent` object.
@@ -193,7 +199,7 @@ var request = new AdapterRequest
     {
         new ArtifactReference
         {
-            ProviderId = NucleusConstants.ArtifactProviders.LocalFile, // Hint for LocalFileArtifactProvider
+            // ProviderId might be inferred by the API based on URI scheme for file:///
             Uri = "file:///C:/Path/To/Your/Test/Documents/sample_report.docx",
             OriginalFileName = "sample_report.docx",
             MimeType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -211,8 +217,8 @@ If a `persona_config.json` file is used within the conceptual directory structur
 ### 5. Summary of Responsibilities
 
 *   **Test Script / Calling Code:** Responsible for constructing the `AdapterRequest` with correct `PersonaId`, `ConversationId`, `UserId`, and fully qualified `file:///` URIs for artifacts.
-*   **`LocalAdapter`:** Passes the `AdapterRequest` (containing `ArtifactReference` objects) to the `IOrchestrationService`. It **does not** directly invoke `IArtifactProvider` implementations for artifact resolution or content fetching; this responsibility lies with downstream core services (e.g., `IPersonaRuntime` and its collaborators) after orchestration.
-*   **`IOrchestrationService` & Core Logic:** Orchestrates the processing flow, eventually leading to artifact processing by appropriate services.
-*   **`LocalFileArtifactProvider` (and other `IArtifactProvider` implementations):** Resolves `file:///` URIs (or other URI schemes) and reads file content when requested by core services during the interaction processing lifecycle.
+*   **`LocalAdapter`:** Passes the `AdapterRequest` (containing `ArtifactReference` objects) to the `Nucleus.Services.Api` (which then routes to `IOrchestrationService`). It **does not** directly invoke `IArtifactProvider` implementations for artifact resolution or content fetching; this responsibility lies with `Nucleus.Services.Api` and the services it orchestrates.
+*   **`IOrchestrationService` & Core Logic (within `Nucleus.Services.Api`):** Orchestrates the processing flow, eventually leading to artifact processing by appropriate services.
+*   **`IArtifactProvider` Implementations (within `Nucleus.Services.Api`):** An `IArtifactProvider` registered with `Nucleus.Services.Api` (e.g., one designed to handle `file:///` URIs) resolves these URIs and reads file content when requested by core services during the interaction processing lifecycle, after the request is received by the API.
 
-This scheme allows the `LocalAdapter` to remain a thin client, focusing on in-process request submission, while leveraging existing artifact provider mechanisms for data access in a way that is testable and simulates real-world interactions.
+This scheme allows the `LocalAdapter` to remain a thin client, focusing on in-process request submission to the API, while `Nucleus.Services.Api` leverages its internal artifact provider mechanisms for data access in a way that is testable and simulates real-world interactions, adhering to the API-First principle.

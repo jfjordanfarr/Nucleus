@@ -18,8 +18,10 @@ namespace Nucleus.Abstractions.Orchestration;
 /// This component is central to the API's initial request handling, determining whether
 /// to proceed with synchronous or asynchronous processing or to ignore the interaction.
 /// </remarks>
-/// <seealso cref="Docs.Architecture.Processing.Orchestration.ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
-/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#321-iactivationcheckercs"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#22-abstraction-iactivationchecker">Nucleus Processing Architecture - IActivationChecker</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Activation Check</seealso>
+/// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#321-iactivationcheckercs"/>
 public interface IActivationChecker
 {
     /// <summary>
@@ -32,7 +34,7 @@ public interface IActivationChecker
     /// A task representing the asynchronous operation. The task result contains an <see cref="ActivationResult"/>
     /// indicating whether a persona should activate, and if so, which one and its configuration.
     /// </returns>
-    /// <seealso href="d:/Projects/Nucleus/Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Activation Check</seealso>
+    /// <seealso href="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md">Interaction Processing Lifecycle - Activation Check</seealso>
     Task<ActivationResult> CheckActivationAsync(
         AdapterRequest request,
         IEnumerable<PersonaConfiguration> configurations,

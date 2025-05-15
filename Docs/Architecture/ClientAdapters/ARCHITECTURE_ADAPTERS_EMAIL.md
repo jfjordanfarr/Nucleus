@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Email
 description: Describes a client adapter which enables the interaction with Nucleus personas via Email
-version: 1.4
-date: 2025-04-27
+version: 1.5
+date: 2025-05-15
 parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
@@ -41,10 +41,10 @@ Following the API-First principle, the Email Adapter translates between email pr
     *   It inspects the `In-Reply-To` and `References` headers.
     *   If present, these indicate the email is part of a thread.
     *   The adapter extracts the `Message-ID` from the `In-Reply-To` header (if available) as the direct parent.
-4.  **Construct API Request:** The adapter maps the extracted information to the `InteractionRequest` DTO defined by the `Nucleus.Services.Api`.
+4.  **Construct API Request:** The adapter maps the extracted information to the [`AdapterRequest`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs) DTO defined by the `Nucleus.Services.Api`.
     *   This includes mapping the sender as the user, subject/body as content, and attachment references (see [Attachments](#attachments-inputsingestion)).
-    *   Crucially, if a parent `Message-ID` was extracted from `In-Reply-To`, it is populated into a dedicated field in the `InteractionRequest` (e.g., `RepliedToPlatformMessageId`). The full thread context might be passed separately if needed.
-5.  **Forward to API:** The adapter makes an authenticated HTTP POST request to the central Nucleus API endpoint (e.g., `POST /api/v1/interactions`) with the populated `InteractionRequest` object as the body.
+    *   Crucially, if a parent `Message-ID` was extracted from `In-Reply-To`, it is populated into a dedicated field in the `AdapterRequest` (e.g., `RepliedToPlatformMessageId`). The full thread context might be passed separately if needed.
+5.  **Forward to API:** The adapter makes an authenticated HTTP POST request to the central Nucleus API endpoint (e.g., `POST /api/v1/interactions`) with the populated `AdapterRequest` object as the body.
 6.  **Handle API Response:**
     *   **Synchronous:** If the API returns an immediate result (HTTP 200 OK + body), the adapter translates this back into an email (e.g., a reply to the original sender) potentially including generated content/attachments, and sends it using the configured email protocol/API.
     *   **Asynchronous:** If the API returns HTTP 202 Accepted, the adapter might send an initial acknowledgement email. It then needs a mechanism (TBD - polling `/interactions/{jobId}/status`, or webhooks) to receive the final result later and send it as a new email/reply.
@@ -100,7 +100,7 @@ Handles files embedded within incoming email messages.
 *   **Adapter Action:** When an incoming email contains attachments, the adapter extracts identifiers for each attachment.
     *   If using MS Graph, this would typically be the `Attachment Id` provided by the Graph API for the specific message.
     *   If using IMAP/SMTP, the adapter might need to assign a temporary identifier or use the `Content-ID` header if present.
-*   **API Request:** The adapter includes these **identifiers** (e.g., MS Graph Attachment IDs) in the `SourceArtifactUris` field of the `InteractionRequest` DTO sent to the `Nucleus.Services.Api`.
+*   **API Request:** The adapter includes these **identifiers** (e.g., MS Graph Attachment IDs) in the `SourceArtifactUris` field of the [`AdapterRequest`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs) DTO sent to the `Nucleus.Services.Api`.
 *   **API Service Action:** The **`Nucleus.Services.Api`** receives these identifiers. If they are Graph IDs, the API service uses the Graph API (with appropriate permissions) to fetch the attachment content directly from the email message. For other protocols, the API might require the adapter to provide a temporary access mechanism (TBD - requires careful design).
 *   **Nucleus `ArtifactMetadata` Mapping:**
     *   Each distinct attachment processed can get its own `ArtifactMetadata` record.

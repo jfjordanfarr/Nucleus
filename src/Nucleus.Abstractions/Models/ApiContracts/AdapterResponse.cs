@@ -10,9 +10,11 @@ namespace Nucleus.Abstractions.Models.ApiContracts;
 /// See: Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
 /// See: Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
 /// </summary>
-/// <seealso cref="Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
-/// <seealso cref="Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/>
-/// <seealso cref="Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+/// <seealso cref="../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/>
 /// <param name="Success">Indicates whether the operation requested by the client was successfully processed by the API.</param>
 /// <param name="ResponseMessage">A user-friendly message describing the outcome or providing results (e.g., summary, status update).</param>
 /// <param name="ErrorMessage">Details about any error that occurred, if Success is false.</param>

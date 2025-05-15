@@ -9,9 +9,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection; // Added
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging; // Added
-using System;
-using System.IO; // Added for Path.Combine
+using Nucleus.Abstractions;
+using System.IO; // Re-add for Path.GetFullPath
 
+/// <seealso cref="../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md"/>
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Get a logger instance
@@ -37,43 +38,12 @@ var cosmosResource = builder.AddAzureCosmosDB("cosmosdb")
 // Define the main database for Cosmos DB
 var mainDatabase = cosmosResource.AddCosmosDatabase("NucleusDb");
 
-// --- Messaging ---
-
-// Azure Service Bus emulator resource
-var serviceBusBuilder = builder.AddAzureServiceBus("sbemulatorns")
-    .RunAsEmulator(sb =>
-    {
-        // Explicitly define the AMQP endpoint for messaging
-        sb.WithEndpoint(port: 5672, targetPort: 5672, name: "amqp");
-        
-        // Add HTTP endpoint for management operations
-        sb.WithEndpoint(port: 8706, targetPort: 8706, name: "management");
-        
-        // Generate a random development-only password
-        var devPassword = $"Dev_{Guid.NewGuid():N}".Substring(0, 16);
-        
-        // Configure SQL Edge
-        sb.WithEnvironment("ACCEPT_EULA", "Y");
-        sb.WithEnvironment("MSSQL_TELEMETRY_ENABLED", "FALSE");
-        sb.WithEnvironment("SQL_WAIT_INTERVAL", "1");
-        
-    });
-
-// Declaratively add the required queues (Aspire pattern)
-serviceBusBuilder.AddServiceBusQueue("nucleus-ingestion-requests"); // Used by integration tests
-serviceBusBuilder.AddServiceBusQueue("nucleus-background-tasks");  // Used by the API service
-
 // --- API Services ---
 
 // Reference the API service project.
 var apiServiceBuilder = builder.AddProject<Projects.Nucleus_Services_Api>("nucleusapi") // Use typed reference
        .WithReference(mainDatabase) // Reference the main Cosmos DATABASE resource
        .WithReference(cosmosResource) // Ensure nucleusapi has a reference to cosmos for normal operation
-       .WithReference(serviceBusBuilder, connectionName: "sbBackgroundTasks") 
-       // Add a default reference to the Service Bus with the standard connection name
-       .WithReference(serviceBusBuilder) 
-       // Add explicit reference to use AMQP with ServiceBus
-       .WithEnvironment("ServiceBusClientOptions__TransportType", "AmqpTcp")
        .WithEnvironment(ctx =>
        {
            // Inject the Cosmos Database Name for the Test Environment
@@ -147,7 +117,7 @@ if (useSimpleConsoleFormatterForTest)
 // Conditional logging adjustments for testing
 if (isTestEnvironment)
 {
-    Console.WriteLine("ASPIRE_TESTING_ENVIRONMENT detected. Applying reduced logging levels to API service and Service Bus emulator."); // Adjusted diagnostic output
+    Console.WriteLine("ASPIRE_TESTING_ENVIRONMENT detected. Applying reduced logging levels to API service."); // Adjusted diagnostic output
     if (useSimpleConsoleFormatterForTest) {
         Console.WriteLine("[Nucleus.AppHost] NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE=true. 'nucleusapi' service configured for Simple console logging.");
     }

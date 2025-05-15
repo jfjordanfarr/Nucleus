@@ -27,9 +27,10 @@ namespace Nucleus.Domain.Processing;
 /// Background service responsible for processing interactions dequeued from the <see cref="IBackgroundTaskQueue"/>.
 /// It reconstructs context, invokes the appropriate <see cref="IPersonaRuntime"/>, and handles results.
 /// </summary>
-/// <seealso href="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md">Processing Orchestration Overview</seealso>
-/// <seealso href="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md">API Activation & Asynchronous Routing</seealso>
-/// <seealso href="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#31-service-queuedinteractionprocessorservice">Nucleus Processing Architecture - QueuedInteractionProcessorService</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md">Processing Orchestration Overview</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md">API Activation & Asynchronous Routing</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public class QueuedInteractionProcessorService : BackgroundService
 {
     private readonly ILogger<QueuedInteractionProcessorService> _logger;
@@ -55,7 +56,6 @@ public class QueuedInteractionProcessorService : BackgroundService
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            _logger.LogDebug("Attempting to dequeue next message...");
             object? messageContext = null; // Store context for completion/abandonment
             NucleusIngestionRequest? requestPayload = null; // Store the deserialized request
 

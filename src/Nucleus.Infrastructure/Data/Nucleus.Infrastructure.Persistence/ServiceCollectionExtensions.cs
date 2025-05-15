@@ -41,33 +41,47 @@ public static class ServiceCollectionExtensions
         // Register CosmosClient as a singleton
         services.AddSingleton<CosmosClient>(serviceProvider =>
         {
-            var cosmosDbSettings = serviceProvider.GetRequiredService<IOptions<CosmosDbSettings>>().Value;
-            var settingsLoggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>(); // Logger for CosmosClient context
-            var settingsLogger = settingsLoggerFactory.CreateLogger("CosmosClientSetup");
+            var settingsLogger = serviceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("CosmosClientSetup");
 
-            settingsLogger.LogInformation("CosmosDbSettings.ConnectionString from IOptions: '{ConnectionString}'", string.IsNullOrWhiteSpace(cosmosDbSettings.ConnectionString) ? "<NULL_OR_EMPTY>" : "<PROVIDED_BUT_MASKED_FOR_LOG>");
+            // Prioritize Aspire-provided connection string from IConfiguration (captured from the outer method scope)
+            string? effectiveConnectionString = configuration.GetConnectionString("cosmosdb");
 
-            if (string.IsNullOrWhiteSpace(cosmosDbSettings.ConnectionString))
+            if (!string.IsNullOrWhiteSpace(effectiveConnectionString))
             {
-                settingsLogger.LogError("CosmosDB ConnectionString from CosmosDbSettings is not configured.");
+                settingsLogger.LogInformation("Using Aspire-provided 'cosmosdb' connection string for CosmosClient.");
+            }
+            else
+            {
+                settingsLogger.LogWarning("Aspire-provided 'cosmosdb' connection string not found or empty. Falling back to CosmosDbSettings.ConnectionString.");
+                // Fallback to connection string from IOptions<CosmosDbSettings> if Aspire one isn't available
+                var cosmosDbSettings = serviceProvider.GetRequiredService<IOptions<CosmosDbSettings>>().Value;
+                effectiveConnectionString = cosmosDbSettings.ConnectionString;
+                settingsLogger.LogInformation("CosmosDbSettings.ConnectionString from IOptions: '{ConnectionString}'", string.IsNullOrWhiteSpace(effectiveConnectionString) ? "<NULL_OR_EMPTY>" : "<PROVIDED_BUT_MASKED_FOR_LOG>");
+            }
+
+            if (string.IsNullOrWhiteSpace(effectiveConnectionString))
+            {
+                settingsLogger.LogError("CosmosDB ConnectionString is not configured (checked Aspire 'cosmosdb' and CosmosDbSettings.ConnectionString).");
                 throw new InvalidOperationException("CosmosDB ConnectionString is not configured.");
             }
-            // OPTIONAL: Configure CosmosClientOptions if needed (e.g., serializer, consistency level)
-            // var clientOptions = new CosmosClientOptions
-            // {
-            //     SerializerOptions = new CosmosSerializationOptions
-            //     {
-            //         PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
-            //     }
-            // };
+
+            var clientOptions = new CosmosClientOptions
+            {
+                SerializerOptions = new CosmosSerializationOptions
+                {
+                    PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
+                }
+            };
+
             try
             {
-                return new CosmosClient(cosmosDbSettings.ConnectionString /*, clientOptions */);
+                settingsLogger.LogInformation("Creating CosmosClient with the effective connection string.");
+                return new CosmosClient(effectiveConnectionString, clientOptions);
             }
             catch (ArgumentException ex)
             {
-                settingsLogger.LogError(ex, "ArgumentException while creating CosmosClient. ConnectionString used: '{ConnectionString}'", string.IsNullOrWhiteSpace(cosmosDbSettings.ConnectionString) ? "<NULL_OR_EMPTY>" : "<PROVIDED_BUT_MASKED_FOR_LOG>");
-                throw; // Re-throw the original exception to preserve stack trace and type
+                settingsLogger.LogError(ex, "ArgumentException while creating CosmosClient. Effective ConnectionString used was: '{ConnectionString}'", string.IsNullOrWhiteSpace(effectiveConnectionString) ? "<NULL_OR_EMPTY>" : "<PROVIDED_BUT_MASKED_FOR_LOG>");
+                throw; 
             }
         });
 

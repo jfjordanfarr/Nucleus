@@ -2,14 +2,14 @@
 title: "Architecture: AI Integration (Microsoft.Extensions.AI)"
 description: "Overview of strategies for integrating external AI models using Microsoft.Extensions.AI, emphasizing ephemeral content retrieval via the API service and IArtifactProvider."
 version: 1.9
-date: 2025-05-06
+date: 2025-05-15
 ---
 
 # Architecture: AI Integration (using `Microsoft.Extensions.AI`)
 
 **Parent:** [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
 **Version:** 1.9
-**Date:** 2025-05-06
+**Date:** 2025-05-15
 
 ## 1. Overview
 
@@ -158,3 +158,8 @@ Integrating SK presents significant architectural choices:
 ### 4.4. Decision Pending
 
 A strategic decision is needed, weighing development velocity, long-term maintainability, the need for fine-grained control (especially chat history/ephemeral cache), and confidence in SK's stability and flexibility. The current direct integration path (Section 2.2) remains viable while this decision is pending. This analysis should inform future architecture reviews.
+
+This design leverages the `AdapterRequest` model ([Code Link: ../../../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs](../../../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs)) which can carry `ArtifactReference`s.
+It details how clients provide `ArtifactReference`s which the API Service then uses with `IArtifactProvider` implementations ([Code Link: ../../../../src/Nucleus.Abstractions/IArtifactProvider.cs](../../../../src/Nucleus.Abstractions/IArtifactProvider.cs)) to fetch content ephemerally. This mechanism ensures that Nucleus does not store user data from external systems, a core tenet also discussed in [06_ARCHITECTURE_SECURITY.md](./06_ARCHITECTURE_SECURITY.md) and a key part of the [Phase 2 RAG requirements](../Requirements/02_REQUIREMENTS_PHASE2_CORE_RAG.md) <!-- [BROKEN LINK - File Not Found] -->.
+
+Key points:

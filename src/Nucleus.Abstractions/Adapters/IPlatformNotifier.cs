@@ -10,16 +10,16 @@ namespace Nucleus.Abstractions.Adapters; // << MODIFIED NAMESPACE
 /// <summary>
 /// Defines a contract for sending notifications or responses back to the originating platform.
 /// Implementations will use the appropriate platform SDKs (e.g., Bot Framework, Slack API).
-/// See: ../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
+/// <seealso cref="../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#iplatformnotifier"/>
 /// <seealso href="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md">Processing Architecture - Shared Interfaces (IPlatformNotifier)</seealso>
-/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
-/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#344-iplatformnotifiercs"/> // TODO: This link might need updating after move
+/// <seealso href="../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md">Adapter Interfaces</seealso>
+/// <seealso cref="../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#344-iplatformnotifiercs"/> // TODO: This link might need updating if IPlatformNotifier's primary doc location changes definitively to 01_ARCHITECTURE_PROCESSING.md
 /// </summary>
 /// <remarks>
 /// Implementations of this interface are responsible for sending messages back to the originating platform adapter (e.g., Teams, Slack, Console) asynchronously.
 /// The specific implementation is resolved by the `OrchestrationService` based on the `PlatformType` from the original `NucleusIngestionRequest`.
 /// </remarks>
-/// <seealso href="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md">Processing Architecture - Shared Interfaces (IPlatformNotifier)</seealso>
 public interface IPlatformNotifier
 {
     /// <summary>

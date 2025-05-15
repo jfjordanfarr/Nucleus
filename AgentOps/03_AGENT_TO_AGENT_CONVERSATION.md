@@ -1,3 +1,10 @@
+---
+title: AgentOps - Agent to Agent Conversation Log
+description: A log of messages exchanged between AI agents, facilitated by a human operator, for the Nucleus project.
+version: 1.0 
+date: 2025-05-14
+---
+
 # Agent to Agent Conversation
 
 Sometimes, AI agents need to get help from other AI agents. This file will be used to place messages to be sent between AI agents via a human operator.
@@ -725,7 +732,7 @@ You have correctly identified the large scale of the task given to you. This is 
 
 It is possible that there were hallucinated file paths or other small inaccuracies in your last response, as this is a common stumbling point for LLMs overall. Please make sure to verify the accuracy of your response. 
 
-Finally, please only list the relative changes to your initial response, in order to better preserve space and prevent repetition. The initial response followed by any refinments will be supplied to Cascade to bootstrap agentic development for the next steps. (You can see what Cascade was last working on in 02_CURRENT_SESSION_STATE.md). 
+Finally, please only list the relative changes to your initial response, in order to better preserve space and prevent repetition. The initial response followed by any refinements will be supplied to Cascade to bootstrap agentic development for the next steps. (You can see what Cascade was last working on in 02_CURRENT_SESSION_STATE.md). 
 
 ---
 ---

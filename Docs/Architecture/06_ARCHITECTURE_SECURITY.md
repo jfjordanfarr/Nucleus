@@ -2,7 +2,7 @@
 title: Nucleus Security Architecture & Data Governance
 description: Outlines the security principles, data handling strategies, authentication mechanisms, and responsibilities for the Nucleus platform.
 version: 1.7
-date: 2025-05-06
+date: 2025-05-15
 ---
 
 # Nucleus: Security Architecture & Data Governance

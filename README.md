@@ -37,7 +37,7 @@ We envision a future where knowledge work and learning are augmented by reliable
 4.  **Run with Aspire:**
     ```bash
     # Navigate to the AppHost directory
-    cd Nucleus.AppHost 
+    cd Aspire/Nucleus.AppHost 
     # Run the application
     dotnet run
     ```
@@ -51,11 +51,11 @@ We envision a future where knowledge work and learning are augmented by reliable
 
 ## Project Structure
 
-*   **`/Nucleus.AppHost`**: .NET Aspire AppHost for local development orchestration.
-*   **`/Nucleus.ApiService`**: Core backend API providing endpoints for clients.
-*   **`/Nucleus.Console`**: Console application client (MVP interface).
-*   **`/Nucleus.Processing`**: Contains ingestion, processing, and persona logic.
-*   **`/Nucleus.ServiceDefaults`**: Shared configurations for Aspire services.
+*   **`/Aspire/Nucleus.AppHost`**: .NET Aspire AppHost for local development orchestration.
+*   **`/src/Nucleus.Services/Nucleus.Services.Api`**: Core backend API providing endpoints for clients.
+*   **`/src/Nucleus.Console`**: Console application client (MVP interface).
+*   **`/src/Nucleus.Domain/Nucleus.Domain.Processing`**: Contains ingestion, processing, and persona logic.
+*   **`/Aspire/Nucleus.ServiceDefaults`**: Shared configurations for Aspire services.
 *   **`/Docs`**: Architecture, Requirements, Planning, and other documentation.
     *   [`/Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md`](./Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md): High-level system overview.
     *   [`/Docs/Architecture/09_ARCHITECTURE_TESTING.md`](./Docs/Architecture/09_ARCHITECTURE_TESTING.md): Detailed testing strategy and procedures.

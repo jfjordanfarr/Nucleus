@@ -2,7 +2,7 @@
 title: Architecture - Database (Azure Cosmos DB)
 description: Details the Azure Cosmos DB structure for storing ArtifactMetadata and PersonaKnowledgeEntry records (using JsonElement for analysis data), managed exclusively via the API service.
 version: 2.6
-date: 2025-05-06
+date: 2024-03-09
 ---
 
 # Nucleus: Database Architecture (Azure Cosmos DB)

@@ -2,6 +2,7 @@ namespace Nucleus.Abstractions.Models.Configuration;
 
 /// <summary>
 /// Configuration settings for connecting to Azure Cosmos DB.
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
 /// </summary>
 public class CosmosDbSettings
 {

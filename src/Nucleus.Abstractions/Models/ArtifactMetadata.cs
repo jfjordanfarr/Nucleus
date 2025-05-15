@@ -5,17 +5,18 @@ using System.Text.Json.Serialization;
 namespace Nucleus.Abstractions.Models;
 
 /// <summary>
-/// Represents the core metadata associated with an artifact managed by Nucleus.
-/// This record is persisted in the central ArtifactMetadataContainer in Cosmos DB.
-/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#2-key-metadata-structure-artifactmetadata
-/// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#3-artifactmetadatacontainer-schema
-/// </summary>
+/// Represents the metadata associated with an artifact that has been processed or indexed by Nucleus.
+/// This record is stored in the Nucleus data store (e.g., Cosmos DB) and is central to tracking artifacts.
+/// It links to the original artifact via <see cref="SourceIdentifier"/> and <see cref="SourceUri"/>,
+/// and to any derived knowledge via <see cref="AnalyzedByPersonaIds"/>.
+/// This model is a core part of the system's data handling strategy, as outlined in
+/// <seealso cref="../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md">Storage Architecture - Key Metadata Structure</seealso>
 /// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
+/// <seealso cref="../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
 public record ArtifactMetadata
 {
     /// <summary>
@@ -29,7 +30,7 @@ public record ArtifactMetadata
     /// A stable, logical identifier representing the source artifact across potential URI changes.
     /// Derived from source system properties.
     /// Example: `teams:channelId:messageId:attachmentId`
-    /// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#21-identity-and-identifiers
+    /// See: ../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#21-identity-and-identifiers
     /// </summary>
     [JsonPropertyName("sourceIdentifier")]
     public required string SourceIdentifier { get; init; }
@@ -161,7 +162,7 @@ public record ArtifactMetadata
     /// <summary>
     /// The partition key value used for Cosmos DB.
     /// Typically derived from tenantId or userId.
-    /// See: ../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#6-partitioning-strategy
+    /// See: ../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md#6-partitioning-strategy
     /// </summary>
     [JsonIgnore] // Ignored during serialization, calculated on the fly if needed.
     public string PartitionKey => TenantId ?? UserId ?? throw new InvalidOperationException("Either TenantId or UserId must be set for PartitionKey.");
@@ -170,7 +171,7 @@ public record ArtifactMetadata
 
 /// <summary>
 /// Enumerates the known source systems for artifacts.
-/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#22-source-system-information
+/// See: ../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md#22-source-system-information
 /// </summary>
 public enum SourceSystemType
 {

@@ -33,6 +33,7 @@ public enum ProcessingPreference
 /// Loaded typically from configuration sources like appsettings.json during service startup.
 /// </summary>
 /// <seealso cref="../../../../../Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
 public class PersonaConfiguration
 {
     #region Core Identification (2.1)

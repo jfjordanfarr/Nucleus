@@ -11,22 +11,20 @@ using Microsoft.AspNetCore.Http;
 namespace Nucleus.Abstractions;
 
 /// <summary>
-/// Defines the contract for components responsible for retrieving the actual content
-/// of an artifact based on an ArtifactReference. Implementations are specific to the
-/// source system or protocol (e.g., local file system, Microsoft Graph, HTTP).
-/// Crucially, these providers operate ephemerally and do not store content long-term.
+/// Defines the contract for services that can retrieve the content of an artifact from a specific source system.
+/// Implementations of this interface are responsible for understanding how to fetch artifacts
+/// based on a given <see cref="Models.ArtifactReference"/> and its <see cref="Models.ArtifactReference.ReferenceType"/>.
+/// This abstraction is a key component of the Nucleus architecture, enabling pluggable content sources,
+/// as detailed in <seealso cref="../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>.
+/// </summary>
 /// <seealso cref="Models.ArtifactReference"/>
 /// <seealso cref="Models.ArtifactContent"/>
-/// <seealso cref="../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
-/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
-/// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
-/// <seealso cref="../../Docs/Architecture/Processing/ARCHITECTURE_INGESTION_FILECOLLECTIONS.md"/>
-/// <seealso cref="../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
-/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md">Storage Architecture - Reference-Based Access</seealso>
+/// <seealso cref="../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
 /// <seealso cref="../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
-/// <seealso cref="../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
-/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#341-iartifactprovidercs"/>
-/// </summary>
+/// <seealso cref="../../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#341-iartifactprovidercs"/>
 public interface IArtifactProvider
 {
     /// <summary>

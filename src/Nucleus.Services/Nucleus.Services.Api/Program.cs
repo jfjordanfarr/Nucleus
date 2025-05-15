@@ -28,6 +28,7 @@ using Nucleus.Infrastructure.Providers;
 using Nucleus.Services.Api.Diagnostics;
 using Nucleus.Services.Api.Infrastructure; // For LocalFileArtifactProvider
 using Nucleus.Services.Api.Infrastructure.Messaging; // For NullMessageQueuePublisher
+using Nucleus.Infrastructure.Messaging; // For IBackgroundTaskQueue
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -38,14 +39,12 @@ using Nucleus.Services.Api; // ADDED
 namespace Nucleus.Services.Api
 {
     /// <summary>
-    /// Main entry point for the Nucleus API service.
-    /// Configures and runs the ASP.NET Core web application.
-    /// Utilizes .NET Aspire for service discovery and resilience.
-    /// See API Endpoint mapping in ApiEndpointsExtensions.cs.
-    /// <seealso cref="../../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
-    /// <seealso cref="../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
-    /// <seealso cref="../../../../../Docs/Architecture/07_ARCHITECTURE_DEPLOYMENT.md"/>
+    /// Main entry point and configuration for the Nucleus API service.
+    /// This project serves as the primary gateway for all external interactions with the Nucleus platform.
     /// </summary>
+    /// <seealso cref="../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+    /// <seealso cref="../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
+    /// <seealso cref="../../../../Docs/Architecture/07_ARCHITECTURE_DEPLOYMENT.md"/>
     public class Program
     {
         public static async Task Main(string[] args)
@@ -98,8 +97,37 @@ namespace Nucleus.Services.Api
             // Add Infrastructure services (Adapters, Providers)
             builder.Services.AddInfrastructureServices(builder.Configuration);
 
-            // Register LocalAdapter services
+            // Add services specific to the Development environment
+            if (builder.Environment.IsDevelopment())
+            {
+                _logger.LogInformation("Development environment detected. Registering InMemoryBackgroundTaskQueue and NullMessageQueuePublisher.");
+                builder.Services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
+                builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>));
+            }
+            else
+            {
+                _logger.LogInformation("Non-Development environment detected. Registering Azure Service Bus for background tasks and publishing.");
+                builder.Services.AddAzureClients(clientBuilder =>
+                {
+                    // Configure the Service Bus Client connection using the connection string from AppHost (expected)
+                    // The connection string "sbBackgroundTasks" is the key Aspire uses by default when a resource is named "sbBackgroundTasks"
+                    clientBuilder.AddServiceBusClient(builder.Configuration.GetConnectionString("sbBackgroundTasks"))
+                                 .WithName(NucleusConstants.ServiceBusNames.BackgroundTasksClientName) // Ensures it can be resolved by this name if needed, e.g. by ServiceBusHealthIndicator
+                                 .ConfigureOptions(options =>
+                                 {
+                                     // Configure client-level options if needed
+                                     // options.TransportType = ServiceBusTransportType.AmqpWebSockets;
+                                 });
+                });
+
+                builder.Services.AddSingleton<IBackgroundTaskQueue, ServiceBusBackgroundTaskQueue>();
+                builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
+            }
+
+            // Add Local Adapter Services (this is generic, might be used in dev or specific deployments)
+            // Ensure this doesn't take builder.Configuration if not needed by the method itself
             builder.Services.AddLocalAdapterServices();
+            _logger.LogInformation("Registered Local Adapter Services.");
 
             var app = builder.Build();
 

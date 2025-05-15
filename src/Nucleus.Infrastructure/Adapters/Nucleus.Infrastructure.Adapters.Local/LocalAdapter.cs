@@ -16,6 +16,7 @@ namespace Nucleus.Infrastructure.Adapters.Local
     /// This adapter is typically used by internal services or test harnesses that run within the same
     /// application domain as the Nucleus API or core processing logic.
     /// </summary>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md"/>
     public class LocalAdapter : ILocalAdapterClient
     {
         private readonly ILogger<LocalAdapter> _logger;

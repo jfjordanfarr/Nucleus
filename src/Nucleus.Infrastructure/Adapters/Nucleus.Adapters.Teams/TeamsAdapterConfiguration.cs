@@ -4,9 +4,10 @@
 namespace Nucleus.Infrastructure.Adapters.Teams
 {
     /// <summary>
-    /// Configuration options for the Teams Adapter Bot.
-    /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
+    /// Configuration settings for the Teams Adapter.
+    /// Typically populated from `appsettings.json`.
     /// </summary>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
     public class TeamsAdapterConfiguration
     {
         /// <summary>

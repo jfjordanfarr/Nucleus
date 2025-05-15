@@ -1,8 +1,8 @@
 ---
 title: Namespace - Nucleus.Infrastructure.Adapters.Local
 description: Describes the Local Adapter project, providing an in-process client for local interactions with the Nucleus API services.
-version: 1.0
-date: 2025-05-06
+version: 1.1
+date: 2025-05-15
 parent: ../11_ARCHITECTURE_NAMESPACES_FOLDERS.md
 ---
 
@@ -33,5 +33,5 @@ This project provides a local, in-process client adapter for interacting with th
 
 *   [11_ARCHITECTURE_NAMESPACES_FOLDERS.md](../11_ARCHITECTURE_NAMESPACES_FOLDERS.md)
 *   [05_ARCHITECTURE_CLIENTS.md](../05_ARCHITECTURE_CLIENTS.md)
-*   [ARCHITECTURE_ADAPTERS_LOCAL.md](../ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md) (To be created)
+*   [ARCHITECTURE_ADAPTERS_LOCAL.md](../ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md)
 *   [10_ARCHITECTURE_API.md](../Api/10_ARCHITECTURE_API.md)

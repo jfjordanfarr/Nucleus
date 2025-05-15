@@ -2,7 +2,7 @@
 title: Client Adapter - Discord
 description: Describes a client adapter which enables the interaction with Nucleus personas in Discord
 version: 1.4
-date: 2025-04-27
+date: 2025-05-15
 parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 

@@ -22,8 +22,12 @@ namespace Nucleus.Infrastructure.Adapters.Teams
     /// Provides authenticated access to Microsoft Graph API for Teams/SharePoint operations.
     /// Handles authentication using application credentials.
     /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
-    /// See: Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
     /// </summary>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
     public class GraphClientService
     {
         private readonly ILogger<GraphClientService> _logger;

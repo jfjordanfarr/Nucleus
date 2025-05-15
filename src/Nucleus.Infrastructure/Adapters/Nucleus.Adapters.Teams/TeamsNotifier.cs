@@ -18,6 +18,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams;
 /// Uses the Bot Framework SDK to send notifications and acknowledgements back to the user.
 /// See: d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\ARCHITECTURE_ADAPTERS_TEAMS.md
 /// </summary>
+/// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
 public class TeamsNotifier : IPlatformNotifier
 {
     private readonly IBotFrameworkHttpAdapter _adapter;

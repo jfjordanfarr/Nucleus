@@ -15,6 +15,8 @@ using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions; // For TryAddSingleton
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting; 
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Http.Resilience;
@@ -40,6 +42,7 @@ using Nucleus.Infrastructure.Providers; // Added for ConsoleArtifactProvider
 using Nucleus.Infrastructure.Providers.ContentExtraction; // Added for concrete extractors
 using Nucleus.Services.Api.Configuration;
 using Nucleus.Services.Api.Diagnostics;
+using Nucleus.Services.Api.Endpoints; // ADDED
 using Nucleus.Services.Api.Infrastructure; // Added for NullArtifactProvider
 using Nucleus.Services.Api.Infrastructure.Messaging;
 using System;
@@ -83,6 +86,10 @@ public static class WebApplicationBuilderExtensions
         logger.LogInformation("Registered IMemoryCache.");
 
         // --- AI Services ---
+        // Registers clients for interacting with AI models (e.g., OpenAI, Google Gemini).
+        // These are abstracted by IChatClient and other interfaces for use in the application.
+        // See: ../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md
+        // See: ../../../Docs/Architecture/08_ARCHITECTURE_AI_INTEGRATION.md
         logger.LogInformation("Configuring AI Services...");
         var googleAiSection = configuration.GetSection("AI:GoogleAI");
         if (googleAiSection.Exists())
@@ -187,55 +194,31 @@ public static class WebApplicationBuilderExtensions
         logger.LogInformation("Registering Service Bus client and Background Task Queue...");
         try
         {
-            // Register Azure Clients using IAzureClientFactory for proper DI and configuration
-            // Ref: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/extensions.dependencyinjection-readme#register-clients-with-azureclientfactorybuilder
-            // Ref: https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/azure-sdk?tabs=dotnet-cli%2Cazure-cli#register-azure-sdk-clients-manually
-            services.AddAzureClients(clientBuilder =>
+            // NOTE: IBackgroundTaskQueue and IMessageQueuePublisher<> (and their specific ServiceBusClient) are now registered in Program.cs.
+            // This section is now only for other general Azure clients if needed by services registered in AddNucleusServices (e.g., Key Vault).
+            if (!builder.Environment.IsDevelopment())
             {
-                // Configure connection for Azure Key Vault if provided
-                var keyVaultUri = builder.Configuration.GetConnectionString("kv-nucleusbot");
-                if (!string.IsNullOrEmpty(keyVaultUri) && Uri.TryCreate(keyVaultUri, UriKind.Absolute, out _))
+                // Example: If Key Vault is needed by other services configured here:
+                services.AddAzureClients(clientBuilder =>
                 {
-                    // Use DefaultAzureCredential which works for Managed Identity, VS Credential, etc.
-                    clientBuilder.AddSecretClient(new Uri(keyVaultUri));
-                    clientBuilder.UseCredential(new DefaultAzureCredential());
-                }
-                else
-                {
-                    // Log a warning or handle the case where Key Vault is not configured
-                    // Consider if Key Vault is mandatory or optional for your deployment
-                    Console.WriteLine("Warning: Azure Key Vault connection string 'kv-nucleusbot' not found or invalid. Key Vault integration disabled.");
-                    // Potentially throw if KV is essential: throw new InvalidOperationException("Azure Key Vault configuration is missing or invalid.");
-                }
-
-                // Configure the Service Bus Client connection using the connection string from AppHost
-                var serviceBusConnectionString = builder.Configuration.GetConnectionString("sbBackgroundTasks");
-                if (string.IsNullOrEmpty(serviceBusConnectionString))
-                {
-                    // Throw or log error if Service Bus is essential
-                    throw new InvalidOperationException("Azure Service Bus connection string 'sbBackgroundTasks' not found in configuration. Aspire AppHost setup might be incomplete or the resource name mismatch.");
-                }
-
-                // Register a named Service Bus client for background tasks.
-                // This allows injecting IAzureClientFactory<ServiceBusClient> and requesting the client by name.
-                clientBuilder.AddServiceBusClient(serviceBusConnectionString)
-                             .WithName(NucleusConstants.ServiceBusNames.BackgroundTasksClientName) // "sbbackgroundtasks"
-                             .ConfigureOptions(options =>
-                             {
-                                // Configure client-level options if needed
-                                // options.TransportType = ServiceBusTransportType.AmqpWebSockets;
-                             });
-
-            });
-
-            // Register the Background Task Queue implementation. It will use IAzureClientFactory<ServiceBusClient> internally.
-            services.AddSingleton<IBackgroundTaskQueue, ServiceBusBackgroundTaskQueue>();
-
-            logger.LogInformation("Successfully registered Azure Service Bus client and Background Task Queue.");
+                    var keyVaultUri = builder.Configuration.GetConnectionString("kv-nucleusbot");
+                    if (!string.IsNullOrEmpty(keyVaultUri) && Uri.TryCreate(keyVaultUri, UriKind.Absolute, out _))
+                    {
+                        clientBuilder.AddSecretClient(new Uri(keyVaultUri));
+                        clientBuilder.UseCredential(new DefaultAzureCredential());
+                        logger.LogInformation("Registered Azure Key Vault client.");
+                    }
+                    else
+                    {
+                        logger.LogWarning("Azure Key Vault connection string 'kv-nucleusbot' not found or invalid. Key Vault integration disabled for services in AddNucleusServices.");
+                    }
+                });
+            }
+            logger.LogInformation("Background Task Queue and Publisher registrations are handled in Program.cs.");
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Failed to register Azure Service Bus client or Background Task Queue. Service Bus dependent features might not function correctly.");
+            logger.LogError(ex, "Error during conditional Azure client registration in AddNucleusServices (e.g., Key Vault). Dependent features might not function correctly.");
             // Fallback or rethrow depending on requirements
         }
 
@@ -267,6 +250,9 @@ public static class WebApplicationBuilderExtensions
 
         // --- Platform Notifiers ---
         // Default (used if no specific platform is targeted)
+        /// <remarks>
+        /// For detailed architectural context on platform notification, see <see href="../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#platform-notification-iplatformnotifier">01_ARCHITECTURE_PROCESSING.md</see>.
+        /// </remarks>
         services.AddSingleton<IPlatformNotifier, NullPlatformNotifier>(); 
         // Keyed notifier for explicit API platform use
         services.AddKeyedSingleton<IPlatformNotifier, NullPlatformNotifier>(PlatformType.Api);
@@ -276,110 +262,7 @@ public static class WebApplicationBuilderExtensions
         services.AddHostedService<QueuedInteractionProcessorService>();
         logger.LogInformation("Registered QueuedInteractionProcessorService as Hosted Service.");
 
-        // --- Messaging (Azure Service Bus Client) ---
-        // Check if configured via Aspire AppHost (connection string is injected)
-        // The check for connection string presence is implicitly handled by AddAzureServiceBusClient
-        logger.LogInformation("Attempting to register Azure Service Bus client via Aspire...");
-        try
-        {
-            // Register Azure Clients using IAzureClientFactory for proper DI and configuration
-            // Ref: https://learn.microsoft.com/en-us/dotnet/api/overview/azure/extensions.dependencyinjection-readme#register-clients-with-azureclientfactorybuilder
-            // Ref: https://learn.microsoft.com/en-us/dotnet/aspire/fundamentals/azure-sdk?tabs=dotnet-cli%2Cazure-cli#register-azure-sdk-clients-manually
-            services.AddAzureClients(clientBuilder =>
-            {
-                // Configure connection for Azure Key Vault if provided
-                var keyVaultUri = builder.Configuration.GetConnectionString("kv-nucleusbot");
-                if (!string.IsNullOrEmpty(keyVaultUri) && Uri.TryCreate(keyVaultUri, UriKind.Absolute, out _))
-                {
-                    // Use DefaultAzureCredential which works for Managed Identity, VS Credential, etc.
-                    clientBuilder.AddSecretClient(new Uri(keyVaultUri));
-                    clientBuilder.UseCredential(new DefaultAzureCredential());
-                }
-                else
-                {
-                    // Log a warning or handle the case where Key Vault is not configured
-                    // Consider if Key Vault is mandatory or optional for your deployment
-                    Console.WriteLine("Warning: Azure Key Vault connection string 'kv-nucleusbot' not found or invalid. Key Vault integration disabled.");
-                    // Potentially throw if KV is essential: throw new InvalidOperationException("Azure Key Vault configuration is missing or invalid.");
-                }
-
-                // Configure the Service Bus Client connection using the connection string from AppHost
-                var serviceBusConnectionString = builder.Configuration.GetConnectionString("sbBackgroundTasks");
-                if (string.IsNullOrEmpty(serviceBusConnectionString))
-                {
-                    // Throw or log error if Service Bus is essential
-                    throw new InvalidOperationException("Azure Service Bus connection string 'sbBackgroundTasks' not found in configuration. Aspire AppHost setup might be incomplete or the resource name mismatch.");
-                }
-
-                // Register a named Service Bus client for background tasks.
-                // This allows injecting IAzureClientFactory<ServiceBusClient> and requesting the client by name.
-                clientBuilder.AddServiceBusClient(serviceBusConnectionString)
-                             .WithName(NucleusConstants.ServiceBusNames.BackgroundTasksClientName) // "sbbackgroundtasks"
-                             .ConfigureOptions(options =>
-                             {
-                                // Configure client-level options if needed
-                                // options.TransportType = ServiceBusTransportType.AmqpWebSockets;
-                             });
-
-            });
-
-            // Register our custom publisher implementation
-            services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
-            logger.LogInformation("Successfully registered Azure Service Bus client and AzureServiceBusPublisher.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to register Azure Service Bus client. Service Bus dependent features (like Background Task Queue) might not function correctly.");
-            // Consider consequences: Should the app fail to start? Register a Null publisher?
-            // services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>)); // Example fallback
-        }
-
-        logger.LogInformation("Nucleus services registration complete.");
+        logger.LogInformation("Nucleus service registration complete.");
         return builder;
     }
-
-    /// <summary>
-    /// Maps Nucleus specific endpoints.
-    /// </summary>
-    public static WebApplication MapNucleusEndpoints(this WebApplication app)
-    {
-        ArgumentNullException.ThrowIfNull(app);
-
-        var logger = app.Logger; // Use the application's logger
-        logger.LogInformation("Mapping Nucleus endpoints...");
-
-        // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-            logger.LogInformation("Swagger UI enabled for Development environment.");
-        }
-
-        app.UseHttpsRedirection();
-
-        // Enable Authentication and Authorization if configured
-        // app.UseAuthentication();
-        // app.UseAuthorization();
-
-        // Map standard API controllers (ensure routing attributes are on controllers/actions)
-        app.MapControllers();
-        logger.LogInformation("Mapped API controllers via MapControllers().");
-
-        // Map Aspire default endpoints (e.g., health checks, dashboard)
-        app.MapDefaultEndpoints();
-        logger.LogInformation("Mapped Aspire default endpoints (e.g., /health, /metrics).");
-
-        // --- Explicit API Endpoints (Example - Can be removed if controllers handle all) ---
-        // var apiGroup = app.MapGroup("/api/v1");
-        // Example: A simple health check or version endpoint
-        // apiGroup.MapGet("/status", () => Results.Ok(new { Status = "OK", Version = "1.0" }))
-        //         .WithName("GetApiStatus")
-        //         .WithTags("Diagnostics");
-
-        logger.LogInformation("Nucleus endpoint mapping complete.");
-        return app;
-    }
-
-    // Removed MapBotFramework extension method
 }

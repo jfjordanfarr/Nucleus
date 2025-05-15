@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         // Register the default persona resolver
         // Use TryAddScoped to allow consumers to override the implementation.
         // TODO: Replace DefaultPersonaResolver with a configurable implementation.
+        /// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#ipersonaresolver-registration">Nucleus Processing Architecture - IPersonaResolver Registration</seealso>
         services.TryAddScoped<IPersonaResolver, DefaultPersonaResolver>();
 
         // Register the background task processor service.

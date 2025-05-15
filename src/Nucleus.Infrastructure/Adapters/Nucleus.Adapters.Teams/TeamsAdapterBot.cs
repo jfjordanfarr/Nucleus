@@ -27,7 +27,8 @@ namespace Nucleus.Infrastructure.Adapters.Teams
     /// Represents the core logic for the Nucleus Teams Adapter, handling incoming activities,
     /// interaction with the Nucleus backend API, and basic conversation management.
     /// It uses the Bot Framework SDK ActivityHandler as its base.
-    /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md"/>
+    /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md"/>
     /// </summary>
     public class TeamsAdapterBot : ActivityHandler
     {
@@ -73,8 +74,7 @@ namespace Nucleus.Infrastructure.Adapters.Teams
         /// Handles incoming message activities from Microsoft Teams.
         /// Validates mentions, extracts relevant information, constructs an <see cref="AdapterRequest"/>,
         /// sends it to the backend API via HTTP, and provides an initial acknowledgement using <see cref="IPlatformNotifier"/>.
-        /// See: Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md
-        /// <seealso cref="d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\Teams\ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md"/>
+        /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md"/>
         /// </summary>
         /// <param name="turnContext">The context object for this turn.</param>
         /// <param name="cancellationToken">A cancellation token that can be used by other objects or threads to receive notice of cancellation.</param>
@@ -226,8 +226,9 @@ namespace Nucleus.Infrastructure.Adapters.Teams
         /// <summary>
         /// Extracts file attachment information from the activity and creates ArtifactReference objects.
         /// Focuses on hints needed by the API, avoids complex local parsing.
-        /// <seealso cref="d:\Projects\Nucleus\Docs\Architecture\ClientAdapters\Teams\ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
+        /// <seealso cref="../../../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
         /// </summary>
+        /// <param name="activity">The incoming activity from Teams, potentially containing attachments.</param>
         private static List<ArtifactReference>? ExtractAttachmentReferences(
             IMessageActivity activity, 
             ILogger logger)

@@ -11,10 +11,12 @@ namespace Nucleus.Abstractions.Models.ApiContracts;
 /// This is the primary DTO used for incoming interactions to the Nucleus API.
 /// See: Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
 /// See: Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md
-/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/Processing/Ingestion/ARCHITECTURE_PROCESSING_INGESTION.md"/>
+/// <seealso cref="../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+/// <seealso cref="../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// <seealso cref="../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
+/// <seealso cref="../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_EMAIL.md"/>
 /// </summary>
 /// <param name="PlatformType">The type of platform originating the request (e.g., "Teams", "Console").</param>
 /// <param name="ConversationId">A unique identifier for the conversation context.</param>

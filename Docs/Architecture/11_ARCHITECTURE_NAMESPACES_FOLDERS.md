@@ -1,8 +1,8 @@
 ---
 title: Architecture - Namespaces and Folder Structure
 description: Defines the standard namespace and folder structure for the Nucleus project, following .NET Aspire conventions and Clean Architecture principles.
-version: 2.4
-date: 2025-05-07
+version: 2.5
+date: 2025-05-15
 parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
@@ -19,10 +19,14 @@ This document defines the standard organization for the Nucleus codebase. The go
 
 ## 2. Top-Level Structure
 
-The project root follows the standard .NET Aspire convention:
+The project root follows the standard .NET Aspire convention and includes development/operational support folders:
 
 ```
 ./
+├── .devcontainer/            # Devcontainer configuration for consistent environments
+├── .github/                  # GitHub-specific files (e.g., workflows)
+├── .vscode/                  # VSCode-specific settings (e.g., launch configurations)
+├── AgentOps/                 # Scripts and documents for AI Agent-assisted development
 ├── Aspire/                   # Aspire orchestration and defaults
 │   ├── Nucleus.AppHost/          # Aspire AppHost project
 │   └── Nucleus.ServiceDefaults/  # Aspire ServiceDefaults project
@@ -34,20 +38,31 @@ The project root follows the standard .NET Aspire convention:
 │   ├── Nucleus.Infrastructure/
 │   └── Nucleus.Services/
 ├── tests/                    # Test projects
+│   ├── Infrastructure.Testing/ # Shared test infrastructure (mocks, fakes)
 │   ├── Integration/          # Integration test projects
 │   │   └── Nucleus.Services.Api.IntegrationTests/
 │   ├── Unit/                   # Unit test projects
-│   │   └── Nucleus.Domain.Tests/
+│   │   ├── Nucleus.Domain.Tests/
+│   │   └── Nucleus.Infrastructure.Providers.Tests/ # Unit tests for Infrastructure.Providers
 │   └── (EndToEnd planned)
-├── .gitignore
-├── Nucleus.sln
-└── README.md
+├── .editorconfig             # Coding style configurations
+├── .gitattributes            # Git file attributes
+├── .gitignore                # Specifies intentionally untracked files that Git should ignore
+├── LICENSE.txt               # Project license information
+├── Nucleus.sln               # Visual Studio Solution file
+├── README.md                 # Main project README
+└── .windsurfrules            # Windsurf-specific rules and guidelines
 ```
 
+*   **`.devcontainer/`**: Contains configuration files for setting up a consistent development environment using Docker containers.
+*   **`.github/`**: Holds GitHub-specific configurations, such as CI/CD workflow definitions.
+*   **`.vscode/`**: Stores workspace-specific settings for Visual Studio Code, like launch configurations and recommended extensions.
+*   **`AgentOps/`**: Contains scripts, notes, and context files used for facilitating AI Agent-assisted development (e.g., with Cascade).
 *   **`Aspire/`**: Contains projects specific to .NET Aspire's development-time orchestration (`AppHost`) and shared runtime configurations (`ServiceDefaults`).
 *   **`Docs/`**: Contains all project documentation, including architecture specifications.
 *   **`src/`**: Contains all core source code for the Nucleus application, organized by architectural layer.
-*   **`tests/`**: Contains all automated test projects. Includes Integration, Unit, and planned End-to-End tests.
+*   **`tests/`**: Contains all automated test projects. Includes Shared Infrastructure, Integration, Unit, and planned End-to-End tests.
+*   Root files like `.gitignore`, `Nucleus.sln`, `README.md`, `.editorconfig`, `.gitattributes`, `LICENSE.txt`, and `.windsurfrules` manage project versioning, building, and development standards.
 
 ## 3. `src/` Layer Structure
 
@@ -68,19 +83,26 @@ This section lists the individual projects within the Nucleus solution and links
     *   Data persistence implementation (Cosmos DB Repositories).
 *   **[`Nucleus.Infrastructure.Providers`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS.md)** (`src/Nucleus.Infrastructure/Providers/`)
     *   Implementations for accessing external data/resources (e.g., Artifact Providers).
+*   **[`Nucleus.Infrastructure.Messaging`](./Namespaces/NAMESPACE_INFRASTRUCTURE_MESSAGING.md)** (`src/Nucleus.Infrastructure/Messaging/`)
+    *   Handles message queuing and bus interactions (e.g., Azure Service Bus).
 *   **[`Nucleus.Infrastructure.Adapters.Local`](./Namespaces/NAMESPACE_ADAPTERS_LOCAL.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/`)
-    *   Local client adapter.
+    *   Local adapter implementation, primarily for development and testing file-based interactions.
 *   **[`Nucleus.Adapters.Teams`](./Namespaces/NAMESPACE_ADAPTERS_TEAMS.md)** (`src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/`)
-    *   Microsoft Teams client adapter (Bot).
+    *   Microsoft Teams adapter implementation using Bot Framework.
 *   **[`Nucleus.Services.Api`](./Namespaces/NAMESPACE_SERVICES_API.md)** (`src/Nucleus.Services/Nucleus.Services.Api/`)
-    *   Main backend HTTP API service.
+    *   The main API service, exposing Nucleus functionalities.
 *   **[`Nucleus.AppHost`](./Namespaces/NAMESPACE_APP_HOST.md)** (`Aspire/Nucleus.AppHost/`)
-    *   .NET Aspire AppHost for development orchestration.
+    *   .NET Aspire AppHost for orchestrating services during development.
 *   **[`Nucleus.ServiceDefaults`](./Namespaces/NAMESPACE_SERVICE_DEFAULTS.md)** (`Aspire/Nucleus.ServiceDefaults/`)
     *   Shared configurations (Telemetry, Health Checks) for Aspire services.
-*   **(Placeholder for `Nucleus.Services.Api.IntegrationTests`)** (`tests/Integration/Nucleus.Services.Api.IntegrationTests/`)
+*   **[`Nucleus.Services.Api.IntegrationTests`](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md)** (`tests/Integration/Nucleus.Services.Api.IntegrationTests/`)
+    *   Integration tests for `Nucleus.Services.Api`.
 *   **[`Nucleus.Domain.Tests`](./Namespaces/NAMESPACE_DOMAIN_TESTS.md)** (`tests/Unit/Nucleus.Domain.Tests/`)
     *   Unit tests for the `Nucleus.Domain` projects, focusing on individual components and logic within the domain layer.
+*   **[`Nucleus.Infrastructure.Providers.Tests`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS_TESTS.md)** (`tests/Unit/Nucleus.Infrastructure.Providers.Tests/`)
+    *   Unit tests for the `Nucleus.Infrastructure.Providers` project.
+*   **[`Nucleus.Infrastructure.Testing`](./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md)** (`tests/Infrastructure.Testing/`)
+    *   Shared test doubles (mocks, fakes, stubs) and helper classes used by various test projects.
 
 ## 5. `tests/` Layer Structure
 
@@ -103,16 +125,19 @@ The `tests/` directory is organized by test type, including Integration, Unit, a
 graph LR
     %% Top Level Structure
     subgraph Root
+        DEV_TOOLS[.devcontainer, .github, .vscode, AgentOps]
         APP_HOST[Aspire/Nucleus.AppHost]
         SVC_DEFAULTS[Aspire/Nucleus.ServiceDefaults]
         SRC[src/]
         TESTS[tests/]
+        ROOT_FILES[.gitignore, .sln, README.md, etc.]
     end
 
     %% Tests Layer
     subgraph tests/
         T_Integration[Integration/Nucleus.Services.Api.IntegrationTests]
         T_Unit_Domain[Unit/Nucleus.Domain.Tests]
+        T_Unit_Infra_Providers[Unit/Nucleus.Infrastructure.Providers.Tests] %% Added
         T_Infra_Testing[Infrastructure.Testing]
         %% T_EndToEnd(EndToEnd)
     end
@@ -130,6 +155,9 @@ graph LR
             end
             subgraph Providers
                  I_Providers[Nucleus.Infrastructure.Providers]
+            end
+            subgraph Messaging
+                 I_Messaging[Nucleus.Infrastructure.Messaging]
             end
             subgraph Adapters
                  I_Local[Nucleus.Infrastructure.Adapters.Local]
@@ -159,6 +187,7 @@ graph LR
     S_Api --> A;
     S_Api --> I_Data_Persistence;
     S_Api --> I_Providers;
+    S_Api --> I_Messaging;
     S_Api --> I_Local; %% Via DI for potential shared services, not direct calls
     S_Api --> I_Teams;   %% Via DI for potential shared services, not direct calls
     S_Api --> D_Processing; %% OrchestrationService lives here
@@ -169,6 +198,7 @@ graph LR
     I_Providers --> Abs;
     I_Local --> Abs;
     I_Teams --> Abs;
+    I_Messaging --> Abs;
 
     A --> D_Processing;
     A --> D_Personas;
@@ -190,6 +220,9 @@ graph LR
     T_Unit_Domain --> D_Personas;
     T_Unit_Domain --> Abs;
     T_Unit_Domain -- uses --> T_Infra_Testing;
+    T_Unit_Infra_Providers --> I_Providers; %% Added
+    T_Unit_Infra_Providers --> Abs; %% Added
+    T_Unit_Infra_Providers -- uses --> T_Infra_Testing; %% Added
     T_Integration --> S_Api;
     T_Integration -- uses --> T_Infra_Testing;
     %% T_Integration --> I_Data_Persistence;
@@ -201,12 +234,13 @@ graph LR
 
 ## 9. Testing (`tests/`)
 
-*   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/TESTS_API_INTEGRATION.md) (Placeholder).
+*   **`tests/Integration/`**: Contains integration test projects, currently focused on API integration tests (`Nucleus.Services.Api.IntegrationTests`). See [NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md).
 *   **`tests/Unit/`**: Contains unit test projects.
     *   **`Nucleus.Domain.Tests`**: Unit tests for the domain layer components. See [NAMESPACE_DOMAIN_TESTS.md](./Namespaces/NAMESPACE_DOMAIN_TESTS.md).
+    *   **`Nucleus.Infrastructure.Providers.Tests`**: Unit tests for the `Nucleus.Infrastructure.Providers` project. See [NAMESPACE_INFRASTRUCTURE_PROVIDERS_TESTS.md](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS_TESTS.md).
 *   **`tests/EndToEnd/`**: Planned for end-to-end tests, currently not implemented.
 *   **`Nucleus.Services.Api.IntegrationTests`**: Integration tests specifically targeting the `Nucleus.Services.Api` project, often involving spinning up the web host and making real HTTP requests.
-    *   *Details*: [./Namespaces/TESTS_API_INTEGRATION.md](./Namespaces/TESTS_API_INTEGRATION.md)
+    *   *Details*: [./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md](./Namespaces/NAMESPACE_API_INTEGRATION_TESTS.md)
 *   **`Nucleus.Infrastructure.Testing`**: Contains shared test doubles (mocks, fakes, stubs) and helper classes used by various test projects. This ensures test infrastructure is separate from production code.
     *   *Details*: [./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md](./Namespaces/NAMESPACE_INFRASTRUCTURE_TESTING.md)
 

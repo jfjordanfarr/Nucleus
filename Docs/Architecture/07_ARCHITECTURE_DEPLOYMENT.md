@@ -2,7 +2,7 @@
 title: Nucleus Deployment Architecture Overview
 description: Provides an overview of deployment strategies and links to detailed architectures for Azure, Cloudflare, and Self-Hosting.
 version: 2.7
-date: 2025-05-06
+date: 2025-05-15
 ---
 
 # Nucleus: Deployment Architecture Overview

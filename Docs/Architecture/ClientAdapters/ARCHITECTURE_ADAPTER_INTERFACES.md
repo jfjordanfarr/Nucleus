@@ -1,8 +1,8 @@
 ---
 title: Architecture - External Client Adapter API Interaction
 description: Defines the standard API interaction pattern for new, external Nucleus Client Adapters (e.g., Slack, Discord) interfacing with Nucleus.Services.Api.
-version: 2.2
-date: 2025-05-08
+version: 2.3
+date: 2025-05-14
 parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
@@ -26,13 +26,13 @@ As outlined in the main [Client Architecture](../05_ARCHITECTURE_CLIENTS.md), ex
 All core logic, including authentication/authorization checks, accessing source artifacts, processing data, interacting with AI, and writing output artifacts, resides **exclusively within the `Nucleus.Services.Api`** and its underlying services.
 
 Implementations detailing how specific adapters follow this pattern can be found in:
-*   [Teams Adapter Architecture](./Teams/ARCHITECTURE_ADAPTERS_TEAMS.md)
+*   [Teams Adapter Architecture](./ARCHITECTURE_ADAPTERS_TEAMS.md)
 
 ## 1. `IPlatformMessage` (Conceptual Input for API Request Construction)
 
 Conceptually, external adapters start by receiving a platform-specific message or event. While the exact structure varies (e.g., Teams `Activity`, Slack event payload), this section provides an abstract representation of the essential information an adapter needs to extract.
 
-**Purpose:** To serve as a **guide** for identifying the key pieces of information an adapter needs to extract from a platform message to construct a well-formed HTTP request to the `Nucleus.Services.Api` (typically resulting in an `AdapterRequest` DTO, as detailed in [API Client Interaction](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)). It is **not** a C# interface that external adapters are expected to literally implement and pass within the Nucleus system.
+**Purpose:** To serve as a **guide** for identifying the key pieces of information an adapter needs to extract from a platform message to construct a well-formed HTTP request to the `Nucleus.Services.Api` (typically resulting in an `AdapterRequest` DTO, as detailed in [API Client Interaction](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)). It is **not** a C# interface that external adapters are expected to literally implement and pass within the Nucleus system.
 
 **Conceptual Definition:**
 
@@ -77,7 +77,6 @@ public interface IPlatformMessage
     // Potentially other platform-specific metadata accessible via methods or properties.
     // T GetMetadata<T>(string key);
 }
-```
 
 ## 2. Adapter API Interaction Pattern
 
@@ -85,7 +84,7 @@ External Client Adapters **do not implement** C# interfaces like `IPersonaIntera
 
 1.  **Receive Platform Message:** The adapter's listener receives a native message (e.g., HTTP webhook from Slack, email via an email server).
 2.  **Extract Key Information:** The adapter parses the platform message to extract data conceptually similar to the elements described in the `IPlatformMessage` section (MessageId, ConversationId, UserId, Content, SourceArtifactUris, Timestamp, etc.).
-3.  **Translate to API Request DTO:** The adapter constructs an API request DTO (e.g., `AdapterRequest`) as defined by the `Nucleus.Services.Api` (see [API Architecture](../10_ARCHITECTURE_API.md) and its sub-documents, particularly [API Client Interaction](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)). This DTO encapsulates the necessary information for the API to process the request.
+3.  **Translate to API Request DTO:** The adapter constructs an API request DTO (e.g., `AdapterRequest`) as defined by the `Nucleus.Services.Api` (see [API Architecture](../10_ARCHITECTURE_API.md) and its sub-documents, particularly [API Client Interaction](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)). This DTO encapsulates the necessary information for the API to process the request.
 4.  **Call `Nucleus.Services.Api` Endpoint:** The adapter makes an authenticated HTTP call (e.g., `POST /api/v1/interactions`) to the central API service, sending the request DTO in the request body.
 5.  **Receive API Response DTO:** The adapter receives an HTTP response containing a DTO from the API service, indicating success, failure, or asynchronous job submission status (e.g., `AdapterResponse`).
 6.  **Translate to Platform Reply:** The adapter translates the information in the response DTO into a format suitable for the client platform (e.g., constructing a Slack message payload, formatting an email reply).
@@ -105,5 +104,9 @@ This pattern ensures that external adapters remain thin translators, and all cor
 *   **Source Code:** [`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)
 *   **Implementations:** Each client adapter that supports receiving asynchronous responses from Nucleus (e.g., after a long-running background task) *may* provide an implementation of this interface. For example, `TeamsNotifier`, `ConsoleNotifier`.
     *   For platforms where notifications are not applicable or handled differently (e.g., a direct API call that returns an immediate HTTP response), a `NullPlatformNotifier` can be used.
+
+Typically, an adapter will translate the platform's native message into one or more `AdapterRequest` DTOs, which may contain [ArtifactReference](../../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) instances if the message includes attachments or references to external content. This translation is a key responsibility of the adapter, ensuring that platform-specific details are mapped to the standardized format expected by `Nucleus.Services.Api`.
+
+For example, the [Teams Adapter Architecture](./ARCHITECTURE_ADAPTERS_TEAMS.md) details how Bot Framework `Activity` data (including attachments) is mapped to the `InteractionRequest` DTO, which is a specific type of `AdapterRequest`.
 
 ---

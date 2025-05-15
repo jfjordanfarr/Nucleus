@@ -1,8 +1,8 @@
 ---
 title: Client Adapter - Teams
 description: Describes a Bot Framework SDK client adapter to bring Nucleus personas into Microsoft Teams.
-version: 1.8
-date: 2025-04-27
+version: 1.9
+date: 2025-05-08
 parent: ../05_ARCHITECTURE_CLIENTS.md
 ---
 
@@ -20,7 +20,7 @@ Implementation details for common interfaces are further specified in [ARCHITECT
 
 *   **Bot Authentication:** Relies on standard Bot Framework authentication mechanisms (App ID/Password or Managed Identity) configured during bot registration in Azure Bot Service / Azure AD.
 *   **User Authentication:** User identity is typically derived from the Teams context provided in incoming activities.
-*   **Graph API Access:** Requires separate Azure AD App Registration with appropriate Microsoft Graph API permissions (e.g., `Sites.Selected`, `Files.ReadWrite`, `User.Read`, `ChannelMessage.Send`) granted via admin consent. Authentication uses client credentials flow or Managed Identity. See implementation in [`GraphClientService.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/GraphClientService.cs).
+*   **Graph API Access (for References):** The adapter may require Graph API access to obtain unique identifiers or metadata for Teams entities (users, channels, messages, files) to be included as references in the `InteractionRequest`. Direct content retrieval via Graph API by the adapter should be minimized; content access is primarily the responsibility of `Nucleus.Services.Api` based on references provided by the adapter. Permissions like `Sites.Selected`, `Files.ReadWrite` (for creating upload sessions if API delegates this), `User.Read`, `ChannelMessage.Read.All` might be needed for the adapter to gather these references. See implementation in [`GraphClientService.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/GraphClientService.cs).
 
 ## Interaction Handling & API Forwarding
 
@@ -34,12 +34,12 @@ As per the API-First principle, the Teams Adapter acts as a translator between t
     *   Message Content (`activity.Text`, `activity.Attachments`)
     *   Activity ID (`activity.Id`)
     *   Timestamp (`activity.Timestamp`)
-3.  **Detect Reply Context:** To enable implicit activation for replies ([ARCHITECTURE_ORCHESTRATION_ROUTING.md](./../Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md)), the adapter specifically checks if the incoming message is part of a thread/reply chain:
+3.  **Detect Reply Context:** To enable implicit activation for replies ([ARCHITECTURE_ORCHESTRATION_ROUTING.md](../../../Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md)), the adapter specifically checks if the incoming message is part of a thread/reply chain:
     *   It inspects the `Activity.Conversation.Id`. For threaded replies in channels, this ID often follows the pattern `19:CHANNEL_ID@thread.tacv2;messageid=PARENT_ACTIVITY_ID` or similar variants.
     *   It parses this string to extract the `messageid` value, which corresponds to the `Activity.Id` of the message being replied to.
     *   While `Activity.ReplyToId` exists, relying on parsing the `Conversation.Id` for the parent `messageid` is often more reliable for capturing the *thread* context.
-4.  **Construct API Request:** The adapter maps the extracted information to the `InteractionRequest` DTO defined by the `Nucleus.Services.Api`.
-    *   This includes mapping the user, channel/chat, message content, and attachment references (see [File Attachments](#file-attachments)).
+4.  **Construct API Request:** The adapter maps the extracted information and any artifact references (see [File Attachments](#file-attachments)) to the `InteractionRequest` DTO defined by the `Nucleus.Services.Api`.
+    *   This includes mapping the user, channel/chat, message content, and attachment references.
     *   Crucially, if a parent `messageid` was extracted in the previous step, it is populated into a dedicated field in the `InteractionRequest` (e.g., `RepliedToPlatformMessageId`).
 5.  **Forward to API:** The adapter makes an authenticated HTTP POST request to the central Nucleus API endpoint (e.g., `POST /api/v1/interactions`) with the populated `InteractionRequest` object as the body.
 6.  **Handle API Response:**
@@ -47,11 +47,40 @@ As per the API-First principle, the Teams Adapter acts as a translator between t
     *   **Asynchronous:** If the API returns HTTP 202 Accepted, the adapter should send an acknowledgement (e.g., using `SendAcknowledgementAsync` from `TeamsNotifier`). It requires a mechanism (like the `IPlatformNotifier` interface implemented by `TeamsNotifier`) to receive the final result later and post it to the appropriate conversation.
     *   **Errors:** The adapter logs the error and sends an informative message back to the user.
 
+## File Attachments
+
+Handling file attachments from Teams messages involves several steps, adhering to the API-First principle:
+
+1.  **Receive Attachment Info:** The Teams `Activity` object contains an `Attachments` collection. For files, each `Attachment` object provides:
+    *   `ContentUrl`: A URL that can be used to download the file (often temporary or requiring Bot Framework authentication).
+    *   `Name`: The original filename.
+    *   `ContentType`: The MIME type of the file.
+
+2.  **Obtain Stable Reference (If Necessary):**
+    *   The `ContentUrl` provided by the Bot Framework might be temporary. For durable access, especially if `Nucleus.Services.Api` needs to fetch the content later, the adapter might need to use the Microsoft Graph API to get a more stable reference (e.g., a SharePoint drive item ID, a persistent sharing link, or a Graph download URL).
+    *   This step requires the adapter to have appropriate Graph API permissions (e.g., `ChannelMessage.Read.All`, `ChatMessage.Read.All` to access message details, then permissions to access the underlying file storage like `Sites.Read.All` or `Files.Read.All` scopes, depending on where the file is stored).
+    *   **Crucially, the adapter's primary role here is to obtain a *reference* (URI or structured identifier) that `Nucleus.Services.Api` can use, not to download the content itself.**
+
+3.  **Construct `ArtifactReference`:** For each file, the adapter creates an `ArtifactReference` object (part of the `InteractionRequest` DTO) and populates it with:
+    *   `Uri`: The stable URI or structured identifier (e.g., `graph://users/{userId}/messages/{messageId}/attachments/{attachmentId}`, or a Graph API direct download link if that's the agreed contract with the API).
+    *   `ProviderId`: Potentially a hint like `"MSGraph"` or similar, if the API uses this to select the correct `IArtifactProvider`.
+    *   `OriginalFileName`: The `Name` from the attachment info.
+    *   `MimeType`: The `ContentType` from the attachment info.
+
+4.  **Send to API:** The `InteractionRequest` (containing these `ArtifactReference` objects) is sent to `Nucleus.Services.Api`.
+
+5.  **API Handles Content Retrieval:** `Nucleus.Services.Api` receives the `InteractionRequest`. When it needs the content of an artifact:
+    *   It inspects the `ArtifactReference` (e.g., its URI and/or `ProviderId`).
+    *   It uses an appropriate `IArtifactProvider` implementation (e.g., a `GraphArtifactProvider`) configured within the API to resolve the reference and fetch the actual file content directly from the source (e.g., SharePoint/OneDrive via Graph API).
+    *   The adapter **does not** download the file content and send it to the API. It only sends the reference.
+
+This approach centralizes data fetching logic within `Nucleus.Services.Api`, aligns with API-First, and allows the API to manage security, caching, and transformation of artifacts more effectively.
+
 ## Generated Artifact Handling
 
 Nucleus integrates with the **native storage mechanisms** of Microsoft Teams, primarily SharePoint Online for channel files and OneDrive for Business for chat files. Nucleus itself **does not persist raw user content** within its own managed storage, adhering to zero-trust principles regarding user data. Instead, it interacts with the Team's designated storage location.
 
-*   **Storing Outputs:** When the `Nucleus.Services.Api` generates output artifacts (e.g., summaries, reports, visualizations, logs) intended for persistent storage within the Team's context, the **`ApiService` itself writes these artifacts** to the appropriate location (typically the Team's SharePoint document library) using its own Graph permissions. The **API response then includes references** (e.g., SharePoint URLs, Graph Item IDs) to these already-stored artifacts. The adapter's role is simply to present these references to the user (e.g., as links in a message or an Adaptive Card), not to perform the write operation itself.
+*   **Storing Outputs:** When the `Nucleus.Services.Api` generates output artifacts (e.g., summaries, reports, visualizations, logs) intended for persistent storage within the Team's context, the **`ApiService` itself writes these artifacts** to the appropriate location (typically the Team's SharePoint document library) using its own Graph capabilities. The **API response then includes references** (e.g., SharePoint URLs, Graph Item IDs) to these already-stored artifacts. The adapter's role is simply to present these references to the user (e.g., as links in a message or an Adaptive Card), not to perform the write operation itself.
 
     The API service determines the path, typically following this structure:
     *   **`.Nucleus/`**: Hidden root directory for Nucleus data.
@@ -106,6 +135,23 @@ Handles files uploaded by users in Teams messages. See also [ARCHITECTURE_ADAPTE
 *   **Handling:** When a message activity contains attachments, the adapter extracts references to these attachments (e.g., Graph Download URL, SharePoint Item ID/URL via `activity.Attachments[n].Content.downloadUrl` or by querying Graph using IDs).
 *   **Adapter Action:** The adapter includes these **references** (URIs or structured identifiers) in the `SourceArtifactUris` field of the `InteractionRequest` DTO sent to the `Nucleus.Services.Api`.
 *   **API Service Action:** The **`Nucleus.Services.Api`** receives these references and is responsible for using them (along with appropriate authentication) to fetch the actual file content directly from the source (e.g., SharePoint/OneDrive via Graph API) for ingestion and processing.
+
+## API Contract
+
+The Teams Adapter interacts with the `Nucleus.Services.Api` using the DTOs defined in `Nucleus.Abstractions.Models.ApiContracts` (e.g., `AdapterRequest`, `AdapterResponse`, `ArtifactReference`).
+
+## Key Code Files
+
+*   [`TeamsAdapterBot.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs): Core logic for handling incoming activities from Teams and interacting with the `Nucleus.Services.Api`.
+*   [`GraphClientService.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/GraphClientService.cs): Manages communication with the Microsoft Graph API for tasks like obtaining file references or user/channel information.
+*   [`TeamsNotifier.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsNotifier.cs): Handles sending messages and notifications back to the Teams user or channel.
+*   [`TeamsAdapterConfiguration.cs`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterConfiguration.cs): Defines the configuration settings for the Teams adapter.
+
+## Future Considerations
+
+*   **Enhanced Error Handling:** Implement more sophisticated error handling and logging mechanisms to improve the adapter's robustness and debuggability.
+*   **Security Enhancements:** Continuously review and enhance the adapter's security posture, ensuring alignment with the latest security best practices and compliance requirements.
+*   **Adaptive Card Enhancements:** Explore opportunities to leverage Adaptive Cards more extensively, potentially incorporating features like card actions, inputs, and templating to enrich the user experience.
 
 ## Rich Presentations and Embedded Hypermedia
 

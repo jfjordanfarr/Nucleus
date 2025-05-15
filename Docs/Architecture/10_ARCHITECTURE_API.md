@@ -2,14 +2,14 @@
 title: Architecture - Nucleus API Service
 description: Overview of the API-First design principles, core responsibilities, endpoint structure, security model, and reference-based interaction patterns for the Nucleus API service.
 version: 0.7
-date: 2025-05-06
+date: 2025-05-15
 parent: ./00_ARCHITECTURE_OVERVIEW.md
 ---
 
 # Nucleus API Service Architecture
 
 **Version:** 0.7
-**Date:** 2025-05-06
+**Date:** 2025-05-15
 
 ## 1. Introduction & Principles
 
@@ -36,7 +36,7 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md
 *   Common HTTP Verbs (POST for interactions, GET for status/data)
 *   Example Endpoint Definitions (High-level):
     *   `POST /interactions` (Primary endpoint for all interaction processing requests)
-        *   **Implementation:** [`InteractionController.cs`](../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
+        *   **Implementation:** [`InteractionController.cs`](../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs)
     *   `GET /interactions/{jobId}/status` (For async task status)
     *   `GET /interactions/{jobId}/result` (For async task results)
     *   `GET /personas` (Example metadata/configuration endpoint)
@@ -48,11 +48,12 @@ parent: ./00_ARCHITECTURE_OVERVIEW.md
 *   Key Data Transfer Objects (DTOs) - Precise definitions reside in `Nucleus.Abstractions`. High-level descriptions:
     *   **`AdapterRequest`:** The primary input DTO for the `POST /interactions` endpoint. Contains all necessary context from the client adapter, including user information, the prompt/command, and a list of `ArtifactReference` objects pointing to relevant external content. See:
         *   [API Client Interaction Pattern](./Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)
-        *   [`AdapterRequest`](../../../Nucleus.Abstractions/Models/AdapterRequest.cs) (Source Code)
+        *   [`AdapterRequest`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs) (Source Code)
     *   **`ArtifactReference`:** Contained within `AdapterRequest`. Provides details needed by the API service's `IArtifactProvider` to locate and ephemerally fetch content from the user's source system. See:
-        *   [`ArtifactReference`](../../../Nucleus.Abstractions/Models/ArtifactReference.cs) (Source Code)
-    *   **`InteractionResponse`:** The DTO containing the final results delivered once an asynchronous interaction job completes successfully. Contains processing output, status, and potentially references to generated artifacts.
-    *   **`AsyncJobStatus`:** Response from the status polling endpoint (`GET /interactions/{jobId}/status`), indicating the job's current state (`Queued`, `Processing`, `Completed`, `Failed`).
+        *   [`ArtifactReference`](../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) (Source Code)
+    *   **`InteractionResponse` (typically `AdapterResponse`):** The DTO containing the final results delivered once an asynchronous interaction job completes successfully. Contains processing output, status, and potentially references to generated artifacts. See:
+        *   [`AdapterResponse`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterResponse.cs) (Source Code)
+    *   **`AsyncJobStatus` (Conceptual DTO Structure):** Response from the status polling endpoint (`GET /interactions/{jobId}/status`), indicating the job's current state (`Queued`, `Processing`, `Completed`, `Failed`). Its structure is detailed in Section 6.
 *   Error Handling (Standard HTTP status codes, structured JSON error response body)
 
 ## 5. Authentication & Authorization
@@ -67,7 +68,8 @@ When an API request (e.g., `POST /interactions`) results in an activated interac
 
 *   **Job Submission Response:**
     *   The API immediately responds with `HTTP 202 Accepted` after successfully validating the request and queueing the interaction task.
-    *   The response body **must** include a unique `jobId` (e.g., a GUID string) that the client will use to track the job's progress.
+    *   The response body **must** include a unique `jobId` (e.g., a GUID string) that the client will use to track the job's progress. This is often returned as a `JobIdResponse`. See:
+        *   [`JobIdResponse`](../../src/Nucleus.Abstractions/Models/ApiContracts/JobIdResponse.cs) (Source Code)
     *   Optionally, the response **may** include a `Location` header pointing to the status endpoint (e.g., `Location: /api/v1/interactions/{jobId}/status`).
     ```json
     // Example HTTP 202 Response Body
@@ -84,7 +86,7 @@ When an API request (e.g., `POST /interactions`) results in an activated interac
         *   `Processing`: A worker has picked up the job and is actively processing it.
         *   `Completed`: The job finished successfully.
         *   `Failed`: The job encountered an error during processing.
-    *   **Response Structure (`AsyncJobStatus` DTO - Conceptual):**
+    *   **Response Structure (`AsyncJobStatus` DTO - Conceptual Structure):**
         ```json
         // Example for Queued/Processing
         {
@@ -117,7 +119,7 @@ When an API request (e.g., `POST /interactions`) results in an activated interac
 
 *   **Result Retrieval Endpoint:**
     *   Once the status is `Completed`, the client fetches the actual result using `GET /interactions/{jobId}/result`.
-    *   The response body of this endpoint contains the final output of the job (e.g., the `InteractionResponse` DTO, generated file content, etc.). The `Content-Type` header indicates the format.
+    *   The response body of this endpoint contains the final output of the job (e.g., the `InteractionResponse` DTO, typically `AdapterResponse`, generated file content, etc.). The `Content-Type` header indicates the format.
     *   This separation allows the status endpoint to remain lightweight and prevents large results from being repeatedly sent during polling.
 
 *   **(Optional) Callback/Webhook Mechanism:**

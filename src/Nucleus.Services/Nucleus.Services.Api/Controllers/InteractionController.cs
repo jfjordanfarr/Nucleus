@@ -24,6 +24,9 @@ namespace Nucleus.Services.Api.Controllers;
 /// <seealso cref="OrchestrationResult"/>
 /// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md"/>
 [ApiController]
 [Route("api/[controller]")]
 public class InteractionController : ControllerBase

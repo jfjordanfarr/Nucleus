@@ -1,8 +1,8 @@
 ---
 title: Architecture - Teams Adapter Interface Mapping
 description: Details how the Teams adapter maps Bot Framework Activity data to the InteractionRequest DTO for the Nucleus API Service in the API-First model.
-version: 1.2
-date: 2025-04-27
+version: 1.3
+date: 2025-05-14
 parent: ../ARCHITECTURE_ADAPTERS_TEAMS.md
 ---
 
@@ -10,9 +10,9 @@ parent: ../ARCHITECTURE_ADAPTERS_TEAMS.md
 
 **Note:** Under the API-First architecture, the Teams adapter acts purely as a translator between the Bot Framework and the `Nucleus.Services.Api`. It **does not** directly implement interfaces like `ISourceFileReader` or `IOutputWriter` for file content I/O using Graph. Those responsibilities belong to the central `ApiService`.
 
-This document focuses on how the Teams adapter maps information from a Bot Framework `Activity` object into the `InteractionRequest` DTO sent to the `Nucleus.Services.Api` (as defined in [API Client Interaction Pattern](../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)).
+This document focuses on how the Teams adapter maps information from a Bot Framework `Activity` object into the `InteractionRequest` DTO sent to the `Nucleus.Services.Api` (as defined in [API Client Interaction Pattern](../../Api/ARCHITECTURE_API_CLIENT_INTERACTION.md)).
 
-The primary implementation of this mapping logic resides within the [`TeamsAdapterBot.OnMessageActivityAsync`](../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs#L66) method.
+The primary implementation of this mapping logic resides within the [`TeamsAdapterBot.OnMessageActivityAsync`](../../../../src/Nucleus.Infrastructure/Adapters/Nucleus.Adapters.Teams/TeamsAdapterBot.cs#L66) method.
 
 ## 1. `IPlatformMessage` Implementation
 

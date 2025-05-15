@@ -1,15 +1,15 @@
 ---
 title: Nucleus System Architecture Overview
 description: A high-level overview of the Nucleus platform architecture, components, deployment models, and codebase structure, emphasizing an API-First approach with reference-based, ephemeral data processing.
-version: 1.5
-date: 2025-05-06
+version: 1.6
+date: 2025-05-15
 ---
 
 # Nucleus: System Architecture Overview
 
 ## 1. Introduction & Vision
 
-Nucleus is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized **agentic AI assistants ("Personas")**. It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central `Nucleus.Services.Api` project orchestrates all interactions and core logic. **Crucially, Nucleus adheres to strict, non-negotiable security principles**: *It maintains Zero Trust for user file content, meaning the backend never stores or persists raw user files. Instead, files remain in user-controlled storage (e.g., OneDrive, local disk) and the API interacts with them solely via secure `ArtifactReference` objects.* Content is retrieved ephemerally only when necessary for processing ([Security](./06_ARCHITECTURE_SECURITY.md), [Processing](./01_ARCHITECTURE_PROCESSING.md), [Personas](./02_ARCHITECTURE_PERSONAS.md)).
+Nucleus is a platform designed to empower individuals and teams by transforming their disparate digital information into actionable, contextual knowledge through specialized **agentic AI assistants ("Personas")**. It provides a robust, flexible, and secure foundation for Retrieval-Augmented Generation (RAG) that respects user data ownership and adapts to different deployment needs. **The system is built upon an API-First architecture**, where a central [`Nucleus.Services.Api`](../../src/Nucleus.Services/Nucleus.Services.Api/) project orchestrates all interactions and core logic. **Crucially, Nucleus adheres to strict, non-negotiable security principles**: *It maintains Zero Trust for user file content, meaning the backend never stores or persists raw user files. Instead, files remain in user-controlled storage (e.g., OneDrive, local disk) and the API interacts with them solely via secure [`ArtifactReference`](../../src/Nucleus.Abstractions/Models/ArtifactReference.cs) objects.* Content is retrieved ephemerally only when necessary for processing ([Security](./06_ARCHITECTURE_SECURITY.md), [Processing](./01_ARCHITECTURE_PROCESSING.md), [Personas](./02_ARCHITECTURE_PERSONAS.md)).
 
 **Core Goal:** To serve as the central "nucleus" processing information provided by users ("mitochondria") using configured resources (AI models, compute budget/"ATP") to produce insightful outputs ("transcriptome"), as outlined in the [Project Mandate](../Requirements/00_PROJECT_MANDATE.md).
 
@@ -40,7 +40,7 @@ This section provides links to detailed architecture documents for major compone
 #### Codebase & Data Structure
 
 *   [11_ARCHITECTURE_NAMESPACES_FOLDERS.md](./11_ARCHITECTURE_NAMESPACES_FOLDERS.md) - Defines the standard namespace and folder structure for the Nucleus project.
-*   [12_ARCHITECTURE_DOMAIN_MODELS.md](./12_ARCHITECTURE_DOMAIN_MODELS.md) - Describes the core data models and entities used throughout the Nucleus system.
+*   [12_ARCHITECTURE_ABSTRACTIONS.md](./12_ARCHITECTURE_ABSTRACTIONS.md) - Describes the core abstractions and entities used throughout the Nucleus system.
 
 #### Interaction & Clients
 
@@ -116,17 +116,17 @@ graph LR
 
 **Key Components:**
 
-*   **User Interaction Channels:** Users interact via various thin clients (Console App, Platform Bots, Email integration). **These clients ONLY communicate with the `Nucleus.Services.Api`, sending `AdapterRequest` payloads that include `ArtifactReference` objects for any relevant files.** They handle platform-specific protocols and translate user input/output.
+*   **User Interaction Channels:** Users interact via various thin clients (Console App, Platform Bots, Email). **These clients ONLY communicate with the `Nucleus.Services.Api`, sending [`AdapterRequest`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs) payloads that include `ArtifactReference` objects for any relevant files.** They handle platform-specific protocols and translate user input/output.
 *   **`Nucleus.Services.Api` (ASP.NET Core):** The central hub and single entry point. It handles authentication, authorization, request validation (including `ArtifactReference`s), routing, and orchestrates calls to internal components. **It does NOT accept direct file uploads.**
 *   **Internal Components (Managed by API):**
-    *   **Processing Orchestrator:** Manages complex, potentially long-running **agentic workflows** (e.g., multi-step analysis). Invoked by the API service, it coordinates persona logic, metadata access, and **triggers ephemeral content retrieval** via `IArtifactProvider`s when requested by persona logic.
+    *   **Processing Orchestrator:** Manages complex, potentially long-running **agentic workflows** (e.g., multi-step analysis). Invoked by the API service, it coordinates persona logic, metadata access, and **triggers ephemeral content retrieval** via [`IArtifactProvider`](../../src/Nucleus.Abstractions/IArtifactProvider.cs)s when requested by persona logic.
     *   **Persona Logic (Agentic):** Encapsulates the core reasoning, analysis, and response generation capabilities. Operates in potentially multi-step loops, requesting artifact content fetches from the Orchestrator as needed.
     *   **`IArtifactProvider` Resolver & Implementations:** Selects and uses the correct `IArtifactProvider` (e.g., for Graph, local files via Console Adapter) based on the `ArtifactReference.ReferenceType` to **ephemerally fetch content directly from `UserStorage`**.
     *   **Data Access Layer:** Provides abstraction for interacting with the **metadata/knowledge store (`DB`)**. Used by Personas and the Orchestrator.
     *   **AI Model Integration:** Handles communication with external `AIModels`. Used by Personas.
     *   **Internal Task Queue (Optional):** For decoupling long-running tasks.
 *   **Data Stores:**
-    *   **Database (e.g., Cosmos DB):** Stores **only derived metadata (`ArtifactMetadata`) and knowledge (`PersonaKnowledgeEntry`)** (the **Secure Index**), configuration, etc. Does **NOT** store raw user file content.
+    *   **Database (e.g., Cosmos DB):** Stores **only derived metadata ([`ArtifactMetadata`](../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs)) and knowledge ([`PersonaKnowledgeEntry`](../../src/Nucleus.Abstractions/Models/PersonaKnowledgeEntry.cs))** (the **Secure Index**), configuration, etc. Does **NOT** store raw user file content.
 *   **External Services & Data:**
     *   **External AI Services:** Models providing core AI capabilities.
     *   **User-Controlled Storage:** Where the actual source file content resides (e.g., OneDrive, SharePoint, local disk via Console). Accessed ephemerally and securely by `IArtifactProvider` implementations.

@@ -2,6 +2,7 @@ namespace Nucleus.Abstractions.Models;
 
 /// <summary>
 /// Represents the source platform of an interaction.
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
 /// </summary>
 public enum PlatformType
 {
@@ -12,19 +13,19 @@ public enum PlatformType
 
     /// <summary>
     /// Microsoft Teams platform.
-    /// Reference: [ARCHITECTURE_ADAPTERS_TEAMS.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md)
+    /// Reference: [../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md](../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_TEAMS.md)
     /// </summary>
     Teams,
 
     /// <summary>
     /// Slack platform.
-    /// Reference: [ARCHITECTURE_ADAPTERS_SLACK.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_SLACK.md)
+    /// Reference: [../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_SLACK.md](../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_SLACK.md)
     /// </summary>
     Slack,
 
     /// <summary>
     /// Local application adapter.
-    /// Reference: [ARCHITECTURE_ADAPTERS_LOCAL.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md)
+    /// Reference: [../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md](../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md)
     /// </summary>
     Local,
 
@@ -36,13 +37,13 @@ public enum PlatformType
 
     /// <summary>
     /// Email interaction.
-    /// Reference: [ARCHITECTURE_ADAPTERS_EMAIL.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_EMAIL.md)
+    /// Reference: [../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_EMAIL.md](../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_EMAIL.md)
     /// </summary>
     Email,
 
     /// <summary>
     /// Discord platform.
-    /// Reference: [ARCHITECTURE_ADAPTERS_DISCORD.md](../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_DISCORD.md)
+    /// Reference: [../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_DISCORD.md](../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_DISCORD.md)
     /// </summary>
     Discord,
 

@@ -12,6 +12,7 @@ namespace Nucleus.Domain.Processing;
 /// Default implementation that maps a fixed set of external IDs to a specific persona.
 /// TODO: Make this configurable.
 /// Returns a hardcoded default Persona ID if no specific resolution logic applies.
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#defaultpersonaresolver-class">Nucleus Processing Architecture - DefaultPersonaResolver</seealso>
 /// </summary>
 /// <remarks>
 /// Corresponds to: [IPersonaResolver](../../../Abstractions/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)
@@ -19,6 +20,17 @@ namespace Nucleus.Domain.Processing;
 /// See: ../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_IMPLEMENTATIONS.md
 /// <seealso cref="IPersonaResolver"/>
 /// <seealso cref="../../../../Docs/Architecture/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// </remarks>
+/// <summary>
+/// Provides a default, simplistic implementation of <see cref="IPersonaResolver"/>.
+/// This implementation currently returns a hardcoded default Persona ID, suitable for initial development or single-persona deployments.
+/// </summary>
+/// <remarks>
+/// See <see cref="IPersonaResolver"/> for more details on the role of persona resolution.
+/// This resolver is part of the [Processing Architecture](../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md).
+/// For context on what a "Persona" is, see [Persona Architecture](../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md).
+/// In a multi-persona or more dynamic environment, a more sophisticated implementation would be required,
+/// potentially looking up mappings in a configuration source or database.
 /// </remarks>
 public class DefaultPersonaResolver : IPersonaResolver
 {

@@ -18,6 +18,7 @@
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Adapters\Nucleus.Adapters.Teams\Nucleus.Infrastructure.Adapters.Teams.csproj" />
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Data\Nucleus.Infrastructure.Persistence\Nucleus.Infrastructure.Data.Persistence.csproj" /> 
     <ProjectReference Include="..\..\Nucleus.Infrastructure\Providers\Nucleus.Infrastructure.Providers.csproj" /> 
+    <ProjectReference Include="..\..\Nucleus.Infrastructure\Messaging\Nucleus.Infrastructure.Messaging.csproj" /> 
   </ItemGroup>
 
   <ItemGroup>
@@ -46,9 +47,11 @@
     <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.3" /> <!-- Updated version for AddGeminiChat extension -->
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Exclude files intended for the Shared project -->
-    <Compile Remove="Nucleus.Services.Shared\**\*.cs" />
-  </ItemGroup>
+  <!-- Need assistance on this line -->
+  <!--<ItemGroup>
+    <Content Include="..\..\..\Docs\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>-->
 
 </Project>

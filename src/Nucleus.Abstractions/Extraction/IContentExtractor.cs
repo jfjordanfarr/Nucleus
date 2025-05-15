@@ -15,6 +15,8 @@ namespace Nucleus.Abstractions.Extraction;
 /// See the main processing interfaces document for how this fits into the broader architecture.
 /// Related Architecture: [Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md]
 /// </remarks>
+/// <seealso cref="../../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#21-abstraction-icontentextractor">Nucleus Processing Architecture - IContentExtractor</seealso>
 /// <seealso href="../../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INTERFACES.md">Processing Architecture - Shared Interfaces (IContentExtractor)</seealso>
 public interface IContentExtractor
 {

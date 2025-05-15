@@ -9,7 +9,8 @@ using Microsoft.Extensions.Logging;
 using Xunit;
 using Xunit.Abstractions;
 using Nucleus.Services.Api.IntegrationTests.Models; // Added for TestInteractionMessage
-using System.Text.Json; // Added for JsonSerializer
+using System.Text.Json;
+using Xunit.Sdk; // Added for JsonSerializer
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
@@ -17,11 +18,13 @@ namespace Nucleus.Services.Api.IntegrationTests;
 /// Integration tests specifically targeting Azure Service Bus functionality using the Aspire Test Host.
 /// Manages the lifecycle of the distributed application and provides a ServiceBusClient.
 /// </summary>
+[Trait("Category", "Integration-ServiceBus")] // Categorize these tests
 public class ServiceBusMessagingTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _outputHelper;
     private DistributedApplication _app = null!;
     private ServiceBusClient _serviceBusClient = null!;
+    private bool _shouldSkipTests = false;
 
     public ServiceBusMessagingTests(ITestOutputHelper outputHelper)
     {
@@ -31,6 +34,19 @@ public class ServiceBusMessagingTests : IAsyncLifetime
     public async Task InitializeAsync() // Part of IAsyncLifetime
     {
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- ServiceBusMessagingTests InitializeAsync START ---");
+
+        // Check if Service Bus integration is explicitly enabled
+        var serviceBusEnabledEnv = Environment.GetEnvironmentVariable("AZURE_SERVICEBUS_ENABLED");
+        if (!string.Equals(serviceBusEnabledEnv, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Skipping Service Bus tests: AZURE_SERVICEBUS_ENABLED is not set to 'true' (current value: '{serviceBusEnabledEnv}').");
+            // SKIP the tests if the environment variable is not set to 'true'
+            _shouldSkipTests = true;
+            return; // Unreachable code after throw
+        }
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] AZURE_SERVICEBUS_ENABLED is 'true'. Proceeding with Service Bus test initialization.");
+
         try
         {
             if (_app != null) return; // Already initialized
@@ -52,11 +68,11 @@ public class ServiceBusMessagingTests : IAsyncLifetime
 
             // Wait for the Service Bus resource specifically
             await _app.ResourceNotifications.WaitForResourceAsync("servicebus", KnownResourceStates.Running);
-             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Service Bus resource is running.");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Service Bus resource is running.");
 
-             // Wait for the API service to ensure the consumer is likely started
+            // Wait for the API service to ensure the consumer is likely started
             await _app.ResourceNotifications.WaitForResourceAsync("nucleusapi", KnownResourceStates.Running); 
-             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Nucleus API resource is running.");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Nucleus API resource is running.");
 
             // Get the Service Bus connection string
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Getting Service Bus connection string...");
@@ -91,7 +107,7 @@ public class ServiceBusMessagingTests : IAsyncLifetime
             await DisposeAsync(); // Ensure cleanup on failure
             throw;
         }
-         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- ServiceBusMessagingTests InitializeAsync END ---");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- ServiceBusMessagingTests InitializeAsync END ---");
     }
 
     public async Task DisposeAsync() // Part of IAsyncLifetime
@@ -103,11 +119,11 @@ public class ServiceBusMessagingTests : IAsyncLifetime
             {
                 _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Disposing DistributedApplication...");
                 await _app.DisposeAsync();
-                 _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication Disposed.");
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication Disposed.");
             }
             else
             {
-                 _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] _app was null, nothing to dispose.");
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] _app was null, nothing to dispose.");
             }
         }
         catch (Exception ex)
@@ -118,9 +134,11 @@ public class ServiceBusMessagingTests : IAsyncLifetime
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- ServiceBusMessagingTests DisposeAsync END ---");
     }
 
-    [Fact(Timeout = 60000)] // 60 second timeout
+    [SkippableFact(Timeout = 60000)] // 60 second timeout
     public async Task SendMessage_ShouldSucceed()
     {
+        Skip.If(_shouldSkipTests, "Service Bus tests skipped: AZURE_SERVICEBUS_ENABLED environment variable not set to 'true'.");
+
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: SendMessage_ShouldSucceed START ---");
         Assert.NotNull(_serviceBusClient); // Ensure client is initialized
 

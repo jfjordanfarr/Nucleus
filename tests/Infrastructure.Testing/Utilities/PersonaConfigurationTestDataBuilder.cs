@@ -1,6 +1,7 @@
 using Nucleus.Abstractions.Models.Configuration;
 using System.Collections.Generic;
 
+/// <seealso cref="../../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md"/>
 namespace Nucleus.Infrastructure.Testing.Utilities
 {
     /// <summary>

@@ -2,7 +2,7 @@
 title: Architecture - Testing Strategy
 description: Outlines the testing philosophy, levels, environments, and specific strategies for ensuring the quality and reliability of the Nucleus platform, adopting a layered approach centered around .NET Aspire.
 version: 3.3
-date: 2025-05-08
+date: 2025-05-15
 ---
 
 [<- System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md)
@@ -10,7 +10,7 @@ date: 2025-05-08
 # Nucleus: Testing Strategy
 
 **Version:** 3.3
-**Date:** 2025-05-08
+**Date:** 2025-05-15
 
 This document outlines the multi-layered testing strategy for Nucleus, designed to ensure quality and reliability by leveraging the best tools for different validation needs within the .NET Aspire ecosystem.
 

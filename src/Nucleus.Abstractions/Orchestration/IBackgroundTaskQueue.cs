@@ -13,9 +13,10 @@ namespace Nucleus.Abstractions.Orchestration;
 /// Defines the contract for a background task queue used to process interactions asynchronously.
 /// Ensures that long-running tasks do not block the primary API request threads.
 /// </summary>
-/// <seealso href="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md">Processing Orchestration Overview</seealso>
-/// <seealso href="../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md">API Activation & Asynchronous Routing</seealso>
-/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#322-ibackgroundtaskqueuecs"/>
+/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md#23-abstraction-ibackgroundtaskqueue">Nucleus Processing Architecture - IBackgroundTaskQueue</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md">Processing Orchestration Overview</seealso>
+/// <seealso href="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md">API Activation & Asynchronous Routing</seealso>
+/// <seealso cref="../../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md#322-ibackgroundtaskqueuecs"/>
 public interface IBackgroundTaskQueue
 {
     /// <summary>

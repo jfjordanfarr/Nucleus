@@ -6,13 +6,13 @@ using Aspire.Hosting.Testing;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging; // Added for logging
 using Nucleus.Abstractions.Models; // Added for AdapterRequest, ArtifactReference, AdapterResponse etc.
 using Nucleus.Abstractions.Models.ApiContracts; // Added for AdapterRequest and AdapterResponse
 using Nucleus.Infrastructure.Testing.Configuration;
 using Nucleus.Infrastructure.Testing.Utilities;
 using Xunit;
 using Xunit.Abstractions;
-using Microsoft.Extensions.Logging; // Added for logging
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -63,6 +63,13 @@ public class LocalAdapterScopingTests : IAsyncLifetime
             Environment.SetEnvironmentVariable("NUCLEUS_TEST_PERSONA_CONFIGS_JSON", testPersonaConfigsJson);
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] NUCLEUS_TEST_PERSONA_CONFIGS_JSON environment variable set.");
 
+            // The mssql.conf copy logic previously here has been removed as it's obsolete.
+
+            // Initialize TestFileSystemManager
+            _fileSystemManager = new TestFileSystemManager();
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] TestFileSystemManager initialized.");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Test Artifacts Path: {_fileSystemManager.BaseTestPath}");
+
             var appHost = await DistributedApplicationTestingBuilder.CreateAsync<Projects.Nucleus_AppHost>();
             _app = await appHost.BuildAsync();
 
@@ -72,10 +79,6 @@ public class LocalAdapterScopingTests : IAsyncLifetime
             var appServices = _app.Services;
             _logger = appServices.GetRequiredService<ILogger<LocalAdapterScopingTests>>();
             var fileSystemManagerLogger = appServices.GetRequiredService<ILogger<TestFileSystemManager>>();
-
-            _fileSystemManager = new TestFileSystemManager();
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] TestFileSystemManager initialized.");
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Test Artifacts Path: {_fileSystemManager.BaseTestPath}");
 
             await _app.StartAsync();
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] AppHost Started. Waiting for resources to be running...");

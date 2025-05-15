@@ -12,7 +12,7 @@ namespace Nucleus.Abstractions.Models;
 /// Contains enough information for the backend processing logic to request the actual content
 /// from the appropriate <see cref="IPlatformAttachmentFetcher"/> implementation later.
 /// This record standardizes how adapters describe external artifacts without embedding their content.
-/// See: ../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
+/// See: ../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
 /// </summary>
 public record PlatformAttachmentReference(
     /// <summary>

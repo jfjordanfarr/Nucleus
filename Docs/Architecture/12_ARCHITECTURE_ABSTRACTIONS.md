@@ -1,8 +1,8 @@
 ---
 title: "Architecture: Abstractions"
 description: "Defines the core domain models and interfaces for the Nucleus platform, their design philosophy, and evolution strategy."
-version: 1.4
-date: 2025-05-06
+version: 1.5
+date: 2025-05-15
 ---
 
 # Architecture: Abstractions
@@ -21,11 +21,11 @@ This section provides a structured overview of the data models within the `Nucle
 
 #### 2.1. Top-Level Models (`Nucleus.Abstractions.Models/`)
 
-*   **[`AdapterRequest.cs`](../../src/Nucleus.Abstractions/Models/AdapterRequest.cs)**:
+*   **[`AdapterRequest.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs)**:
     *   Purpose: Represents a request coming from a client adapter to the Nucleus API.
     *   Key Properties: `InteractionType`, `Query`, `EphemeralContent`, `ArtifactReference`, `TenantContext`, `UserContext`, `ClientState`.
     *   Type: Record.
-*   **[`AdapterResponse.cs`](../../src/Nucleus.Abstractions/Models/AdapterResponse.cs)**:
+*   **[`AdapterResponse.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterResponse.cs)**:
     *   Purpose: Represents the immediate response from the Nucleus API to an adapter, primarily for acknowledging requests and providing job IDs for asynchronous operations.
     *   Key Properties: `Success`, `ResponseMessage`, `ErrorMessage`, `JobId`, `AnalysisData` (type: `JsonElement?` - for flexible, persona-defined analysis output directly from adapter-level processing if any was configured to be synchronous, though main analysis is async via `InteractionResponse`).
     *   Type: Record.
@@ -41,7 +41,7 @@ This section provides a structured overview of the data models within the `Nucle
     *   Purpose: Provides a reference to an artifact, used in requests when specific content needs to be processed.
     *   Key Properties: `SourcePlatform`, `ArtifactId`, `TenantId`, `UserId`. Can also include `ContentUri` or `MimeType` as hints.
     *   Type: Record.
-*   **[`NucleusIngestionRequest.cs`](../../src/Nucleus.Abstractions/Models/NucleusIngestionRequest.cs)**:
+*   **[`NucleusIngestionRequest.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/NucleusIngestionRequest.cs)**:
     *   Purpose: Represents a request specifically for ingesting new content into Nucleus.
     *   Key Properties: `TenantId`, `UserId`, `SourcePlatform`, `SourceArtifactId`, `Name`, `MimeType`, `ContentUri`, `ContentBytes`, `InitialArtifactMetadata` (for providing metadata at ingestion time).
     *   Type: Record.
@@ -172,8 +172,7 @@ The domain models in `Nucleus.Abstractions.Models` generally fall into the follo
     *   Examples: `CosmosDbSettings`, `GoogleAiOptions`, `PersonaConfiguration`.
     *   Benefits: Simple, mutable (often necessary for binding frameworks), and familiar.
 *   **Interfaces (Service Contracts):**
-    *   Define contracts for services or providers, enabling dependency inversion and promoting loose coupling.
-    *   *These are detailed in the 'Interfaces' section below. Example: `IPersonaConfigurationProvider`.*
+    *   Define contracts for services, providers, and data repositories. They are fundamental to achieving a modular, decoupled architecture by enabling dependency inversion. This allows for implementations to be swapped or extended with minimal impact on other parts of the system, promoting testability, maintainability, and flexibility.
 *   **Enums (Enumerated Types):**
     *   Define a set of named constants for representing discrete states or types.
 *   **Abstract Classes (Base Types):**
@@ -234,33 +233,40 @@ This section details the primary interfaces defined within the `Nucleus.Abstract
 
 #### 3.2. Orchestration Interfaces (`Nucleus.Abstractions/Orchestration/`)
 
-##### 3.2.1. [`IActivationChecker.cs`](../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs)
-*   **Purpose:** Defines a contract for determining if an incoming `AdapterRequest` meets the criteria to activate a persona or workflow, based on available `PersonaConfiguration`s.
-*   **Key Methods:** `Task<ActivationResult> CheckActivationAsync(AdapterRequest request, IEnumerable<PersonaConfiguration> configurations, CancellationToken cancellationToken)`
+##### 3.2.1. `IActivationRuleEvaluator.cs` (Interface Removed/Deprecated)
+*   **Original Purpose:** Defined a contract for evaluating activation rules.
+*   **Current Status:** This interface has been removed. Activation logic is now more integrated within the `OrchestrationService` and relies on `IActivationChecker` and persona configurations directly. See [Interaction Processing Lifecycle](Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md).
+*   **Reasoning for Removal:** Simplified the orchestration flow and reduced the number of discrete interfaces for activation, centralizing this core logic.
+
+##### 3.2.2. `IBackgroundTaskQueue.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs`](../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs)
+*   **Purpose:** Defines a contract for queuing background work items, specifically `NucleusIngestionRequest` and `InteractionContext` instances for asynchronous processing.
+*   **Key Methods:** `QueueBackgroundWorkItemAsync` (for `NucleusIngestionRequest`), `QueueInteractionContextAsync` (for `InteractionContext`), `DequeueAsync`, `CompleteAsync`, `AbandonAsync`.
 *   **Type:** Interface.
 
-##### 3.2.2. [`IBackgroundTaskQueue.cs`](../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs)
-*   **Purpose:** Defines a contract for a specialized background task queue dedicated to processing `NucleusIngestionRequest` objects. It supports enqueuing ingestion requests, dequeuing them for processing, and explicitly marking them as completed or abandoned.
-*   **Key Methods:** 
-    *   `ValueTask QueueBackgroundWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken)`: Queues a `NucleusIngestionRequest` for asynchronous background processing.
-    *   `Task<DequeuedMessage<NucleusIngestionRequest>?> DequeueAsync(CancellationToken cancellationToken)`: Attempts to dequeue a `NucleusIngestionRequest`. Returns a `DequeuedMessage` (containing the request and an opaque context for completion/abandonment) if a message is available, or `null` if the queue is empty.
-    *   `Task CompleteAsync(object messageContext, CancellationToken cancellationToken)`: Marks a message (retrieved via `DequeueAsync` and identified by its opaque `messageContext`) as successfully processed.
-    *   `Task AbandonAsync(object messageContext, Exception? exception, CancellationToken cancellationToken)`: Abandons a message (retrieved via `DequeueAsync` and identified by its opaque `messageContext`), making it available for reprocessing. Optionally logs an `exception` if one occurred during processing.
+##### 3.2.3. `IInteractionHandler.cs` (Interface Removed/Deprecated)
+*   **Original Purpose:** Defined a contract for handlers that process specific types of interactions once a persona is activated.
+*   **Current Status:** Removed. The logic for handling interactions post-activation is now encapsulated within the `AgenticHost` and its `IAgenticStrategyExecutor` which executes the configured strategy for the active persona.
+*   **Reasoning for Removal:** To streamline the processing pipeline and centralize interaction execution within the agentic strategy framework.
+
+##### 3.2.4. `IOrchestrationService.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs`](../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)
+*   **Purpose:** The central service responsible for managing the lifecycle of an incoming `AdapterRequest`. This includes activation checks, persona resolution, and delegating to synchronous handlers or queueing for asynchronous processing.
+*   **Key Methods:** `ProcessInteractionAsync`.
 *   **Type:** Interface.
 
-##### 3.2.3. [`IOrchestrationService.cs`](../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)
-*   **Purpose:** Defines the central contract for orchestrating the processing of an interaction, from initial handling through to persona execution and result generation.
-*   **Key Methods:** `Task<OrchestrationResult> ProcessInteractionAsync(AdapterRequest request, CancellationToken cancellationToken)`
+#### 3.3. Extraction Interfaces (`Nucleus.Abstractions/Extraction/`)
+
+##### 3.3.1. `IContentExtractor.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs`](../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs)
+*   **Purpose:** Defines a contract for services that extract textual content (and potentially other data) from a source artifact stream based on its MIME type.
+*   **Key Methods:** `SupportsMimeType`, `ExtractContentAsync`.
+*   **Design Notes:** Implementations are MIME-type specific (e.g., PDF extractor, DOCX extractor). See [Processing Architecture - Ingestion](Processing/Ingestion/ARCHITECTURE_PROCESSING_INGESTION.md).
 *   **Type:** Interface.
 
-##### 3.2.4. [`IPersonaResolver.cs`](../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)
-*   **Purpose:** Defines a contract for resolving a single, canonical Persona ID based on platform-specific identifiers and context provided in an incoming `AdapterRequest`.
-*   **Key Methods:** `Task<string?> ResolvePersonaIdAsync(PlatformType platformType, AdapterRequest request, CancellationToken cancellationToken)`
-*   **Type:** Interface.
+#### 3.4. Repository Interfaces (`Nucleus.Abstractions/Repositories/`)
 
-#### 3.3. Repository Interfaces (`Nucleus.Abstractions/Repositories/`)
-
-##### 3.3.1. [`IArtifactMetadataRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs)
+##### 3.4.1. [`IArtifactMetadataRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs)
 *   **Purpose:** Defines a contract for storing, retrieving, and deleting `ArtifactMetadata`. It supports specific lookups by ID (with partition key) and source identifier, and an upsert-style save operation.
 *   **Key Methods:** 
     *   `Task<ArtifactMetadata?> GetByIdAsync(string id, string partitionKey)`: Retrieves metadata by its unique ID and partition key.
@@ -270,7 +276,7 @@ This section details the primary interfaces defined within the `Nucleus.Abstract
     *   *Note: This interface does not currently define methods for broad querying or listing multiple `ArtifactMetadata` records.*
 *   **Type:** Interface.
 
-##### 3.3.2. [`IPersonaKnowledgeRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)
+##### 3.4.2. [`IPersonaKnowledgeRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)
 *   **Purpose:** Defines a contract for storing, retrieving, and deleting `PersonaKnowledgeEntry` records. These entries associate knowledge derived by specific personas with artifacts. Operations typically require a partition key.
 *   **Key Methods:** 
     *   `Task<PersonaKnowledgeEntry?> GetByIdAsync(string id, string partitionKey)`: Retrieves a specific knowledge entry by its ID and partition key.
@@ -280,27 +286,27 @@ This section details the primary interfaces defined within the `Nucleus.Abstract
     *   *Note: This interface does not currently define methods for querying knowledge entries directly by Persona ID without other context like `artifactId` or specific entry `id`.*
 *   **Type:** Interface.
 
-#### 3.4. Provider and Utility Interfaces (`Nucleus.Abstractions/`)
+#### 3.5. Provider and Utility Interfaces (`Nucleus.Abstractions/`)
 
-##### 3.4.1. [`IArtifactProvider.cs`](../../src/Nucleus.Abstractions/IArtifactProvider.cs)
+##### 3.5.1. [`IArtifactProvider.cs`](../../src/Nucleus.Abstractions/IArtifactProvider.cs)
 *   **Purpose:** Defines the contract for components responsible for retrieving the actual content of an artifact based on an ArtifactReference.
 *   **Key Methods:** `SupportsArtifactAsync`, `GetArtifactContentAsync`
 *   **Design Notes:** Implementations are specific to source systems (e.g., local files, Microsoft Graph). Operates ephemerally.
 *   **Type:** Interface.
 
-##### 3.4.2. [`IMessageQueuePublisher.cs`](../../src/Nucleus.Abstractions/IMessageQueuePublisher.cs) (`IMessageQueuePublisher<in T>`)
+##### 3.5.2. [`IMessageQueuePublisher.cs`](../../src/Nucleus.Abstractions/IMessageQueuePublisher.cs) (`IMessageQueuePublisher<in T>`)
 *   **Purpose:** Defines a generic contract (`IMessageQueuePublisher<in T>`) for publishing messages of type `T` to a specified message queue or topic, facilitating asynchronous communication.
 *   **Key Methods:** `Task PublishAsync(T messagePayload, string queueOrTopicName, CancellationToken cancellationToken)`
 *   **Type:** Interface.
 
-##### 3.4.3. [`IPlatformAttachmentFetcher.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformAttachmentFetcher.cs)
+##### 3.5.3. [`IPlatformAttachmentFetcher.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformAttachmentFetcher.cs)
 *   **Purpose:** Defines a contract for fetching an attachment's content (as a stream), filename, and content type from a specific platform, using a `PlatformAttachmentReference`. Implementations are platform-specific.
 *   **Key Methods:** 
     *   `string SupportedPlatformType { get; }`: Gets the platform type (e.g., "Teams", "Console") this fetcher supports.
     *   `Task<(Stream? FileStream, string? FileName, string? ContentType, string? Error)> GetAttachmentStreamAsync(PlatformAttachmentReference reference, CancellationToken cancellationToken)`: Asynchronously retrieves the attachment content. Returns a tuple containing the `FileStream`, `FileName`, `ContentType`, and an `Error` message if retrieval failed.
 *   **Type:** Interface.
 
-##### 3.4.4. [`IPlatformNotifier.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)
+##### 3.5.4. [`IPlatformNotifier.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)
 *   **Purpose:** Defines a contract for sending notifications and acknowledgements back to an originating platform. Implementations are platform-specific and handle message delivery and simple feedback like typing indicators.
 *   **Key Methods:** 
     *   `string SupportedPlatformType { get; }`: Gets the platform type (e.g., "Teams", "Console") this notifier supports.

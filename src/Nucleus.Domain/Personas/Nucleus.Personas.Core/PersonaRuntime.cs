@@ -21,8 +21,9 @@ namespace Nucleus.Domain.Personas.Core;
 /// Handles loading configuration, selecting the appropriate agentic strategy,
 /// and executing it within the interaction context.
 /// </summary>
-/// <seealso cref="Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md"/>
-/// <seealso cref="Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>
 public class PersonaRuntime : IPersonaRuntime
 {
     private readonly ILogger<PersonaRuntime> _logger;

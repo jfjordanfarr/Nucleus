@@ -26,10 +26,4 @@
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="mssql.conf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

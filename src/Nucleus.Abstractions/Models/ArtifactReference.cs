@@ -11,18 +11,18 @@ namespace Nucleus.Abstractions.Models;
 /// This object is typically constructed by a client adapter and passed to the API service.
 /// The API service uses this reference, along with an appropriate <see cref="IArtifactProvider"/>,
 /// to ephemerally retrieve the artifact's content when needed for processing.
-/// See: ../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md
-/// See: ../../Docs/Architecture/Api/03_API_DTOs.md
-/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md
-/// <seealso cref="../../../Docs/Architecture/Processing/ARCHITECTURE_PROCESSING_INGESTION.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/01_ARCHITECTURE_PROCESSING.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/02_ARCHITECTURE_PERSONAS.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/06_ARCHITECTURE_SECURITY.md"/>
-/// <seealso cref="../../../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md"/>
+/// As described in the <seealso cref="../../../Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md"/>,
+/// this record is a core data model that enables the system to handle diverse content sources
+/// by abstracting the specifics of artifact retrieval.
 /// </summary>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
+/// <seealso cref="ArtifactContent"/>
+/// <seealso cref="AdapterRequest"/>
+/// <seealso cref="../../../Docs/Architecture/05_ARCHITECTURE_CLIENTS.md">Client Architecture</seealso>
+/// <seealso cref="../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md">Storage Architecture - Reference-Based Access</seealso>
+/// <seealso cref="../../../Docs/Architecture/10_ARCHITECTURE_API.md"/>
+/// <seealso cref="../../../Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_FETCHER.md"/>
+/// <seealso cref="../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/>
 public record ArtifactReference(
     /// <summary>
     /// The unique identifier for the artifact within its source system (e.g., file path, Graph API item ID, URL).

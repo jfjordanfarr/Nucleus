@@ -11,11 +11,12 @@ namespace Nucleus.Abstractions.Models;
 /// Represents the retrieved content of an artifact along with essential details.
 /// This object is returned by <see cref="IArtifactProvider.GetContentAsync"/>.
 /// It is disposable to ensure the underlying stream is properly managed.
-/// See: ../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md
+/// See: ../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md
 /// </summary>
+/// <seealso cref="../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
 /// <seealso cref="IArtifactProvider"/>
 /// <seealso cref="ArtifactReference"/>
-/// <seealso cref="../../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md"/>
+/// <seealso cref="../../../Docs/Architecture/03_ARCHITECTURE_STORAGE.md">Storage Architecture - Core Operations</seealso>
 public sealed class ArtifactContent : IDisposable
 {
     private bool _disposed;

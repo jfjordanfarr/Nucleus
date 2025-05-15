@@ -17,6 +17,7 @@ namespace Nucleus.Abstractions.Models.ApiContracts;
 /// This record is also used as the message payload when queueing interactions for asynchronous processing.
 /// See related architecture documents for data flow and processing logic.
 /// </remarks>
+/// <seealso cref="../../../../Docs/Architecture/12_ARCHITECTURE_ABSTRACTIONS.md"/>
 /// <seealso cref="../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md"/>
 /// <seealso cref="../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTER_INTERFACES.md"/>
 public record NucleusIngestionRequest(

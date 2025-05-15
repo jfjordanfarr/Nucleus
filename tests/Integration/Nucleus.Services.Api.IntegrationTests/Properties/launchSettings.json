@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "Nucleus.Services.Api.IntegrationTests": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "AZURE_SERVICEBUS_ENABLED": "false",
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}

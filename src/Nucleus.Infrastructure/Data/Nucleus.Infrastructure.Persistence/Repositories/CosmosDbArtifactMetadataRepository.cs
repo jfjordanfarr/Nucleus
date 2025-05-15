@@ -14,7 +14,8 @@ namespace Nucleus.Infrastructure.Data.Persistence.Repositories;
 /// Cosmos DB implementation of the <see cref="IArtifactMetadataRepository"/>.
 /// Manages CRUD operations for <see cref="ArtifactMetadata"/> in Azure Cosmos DB.
 /// </summary>
-/// <seealso cref="../../../../../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../Docs/Architecture/04_ARCHITECTURE_DATABASE.md"/>
+/// <seealso cref="../../../../../Docs/Architecture/Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/Hosting/Azure/ARCHITECTURE_HOSTING_AZURE_COSMOSDB.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md"/>
 /// <seealso cref="../../../../../Docs/Architecture/Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md"/>

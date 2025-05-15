@@ -415,4 +415,14 @@ public class ApiIntegrationTests : IAsyncLifetime
 
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: PostInteraction_ShouldPersistArtifactMetadataAsync END ---");
     }
+
+    [Fact]
+    public async Task IngestEndpoint_ProcessAndPersist()
+    {
+        Assert.NotNull(_httpClient); // Add null check for httpClient
+        Assert.NotNull(_cosmosClient); // Add null check for cosmosClient
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test IngestEndpoint_ProcessAndPersist START ---");
+        // Rest of the test method remains the same
+    }
 }

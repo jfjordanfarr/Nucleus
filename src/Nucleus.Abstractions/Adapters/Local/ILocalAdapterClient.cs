@@ -5,15 +5,18 @@ using System.Threading.Tasks;
 namespace Nucleus.Abstractions.Adapters.Local
 {
     /// <summary>
-    /// Defines the contract for a local adapter client, enabling direct in-process interaction
-    /// with the Nucleus API service or its core functionalities.
-    /// This is intended for scenarios where Nucleus is used as a library or an embedded service
-    /// rather than a standalone, network-accessed API.
+    /// Defines the contract for a local adapter client, enabling direct, in-process
+    /// interaction submissions to the Nucleus system.
     /// </summary>
     /// <remarks>
-    /// See <seealso href="../../../../../Docs/Architecture/ClientAdapters/ARCHITECTURE_ADAPTERS_LOCAL.md">Local Adapter Architecture</seealso> for architectural details.
-    /// See <seealso href="../../../../../Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md">API Client Interaction Patterns</seealso> for general API interaction patterns.
+    /// This interface is typically implemented by an adapter that allows other components
+    /// running in the same process (e.g., test harnesses, internal services) to interact
+    /// with Nucleus as if they were an external client, but without network overhead.
+    /// The primary use case is for submitting `AdapterRequest` objects for processing and
+    /// potentially persisting interaction details for auditing or logging.
     /// </remarks>
+    /// <seealso href="../../../../../Docs/Architecture/Api/ARCHITECTURE_API_CLIENT_INTERACTION.md">API Client Interaction Patterns</seealso>
+    /// <seealso cref="Docs.Architecture.ClientAdapters.ARCHITECTURE_ADAPTERS_LOCAL.md"/>
     public interface ILocalAdapterClient
     {
         /// <summary>
