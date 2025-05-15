@@ -6,8 +6,7 @@
 	"image": "mcr.microsoft.com/devcontainers/dotnet:9.0-bookworm",
 	"features": {
 		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
-		"ghcr.io/devcontainers/features/powershell:1": {},
-		"ghcr.io/devcontainers-contrib/features/aspire:1": {}
+		"ghcr.io/devcontainers/features/powershell:1": {}
 	},
 
 	"hostRequirements": {
@@ -25,7 +24,7 @@
 	// }
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "dotnet restore",
+	"postCreateCommand": "dotnet workload install aspire",
 	"onCreateCommand": "dotnet new install Aspire.ProjectTemplates::9.2.0 --force",
 	"postStartCommand": "dotnet dev-certs https --trust",
 	"customizations": {

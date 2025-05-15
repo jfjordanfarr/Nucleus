@@ -5,9 +5,12 @@
 
 ## Current Objective
 
-Investigate and resolve configuration issues with .NET Aspire Distributed Control Plane (DCP) that cause `CliPath` and `DashboardPath` to be missing, leading to test failures (e.g., `MinimalCosmosEmulatorTest`). The issue manifests in both local Windows and GitHub Codespaces (using the official Microsoft Aspire devcontainer image), suggesting the problem lies within the Nucleus codebase's interaction with Aspire, rather than the environment setup itself.
+Investigate and resolve configuration issues with .NET Aspire Distributed Control Plane (DCP) that cause `CliPath` and `DashboardPath` to be missing, leading to test failures (e.g., `MinimalCosmosEmulatorTest`). The primary hypothesis is that the .NET Aspire workload is not correctly installed in the development environment.
 
 ## Log & Notes (Newest First)
+*   **2025-05-15 (USER): Codespace creation failed after adding `ghcr.io/devcontainers-contrib/features/aspire:1` to `devcontainer.json`. Error: `ERR: Feature 'ghcr.io/devcontainers-contrib/features/aspire:1' could not be processed.`**
+*   2025-05-15 (Cascade): Attempted to add `ghcr.io/devcontainers-contrib/features/aspire:1` to `devcontainer.json` based on official Aspire documentation to install the workload.
+*   2025-05-15 (Cascade): Previous diagnosis: `devcontainer.json` (from `dotnet/aspire-devcontainer` template) was missing explicit Aspire workload installation, leading to runtime `CliPath`/`DashboardPath` errors.
 *   2025-05-15 (Cascade): User reverted `devcontainer.json` to its official Microsoft version. The hypothesis that the environment was missing the Aspire workload is incorrect. The problem is now considered to be within the Nucleus codebase's handling or expectation of Aspire DCP component paths (`CliPath`, `DashboardPath`).
 *   2025-05-15 (Cascade): Updated session state to v2.1 from USER provided content.
 *   2025-05-15 (Cascade): Marked `ARCHITECTURE_ADAPTERS_EMAIL.md` as In Progress (P).
@@ -47,30 +50,22 @@ Investigate and resolve configuration issues with .NET Aspire Distributed Contro
 *   The primary suspect is the **.NET Aspire Distributed Control Plane (DCP) configuration** within the Codespaces dev container. The missing `CliPath` and `DashboardPath` are preventing DCP from functioning.
 *   This DCP failure likely cascades, preventing emulated services (like Cosmos DB) from starting correctly, which in turn causes timeouts and API errors in integration tests.
 
-**Next Steps (Plan):**
+**Diagnosis Update (Post-Codespace Build Failure):**
 
-1.  **Investigate and Resolve Aspire DCP Configuration:** Examine `devcontainer.json` and the Aspire setup within the Codespaces environment to ensure `CliPath` and `DashboardPath` are correctly available.
-    *   Verify if `dotnet workload install aspire` is correctly executed and successful in the dev container setup.
-    *   Research how Aspire determines these paths and ensure the Codespaces environment meets these requirements.
-2.  **Re-run `dotnet test`:** After addressing DCP configuration, re-run tests to see if emulator startup issues and downstream errors are resolved.
-3.  **Further Debugging (if needed):**
-    *   If timeouts persist: Deep dive into emulator startup logs and readiness checks in `ApiIntegrationTests.InitializeAsync`.
-    *   If 500 errors persist: Examine detailed API logs once dependencies are stable.
+The attempt to use the `ghcr.io/devcontainers-contrib/features/aspire:1` dev container feature to install the .NET Aspire workload failed during Codespace creation. This prevents the installation of the DCP components (`CliPath`, `DashboardPath`) via that specific mechanism.
 
-**Focus:** The immediate priority is to fix the Aspire DCP `CliPath`/`DashboardPath` issue in the Codespaces dev container environment.
+The underlying issue (missing `CliPath` and `DashboardPath` in `MinimalCosmosEmulatorTest` runtime) still strongly suggests that the .NET Aspire workload is not available or correctly installed in the execution environment.
 
-**UPDATE:** devcontainer.json modified to install Aspire workload. User needs to rebuild container and re-run tests.
+**Next Steps (Revised Plan):**
 
-**Next Steps (Plan):**
+1.  **Cascade: Modify `devcontainer.json`:**
+    *   Remove the problematic `ghcr.io/devcontainers-contrib/features/aspire:1` entry from the `features` section.
+    *   Add a `postCreateCommand` with the value `dotnet workload install aspire`. This command will directly install the .NET Aspire workload after the container is created.
+2.  **USER ACTION: Rebuild Dev Container in GitHub Codespaces:** This is necessary to apply the `devcontainer.json` changes and execute the new `postCreateCommand`.
+3.  **USER ACTION: Re-run `dotnet test`:** After the container rebuilds successfully, re-run tests to verify if the `CliPath`/`DashboardPath` errors are resolved.
+4.  **Cascade: Analyze new test results.**
 
-1.  **USER ACTION: Rebuild Dev Container in GitHub Codespaces:** This is necessary to execute the updated `postCreateCommand`.
-2.  **USER ACTION: Re-run `dotnet test`:** After addressing DCP configuration via container rebuild, re-run tests to see if emulator startup issues and downstream errors are resolved.
-3.  **Cascade: Analyze new test results.**
-4.  **Further Debugging (if needed):**
-    *   If timeouts persist: Deep dive into emulator startup logs and readiness checks in `ApiIntegrationTests.InitializeAsync`.
-    *   If 500 errors persist: Examine detailed API logs once dependencies are stable.
-
-**Focus:** The immediate priority is to fix the Aspire DCP `CliPath`/`DashboardPath` issue in the Codespaces dev container environment. **The `devcontainer.json` has been updated. Awaiting user action (container rebuild and new test results).**
+**Focus:** Install the .NET Aspire workload using a `postCreateCommand` in `devcontainer.json` as a more robust alternative to the failing dev container feature. This is aimed at resolving the missing `CliPath` and `DashboardPath` errors during test execution.
 
 **Previous Test Run Summary (GitHub Codespaces - Aspire Dev Container - Pre-`devcontainer.json` Revert):**
 
