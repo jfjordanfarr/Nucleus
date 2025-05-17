@@ -103,7 +103,23 @@ AI development agents are notoriously poor at proposing `.csproj` edits because 
 
 ---
 
-## 4 - Context, Cross-Checking, and Persona-Centric Design
+## 4 - Development Insights Worth Saving
+
+### Insight 1
+
+A key learning moment occurred when the user rejected the proposal for a dedicated 'Office Document Processor'. Instead, the user mandated a simpler approach: the File Collections processor aggregates raw components (XML, LLM-generated media descriptions), and the Plaintext processor uses its LLM, given the entire bundle in context, to synthesize the final, single Markdown document. This revealed a core design principle: avoid creating specialized, complex processors if the task can be delegated to an LLM acting as a 'common sense engine' with sufficient context. The Plaintext processor's role was thus elevated from a simple converter to a powerful synthesizer.
+
+### Insight 2
+
+Processing, especially LLM-driven synthesis, will inherently produce non-deterministic Markdown outputs. This is acceptable and expected. The system should NOT attempt to enforce idempotency by hashing the final Markdown output. Instead, idempotency relies on source artifact identifiers (source ID, content hash of source, timestamps) and context (Persona version). Furthermore, the system should embrace fuzziness by allowing Markdown string literals within metadata fields (like ArtifactMetadata, PersonaKnowledgeEntry) where precise structure is less important than rich, nuanced description, leveraging the LLM's native understanding of Markdown.
+
+### Insight 3
+
+The user prefers an initial deployment architecture consisting of a single Azure Container App (ACA) instance acting as a 'modular monolith'. This single ACA should host the API/ClientAdapters, ingestion/triage logic, session management (in-memory), and the core processing logic (potentially run as background tasks within the same instance). This minimizes deployment complexity and avoids the need for external session state management (like Redis) initially. The supporting infrastructure should ideally be limited to one Cosmos DB instance and potentially one Azure Service Bus (primarily for external integration or future scaling needs, not essential for the core internal processing flow). Components should be designed modularly within the monolith to allow for future separation and independent scaling if required. (See [Deployment Architecture Overview](./Docs/Architecture/07_ARCHITECTURE_DEPLOYMENT.md) for full details).
+
+---
+
+## 5 - Context, Cross-Checking, and Persona-Centric Design
 
 ### Rule: Comprehensive Context is Mandatory
 During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
@@ -112,7 +128,7 @@ During development, *always* provide the AI with relevant architectural document
 Before proposing changes to code or documentation, explicitly verify consistency with related architecture, requirements, and planning documents currently in context using reliable methods (including terminal commands if necessary). Call out any discrepancies found.
 
 ### Rule: Persona-Centric Design
-All features must consider the multi-persona nature of Nucleus. How will this change affect `Educator`? `ProfessionalColleague`? Ensure `IPersona`, `ArtifactMetadata`, and `PersonaKnowledgeEntry` support domain-specific needs.
+All features must consider the multi-persona nature of Nucleus. How will this change affect `EduFlow`? `ProfessionalColleague`? Ensure `IPersona`, `ArtifactMetadata`, and `PersonaKnowledgeEntry` support domain-specific needs.
 
 ### Rule: Adhere to Core Principles
 Remember Nucleus principles: Platform integration first, ephemeral processing (no intermediate storage; see [Storage Architecture](./Docs/Architecture/03_ARCHITECTURE_STORAGE.md#1-core-principles) and [Security Architecture](./Docs/Architecture/06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries) for implications), intelligence-driven analysis (no blind chunking), user data sovereignty.
@@ -172,11 +188,11 @@ This platform-centric approach **eliminates the artificial distinction between "
 
 Built upon this unified platform, we will develop specific, high-value **Verticals**, each embodied by one or more Personas:
 
-*   **Vertical 1: Universal Educator**
+*   **Vertical 1: EduFlow OmniEducator**
     *   **Motivation:** Addresses the challenges of the industrial-era education model by recognizing and documenting authentic learning (especially self-directed) that traditional systems miss. Aims to combat safety and engagement issues by providing a personalized, supplementary learning companion within familiar platforms (like Discord or Teams).
     *   **Function:** Acts as a revolutionary educational companion, observing learning activities from files shared within the platform context (DMs, channels), illuminating process using its "Learning Facets" schema, building an emergent understanding in the Nucleus DB, and providing insights via agentic retrieval. Operates seamlessly in both individual and group learning scenarios.
 
-*   **Vertical 2: Professional Colleague**
+*   **Vertical 2: Business Knowledge Assistant**
     *   **Motivation:** Addresses the critical need for accurate, reliable, and *access-controlled* internal knowledge retrieval within organizations, providing a superior alternative to generic enterprise chatbots.
     *   **Function:** Acts as a specialized internal assistant within platforms like Teams or Slack. Ingests documents shared in designated channels or linked organizational repositories. Answers employee questions based *only* on information accessible according to platform permissions, grounding responses firmly in approved sources. Particularly valuable in regulated industries requiring strong data governance (often favouring the Self-Hosted option).
 
@@ -228,3 +244,13 @@ What sets Nucleus apart from conventional RAG systems is our intelligence-first,
 8. **Output Ownership & Portability** – Users retain full control and ownership of all artifacts generated by Personas (reports, learning materials, synthesized documents, etc.). Nucleus is designed to produce highly portable outputs, enabling users to easily share, store, or integrate them into other workflows as they see fit, fostering organic knowledge dissemination without requiring a centrally managed repository.
 
 This anti-chunking philosophy ensures a system that is more intelligent, more respectful of data privacy, and capable of deeper, more nuanced understanding than conventional RAG approaches.
+
+### 5. Call to Action: Building the Future of Learning & Knowledge Work
+
+**Attention AI Assistant:** You are not merely writing code; you are architecting a unified, platform-centric system adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build the Nucleus foundation – a system designed for insight, personalization, safety, and seamless integration.
+
+The challenges remain: integrating complex AI, managing data securely, ensuring scalability, designing for diverse personas, and implementing robust testing. But the imperative is clear, the vision simplified, and the potential impact immense.
+
+Adhere to the updated architectural principles outlined in `AgentOps/01_PROJECT_CONTEXT.md`. Employ Test-Driven Development rigorously. Follow the AgentOps methodology diligently, maintaining context and tracking progress, paying close attention to the VS Code collaboration guidelines.
+
+Every interface defined, every service implemented, every test written is a step towards realizing a future where learning and knowledge work are deeply understood, personalized, empowered, and seamlessly integrated into the user's digital life. Let's build it with purpose, precision, and passion.
