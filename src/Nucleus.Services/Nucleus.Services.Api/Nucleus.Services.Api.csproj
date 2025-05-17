@@ -24,27 +24,27 @@
   <ItemGroup>
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
     <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" Version="9.2.1" /> <!-- Added for Aspire extension methods -->
-    <PackageReference Include="Azure.Identity" Version="1.13.2" /> <!-- Explicitly to resolve NU1605 -->
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.4" /> 
-    <PackageReference Include="Microsoft.Extensions.AI" Version="9.4.0-preview.1.25207.5" />
+    <PackageReference Include="Azure.Identity" Version="1.14.0" /> <!-- Explicitly to resolve NU1605 -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
+    <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.5" /> 
+    <PackageReference Include="Microsoft.Extensions.AI" Version="9.5.0" />
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.11.0" /> <!-- Added for AddAzureClients, latest stable -->
-    <PackageReference Include="Microsoft.Identity.Web" Version="3.8.4" /> 
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.9.0" /> 
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.1" /> 
     <PackageReference Include="Microsoft.Bot.Builder" Version="4.23.0" /> <!-- Updated from 4.22.2 to match resolved Integration pkg -->
     <PackageReference Include="Microsoft.Bot.Builder.Integration.AspNet.Core" Version="4.23.0" /> <!-- Updated from 4.22.5 as it wasn't found; 4.22.7 was resolved -->
-    <PackageReference Include="Microsoft.Graph" Version="5.77.0" />
+    <PackageReference Include="Microsoft.Graph" Version="5.78.0" />
     <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" Version="9.2.1" /> <!-- Updated to match ServiceDefaults -->
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.4.0" /> <!-- Added version, aligned with ServiceDefaults -->
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.5.0" /> <!-- Added version, aligned with ServiceDefaults -->
     <PackageReference Include="Microsoft.TeamsFx" Version="2.5.0" /> <!-- Corrected package -->
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.21.2" /> <!-- Added version -->
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.49.0" />
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.51.0" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Replaced official Google package with Mscc.GenerativeAI -->
-    <PackageReference Include="Mscc.GenerativeAI" Version="2.5.3" /> <!-- Updated version -->
-    <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.3" /> <!-- Updated version for AddGeminiChat extension -->
+    <PackageReference Include="Mscc.GenerativeAI" Version="2.5.6" /> <!-- Updated version -->
+    <PackageReference Include="Mscc.GenerativeAI.Microsoft" Version="2.5.6" /> <!-- Updated version for AddGeminiChat extension -->
   </ItemGroup>
 
   <!-- Need assistance on this line -->
