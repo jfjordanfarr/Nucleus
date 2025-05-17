@@ -1,126 +1,119 @@
-// This AppHost project defines the services and their configurations for local development and integration testing.
-// For details on the overall testing strategy, including how this AppHost is utilized, 
-// see ../../Docs/Architecture/09_ARCHITECTURE_TESTING.md
+using Aspire.Hosting;
+using System;
+using System.IO;
+using System.Text;
+using System.Runtime.CompilerServices;
+using System.Diagnostics; // For Demystifier
 
-using Aspire.Hosting; // Ensure this is present for WithVolumeMount
-using Aspire.Hosting.ApplicationModel; // Ensure this is present for VolumeMountType
-using Aspire.Hosting.Azure;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection; // Added
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging; // Added
-using Nucleus.Abstractions;
-using System.IO; // Re-add for Path.GetFullPath
+namespace Nucleus.AppHost;
 
-/// <seealso cref="../../../Docs/Architecture/09_ARCHITECTURE_TESTING.md"/>
-var builder = DistributedApplication.CreateBuilder(args);
-
-// Get a logger instance
-var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-
-// Check if running in the context of Aspire.Hosting.Testing
-var isTestEnvironment = Environment.GetEnvironmentVariable("ASPIRE_TESTING_ENVIRONMENT") == "true";
-// Check if simple console logging is requested by the test
-var useSimpleConsoleFormatterForTest = Environment.GetEnvironmentVariable("NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE") == "true";
-
-// Load user secrets for local development (but not during testing)
-if (builder.Environment.IsDevelopment() && !isTestEnvironment)
+public static class Program
 {
-    builder.Configuration.AddUserSecrets<Program>();
-}
+    private static string? _logFilePath; // CS8618
+    private static readonly object _logLock = new object();
 
-// --- Data Persistence ---
-
-// Azure Cosmos DB emulator resource
-var cosmosResource = builder.AddAzureCosmosDB("cosmosdb")
-                           .RunAsPreviewEmulator(e => e.WithDataExplorer());
-
-// Define the main database for Cosmos DB
-var mainDatabase = cosmosResource.AddCosmosDatabase("NucleusDb");
-
-// --- API Services ---
-
-// Reference the API service project.
-var apiServiceBuilder = builder.AddProject<Projects.Nucleus_Services_Api>("nucleusapi") // Use typed reference
-       .WithReference(mainDatabase) // Reference the main Cosmos DATABASE resource
-       .WithReference(cosmosResource) // Ensure nucleusapi has a reference to cosmos for normal operation
-       .WithEnvironment(ctx =>
-       {
-           // Inject the Cosmos Database Name for the Test Environment
-           // Note: Use double underscore __ for hierarchical keys in env vars
-           if (isTestEnvironment)
-           { // This is a RUNTIME check
-               ctx.EnvironmentVariables["CosmosDb__DatabaseName"] = "NucleusTestDb";
-               
-               // Explicit setting of CosmosDb__ConnectionString is removed from this lambda.
-               // .WithReference(mainDatabase) handles the default connection string.
-               // The #if NUCLEUS_TEST_ENVIRONMENT block handles specific override for those builds.
-           }
-
-           // Propagate Logging settings for testing
-           // This section can be potentially superseded by the more specific NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE settings below,
-           // or you can keep it as a fallback.
-           if (isTestEnvironment && !useSimpleConsoleFormatterForTest) // Only apply if not overridden by simple formatter
-           {
-               ctx.EnvironmentVariables["Logging__LogLevel__Default"] = "Warning";
-               ctx.EnvironmentVariables["Logging__LogLevel__Nucleus"] = "Information"; // Keep our code's logs at Info
-           }
-
-           // Propagate NUCLEUS_TEST_PERSONA_CONFIGS_JSON if set
-           var testPersonaConfigsJson = Environment.GetEnvironmentVariable("NUCLEUS_TEST_PERSONA_CONFIGS_JSON");
-           if (!string.IsNullOrEmpty(testPersonaConfigsJson))
-           {
-               ctx.EnvironmentVariables["NUCLEUS_TEST_PERSONA_CONFIGS_JSON"] = testPersonaConfigsJson;
-               logger.LogInformation("Propagating NUCLEUS_TEST_PERSONA_CONFIGS_JSON to nucleusapi service."); // Added logging
-           }
-
-           return Task.CompletedTask;
-       })
-       .WithEndpoint(port: 19110, scheme: "https", name: "httpsExternal", isExternal: true); // Expose a specific HTTPS endpoint
-
-#if NUCLEUS_TEST_ENVIRONMENT // This is a COMPILE-TIME check
-    // Ensure the API service uses the emulator connection string for the NucleusTestDb during tests.
-    
-    // Define a specific database resource for the test environment.
-    var testDatabase = cosmosResource.AddCosmosDatabase("NucleusTestDb");
-
-    if (testDatabase != null)
+    private static void InitializeLogFile(string[]? argsForContext = null) // CS8625
     {
-        var connectionString = testDatabase.GetConnectionString(); 
-        if (apiServiceBuilder != null && connectionString != null)
+        if (_logFilePath != null) return;
+
+        try
         {
-             apiServiceBuilder.WithEnvironment("CosmosDb__ConnectionString", connectionString);
-             logger.LogInformation("[Nucleus.AppHost] In NUCLEUS_TEST_ENVIRONMENT: Explicitly setting CosmosDb__ConnectionString for 'nucleusapi' project using 'testDatabase' resource.");
+            string logDirectory = Path.Combine(Path.GetTempPath(), "NucleusAppHostLogs");
+            Directory.CreateDirectory(logDirectory); // Ensures the directory exists
+            _logFilePath = Path.Combine(logDirectory, $"AppHost_Trace_{DateTime.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid().ToString("N").Substring(0, 8)}.log");
+            
+            StringBuilder initialLog = new StringBuilder();
+            initialLog.AppendLine($"[{DateTime.UtcNow:o}] [InitializeLogFile] Log file initialized: {_logFilePath}");
+            initialLog.AppendLine($"[{DateTime.UtcNow:o}] [InitializeLogFile] Process ID: {System.Diagnostics.Process.GetCurrentProcess().Id}");
+            initialLog.AppendLine($"[{DateTime.UtcNow:o}] [InitializeLogFile] Command line args for context: {(argsForContext == null ? "N/A" : string.Join(" ", argsForContext))}");
+            initialLog.AppendLine($"[{DateTime.UtcNow:o}] [InitializeLogFile] Environment.CommandLine: {Environment.CommandLine}");
+            initialLog.AppendLine($"[{DateTime.UtcNow:o}] [InitializeLogFile] AppDomain.CurrentDomain.FriendlyName: {AppDomain.CurrentDomain.FriendlyName}");
+            File.AppendAllText(_logFilePath, initialLog.ToString(), Encoding.UTF8);
         }
-        else if (connectionString == null)
+        catch (Exception ex)
         {
-            logger.LogWarning("[Nucleus.AppHost] In NUCLEUS_TEST_ENVIRONMENT: 'testDatabase' resource returned a null connection string. Cannot set for 'nucleusapi'.");
+            // Fallback if logging setup itself fails catastrophically
+            Console.Error.WriteLine($"CRITICAL LOGGING INITIALIZATION FAILURE: {ex.ToStringDemystified()}");
+            _logFilePath = Path.Combine(Path.GetTempPath(), $"AppHost_CRITICAL_FAILURE_{DateTime.UtcNow:yyyyMMddHHmmssfff}.log");
+            if (_logFilePath != null) // CS8604 check before using _logFilePath here
+            {
+                File.AppendAllText(_logFilePath, $"[{DateTime.UtcNow:o}] CRITICAL LOGGING INIT FAILED: {ex.ToStringDemystified()}\n", Encoding.UTF8);
+            }
         }
     }
-    else
+
+    private static void Log(string message, [CallerMemberName] string memberName = "")
     {
-        logger.LogWarning("[Nucleus.AppHost] In NUCLEUS_TEST_ENVIRONMENT: 'testDatabase' resource builder was null (failed to define from cosmosResource). Cannot set CosmosDb__ConnectionString for 'nucleusapi'.");
+        if (_logFilePath == null) 
+        {
+            InitializeLogFile(); 
+        }
+
+        try
+        {
+            string logMessage = $"[{DateTime.UtcNow:o}] [{memberName}] {message}\n";
+            lock (_logLock)
+            {
+                if (_logFilePath != null) // CS8604
+                {
+                    File.AppendAllText(_logFilePath, logMessage, Encoding.UTF8);
+                }
+                else
+                {
+                    Console.Error.WriteLine($"Log file path is null. Cannot write log: {message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to write to log file ({_logFilePath ?? "NULL"}): {ex.Message}. Message was: {message}");
+        }
     }
-#endif
 
-// Apply specific logging formatter and levels if requested by the test
-if (useSimpleConsoleFormatterForTest)
-{
-    logger.LogInformation("[Nucleus.AppHost] Applying Simple console logger settings to 'nucleusapi' for test run based on NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE=true.");
-    apiServiceBuilder.WithEnvironment("Logging__Console__FormatterName", "Simple");
-    apiServiceBuilder.WithEnvironment("Logging__Console__FormatterOptions__JsonWriterOptions__Indented", "false"); // Ensure JSON options don't interfere
-    apiServiceBuilder.WithEnvironment("Logging__LogLevel__Default", "Information"); 
-    apiServiceBuilder.WithEnvironment("Logging__LogLevel__Nucleus.Services.Api", "Debug");
-    apiServiceBuilder.WithEnvironment("Logging__LogLevel__Nucleus.Infrastructure.Data.Persistence", "Debug");
-}
+    public static IDistributedApplicationBuilder CreateDistributedApplicationBuilder(string[] args)
+    {
+        InitializeLogFile(args);
+        Log($"Entering CreateDistributedApplicationBuilder. Args: {(args == null ? "null" : string.Join(", ", args))}");
 
-// Conditional logging adjustments for testing
-if (isTestEnvironment)
-{
-    Console.WriteLine("ASPIRE_TESTING_ENVIRONMENT detected. Applying reduced logging levels to API service."); // Adjusted diagnostic output
-    if (useSimpleConsoleFormatterForTest) {
-        Console.WriteLine("[Nucleus.AppHost] NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE=true. 'nucleusapi' service configured for Simple console logging.");
+        var builder = DistributedApplication.CreateBuilder(args ?? Array.Empty<string>());
+        Log("DistributedApplication.CreateBuilder returned.");
+
+        Log("Adding Service Defaults...");
+        // builder.AddServiceDefaults(); // CS1061 - This should now work if Aspire.Hosting is correctly referenced and ServiceDefaults project is okay
+        Aspire.Hosting.DistributedApplicationBuilderExtensions.AddServiceDefaults(builder);
+        Log("Service Defaults ADDED.");
+
+        Log("Skipping addition of other project resources for now to simplify debugging.");
+
+        Log("Exiting CreateDistributedApplicationBuilder.");
+        return builder;
+    }
+
+    public static void Main(string[] args)
+    {
+        InitializeLogFile(args); 
+        Log($"Entering Main. Args: {(args == null ? "null" : string.Join(", ", args))}");
+
+        try
+        {
+            Log("Calling CreateDistributedApplicationBuilder...");
+            var builder = CreateDistributedApplicationBuilder(args ?? Array.Empty<string>()); // CS8604
+            Log("Returned from CreateDistributedApplicationBuilder.");
+
+            Log("Building application...");
+            var app = builder.Build();
+            Log("Application BUILT.");
+
+            Log("Running application...");
+            app.Run();
+            Log("Application Run COMPLETED (or was non-blocking).");
+        }
+        catch (Exception ex)
+        {
+            Log($"!!! EXCEPTION in Main: {ex.ToStringDemystified()}");
+            Console.Error.WriteLine($"[AppHost CRITICAL ERROR IN MAIN] {ex.ToStringDemystified()}");
+            throw;
+        }
+        Log("Exiting Main.");
     }
 }
-
-builder.Build().Run();

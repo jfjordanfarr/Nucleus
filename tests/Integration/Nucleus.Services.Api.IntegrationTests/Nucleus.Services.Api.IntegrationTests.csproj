@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk"> 
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
@@ -39,17 +39,17 @@
     <!-- Add Aspire testing package -->
     <PackageReference Include="Aspire.Hosting.Testing" Version="9.2.1" />
     <!-- Add Aspire Cosmos DB client package -->
-    <PackageReference Include="Aspire.Microsoft.Azure.Cosmos" Version="9.2.1" />
+    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" Version="9.2.1" />
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Reference the API project to test against and Abstractions for models -->
-    <ProjectReference Include="..\..\..\src\Nucleus.Infrastructure\Data\Nucleus.Infrastructure.Persistence\Nucleus.Infrastructure.Data.Persistence.csproj" />
-    <ProjectReference Include="..\..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
-    <ProjectReference Include="..\..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
-    <ProjectReference Include="..\..\..\src\Nucleus.Domain\Personas\Nucleus.Personas.Core\Nucleus.Domain.Personas.Core.csproj" />
-    <ProjectReference Include="..\..\Infrastructure.Testing\Nucleus.Infrastructure.Testing.csproj" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Infrastructure\Data\Nucleus.Infrastructure.Persistence\Nucleus.Infrastructure.Data.Persistence.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Domain\Personas\Nucleus.Personas.Core\Nucleus.Domain.Personas.Core.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\Infrastructure.Testing\Nucleus.Infrastructure.Testing.csproj" IsAspireProjectResource="false" />
     <!-- Add reference to Aspire AppHost project -->
     <ProjectReference Include="..\..\..\Aspire\Nucleus.AppHost\Nucleus.AppHost.csproj" IsAspireProjectResource="true" />
   </ItemGroup>
@@ -67,17 +67,6 @@
   <!-- Add this ItemGroup to copy TestData files -->
   <ItemGroup>
     <Content Include="TestData\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- This ensures the mssql.conf needed by the AppHost's ServiceBusEmulator -->
-    <!-- is copied to the test output directory in the location where the -->
-    <!-- AppHost (run by the test) expects to find it relative to the test output dir. -->
-    <!-- Using relative path from this csproj file -->
-    <Content Include="$(SolutionDir)Aspire\Nucleus.AppHost\mssql.conf">
-      <Link>Aspire\Nucleus.AppHost\mssql.conf</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

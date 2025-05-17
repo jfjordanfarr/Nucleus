@@ -1,9 +1,12 @@
 using Aspire.Hosting.Azure;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Hosting; // Added to potentially resolve CS1061
 using Microsoft.Extensions.Logging; // Required for ILogger if you add more logging
 using Xunit;
 using Xunit.Abstractions; // Required for ITestOutputHelper
+using Nucleus.Infrastructure.Testing.Configuration;
+using Aspire.Hosting.Dcp;
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
@@ -23,7 +26,12 @@ public class MinimalCosmosEmulatorTest : IAsyncLifetime
         try
         {
             // For a truly minimal test, create a builder without referencing the existing AppHost project.
-            var builder = DistributedApplication.CreateBuilder(); 
+            var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
+            {
+                Args = null, // No specific args for this minimal test
+                AssemblyName = typeof(MinimalCosmosEmulatorTest).Assembly.FullName,
+                DisableDashboard = true // Re-add this to prevent dashboard init errors
+            }); 
 
             // Add only the Cosmos DB emulator
 #pragma warning disable ASPIRECOSMOSDB001 // Suppress diagnostic for preview features
