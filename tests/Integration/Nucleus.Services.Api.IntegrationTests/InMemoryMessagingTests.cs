@@ -5,12 +5,13 @@ using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Nucleus.Abstractions.Models.ApiContracts;
-using Nucleus.Abstractions.Orchestration;
-using Nucleus.Services.Api.IntegrationTests.Models;
+using Nucleus.Abstractions.Models.ApiContracts; // Keep if QueueTestRequest is defined here or in a sub-namespace
+using Nucleus.Abstractions.Orchestration; // Keep if IBackgroundTaskQueue is used directly (not in this version)
 using Xunit;
 using Xunit.Abstractions;
 using System.Net.Http.Json;
+using Nucleus.Abstractions; // Added for NucleusConstants
+using Xunit.Sdk; // Added for Skip.If
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
@@ -22,8 +23,12 @@ namespace Nucleus.Services.Api.IntegrationTests;
 public class InMemoryMessagingTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _outputHelper;
-    private DistributedApplication _app = null!;
-    private HttpClient _apiClient = null!;
+    private DistributedApplication? _app; // Changed to nullable
+    private HttpClient? _apiClient; // Changed to nullable
+
+    // Static property to check if integration tests are enabled via environment variable.
+    private static bool ShouldSkipIntegrationTests => 
+        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
 
     public InMemoryMessagingTests(ITestOutputHelper outputHelper)
     {
@@ -32,6 +37,9 @@ public class InMemoryMessagingTests : IAsyncLifetime
 
     public async Task InitializeAsync() // Part of IAsyncLifetime
     {
+        // Use Skip.If directly here. If this condition is met, InitializeAsync won't proceed.
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping InMemoryMessagingTests. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InMemoryMessagingTests InitializeAsync START ---");
         try
         { 
@@ -74,6 +82,11 @@ public class InMemoryMessagingTests : IAsyncLifetime
 
     public async Task DisposeAsync() // Part of IAsyncLifetime
     {
+        if (ShouldSkipIntegrationTests && _app == null) // Don't run dispose if tests were skipped and app wasn't initialized
+        {
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InMemoryMessagingTests DisposeAsync SKIPPED (tests were not run) ---");
+            return;
+        }
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InMemoryMessagingTests DisposeAsync START ---");
         try
         {
@@ -91,11 +104,12 @@ public class InMemoryMessagingTests : IAsyncLifetime
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InMemoryMessagingTests DisposeAsync END ---");
     }
 
-    [Fact(Timeout = 30000)] // 30 second timeout
+    [SkippableFact(Timeout = 30000)] // Changed from Fact to SkippableFact
     public async Task QueueItemViaApi_ShouldSucceed()
     {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: QueueItemViaApi_ShouldSucceed START ---");
-        Assert.NotNull(_apiClient);
+        Assert.NotNull(_apiClient); // apiClient will be null if InitializeAsync was skipped
 
         // Arrange
         var request = new QueueTestRequest { TestData = "Hello from InMemoryMessagingTests!" };

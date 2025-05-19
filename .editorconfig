@@ -136,6 +136,7 @@ dotnet_diagnostic.CA2009.severity = warning  # Do not call ToImmutableCollection
 dotnet_diagnostic.CA2012.severity = warning  # Use ValueTasks correctly
 
 # AI-Assisted Development Patterns - Modern C# Features
+dotnet_diagnostic.IDE0005.severity = warning  # Unnecessary using directive
 dotnet_diagnostic.IDE0041.severity = warning  # Use 'is null' check
 dotnet_diagnostic.IDE0083.severity = suggestion  # Use pattern matching ('is not null' instead of '!= null')
 dotnet_diagnostic.IDE0090.severity = suggestion  # Use 'new()' for object/collection initialization
