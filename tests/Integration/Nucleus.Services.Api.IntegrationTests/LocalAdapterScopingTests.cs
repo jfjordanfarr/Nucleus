@@ -39,7 +39,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
 
     private static bool IsIntegrationTestsEnabled()
     {
-        var value = Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled);
+        var value = Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled);
         return string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value, "1");
     }
 
@@ -49,7 +49,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
         _skipTests = !IsIntegrationTestsEnabled();
         if (_skipTests)
         {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] LocalAdapterScopingTests: Integration tests are DISABLED by environment variable {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}. Skipping tests.");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] LocalAdapterScopingTests: Integration tests are DISABLED by environment variable {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}. Skipping tests.");
         }
     }
 
@@ -164,7 +164,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
 
     private async Task<AdapterResponse?> SendAdapterRequestAsync(AdapterRequest request)
     {
-        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}.");
+        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}.");
         Assert.NotNull(_apiClient);
 
         var response = await _apiClient.PostAsJsonAsync("/api/v1/adapter/local/handle", request);
@@ -175,7 +175,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
     [SkippableFact]
     public async Task HandleInteraction_ValidRequest_ValidPersona_ShouldSucceed()
     {
-        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}.");
+        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}.");
         Assert.NotNull(_fileSystemManager);
         const string tenantId = "test-tenant-local-adapter";
         const string conversationId = "test-conversation-local-adapter";
@@ -217,7 +217,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
     [SkippableFact]
     public async Task HandleInteraction_InvalidPersona_ShouldFailGracefully()
     {
-        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}.");
+        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}.");
         Assert.NotNull(_fileSystemManager);
         const string tenantId = "test-tenant-local-adapter";
         const string conversationId = "test-conversation-local-adapter";
@@ -258,7 +258,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
     [SkippableFact]
     public async Task HandleInteraction_PersonaNotAllowedInConversation_ShouldFailGracefully()
     {
-        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}.");
+        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}.");
         Assert.NotNull(_fileSystemManager);
         const string tenantId = "test-tenant-local-adapter";
         const string conversationId = "restricted-conversation";
@@ -299,7 +299,7 @@ public class LocalAdapterScopingTests : IAsyncLifetime
     [SkippableFact]
     public async Task HandleInteraction_NoArtifacts_ShouldStillProcessMessage()
     {
-        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}.");
+        Skip.If(_skipTests, $"Integration tests are disabled via {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}.");
         const string tenantId = "test-tenant-local-adapter";
         const string conversationId = "general";
 

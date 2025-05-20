@@ -1,66 +1,52 @@
 ---
 title: "Copilot Session State"
-description: "Current operational state of the Copilot agent."
-version: 3.42
-date: 2025-05-19
+description: "Current operational status and context for the Copilot agent."
+version: 3.95
+date: 2025-05-20
 ---
 
 ## Session Focus
 
-The current focus is to correct the usage of the `FileName` property (erroneously used as `OriginalFileName`) in the `ArtifactReference` model within integration tests. This was identified after the user's "Peek Definition" did not match previous assumptions. We will correct the usages and ensure the build is clean.
+The primary goal is to address the CA2000 warnings identified in `Nucleus.Domain.Tests.QueuedInteractionProcessorServiceTests.cs` after all tests passed in the previous step.
 
-## Task Breakdown & Status
+## Current Task
 
-### Overall Task: Refactor Integration Tests for Correctness, DRYness, and Skippability
+Fix the CA2000 warnings in `/workspaces/Nucleus/tests/Unit/Nucleus.Domain.Tests/QueuedInteractionProcessorServiceTests.cs` related to disposable objects not being disposed.
 
-#### Sub-Tasks:
+## Pending Actions
 
-1.  **Define Environment Variable Constants in `NucleusConstants.cs`**
-    *   Status: **COMPLETED**
-2.  **Update `launchSettings.json` for `Nucleus.Services.Api.IntegrationTests`**
-    *   Status: **COMPLETED**
-3.  **Refactor `MinimalCosmosEmulatorTest.cs`**
-    *   Status: **COMPLETED**
-4.  **Refactor `ApiIntegrationTests.cs` (Initial Pass)**
-    *   Status: **COMPLETED**
-5.  **Refactor `ApiIntegrationTests.cs` (Second Pass - DRYing further)**
-    *   Status: **COMPLETED**
-6.  **Refactor `InMemoryMessagingTests.cs`**
-    *   Status: **COMPLETED** (Build error fixed)
-7.  **Refactor `LocalAdapterScopingTests.cs`**
-    *   Status: **PENDING CORRECTION** (Incorrectly used `OriginalFileName` instead of `FileName`)
-8.  **Evaluate and Refactor/Remove `TestInteractionMessage.cs`**
-    *   Status: **COMPLETED**
-9.  **Refactor `ServiceBusMessagingTests.cs`**
-    *   Status: **COMPLETED**
-10. **Provide `.editorconfig` setting for unused `using` statements**
-    *   Status: **COMPLETED**
-11. **Fix Build Error in `InMemoryMessagingTests.cs`**
-    *   Status: **COMPLETED**
-12. **Correct `ArtifactReference` property usage (FileName vs OriginalFileName)**
-    *   Status: **ACTIVE**
-    *   Details: Identified that `ArtifactReference` uses `FileName`. Need to correct `LocalAdapterScopingTests.cs` and search for other instances.
-13. **Run Integration Tests**
-    *   Status: **PENDING** (Blocked by build confidence after corrections)
+1.  **Read `QueuedInteractionProcessorServiceTests.cs`** to identify the exact locations of the warnings.
+2.  **Modify the test methods** to ensure `IDisposable` objects (`ArtifactContent`, `QueuedInteractionProcessorService`) are properly disposed, likely using `using` statements.
+3.  **Run `dotnet test`** to confirm the warnings are resolved and all unit tests still pass.
+4.  If warnings are gone and tests pass, shift focus to implementing the remaining Core MVP functionality.
 
 ## Key Files & Context
 
-*   **Session State:** `/workspaces/Nucleus/AgentOps/02_CURRENT_SESSION_STATE.md` (This file, version 3.42)
-*   **Model Definition:** `/workspaces/Nucleus/src/Nucleus.Abstractions/Models/ArtifactReference.cs` (Correctly shows `FileName`)
-*   **Usage Example (to be corrected):** `/workspaces/Nucleus/tests/Integration/Nucleus.Services.Api.IntegrationTests/LocalAdapterScopingTests.cs`
-*   **User Instructions:** `/workspaces/Nucleus/.github/copilot-instructions.md`
+*   **Session State:** `/workspaces/Nucleus/AgentOps/02_CURRENT_SESSION_STATE.md` (this file)
+*   **Test File:** `/workspaces/Nucleus/tests/Unit/Nucleus.Domain.Tests/QueuedInteractionProcessorServiceTests.cs`
+*   **Service Under Test:** `/workspaces/Nucleus/src/Nucleus.Domain/Nucleus.Domain.Processing/QueuedInteractionProcessorService.cs`
+*   **Project Mandate & Requirements:**
+    *   `Docs/Requirements/00_PROJECT_MANDATE.md`
+    *   `Docs/Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md`
+*   **Core Architecture:**
+    *   `Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md`
+    *   `Docs/Architecture/01_ARCHITECTURE_PROCESSING.md`
 
-## Agent Log & Decisions
+## Recent Changes Summary (from v3.94)
 
-*   **Previous Turn:** Confirmed `ArtifactReference` uses `FileName`, not `OriginalFileName`. User agreed to correction plan.
-*   **Current Action Plan:**
-    1.  Update session state (done).
-    2.  Correct `OriginalFileName` to `FileName` in `LocalAdapterScopingTests.cs`.
-    3.  Search for other incorrect usages of `OriginalFileName` with `ArtifactReference` in integration tests.
-    4.  Run `dotnet build` to confirm fixes.
+*   All tests in `QueuedInteractionProcessorServiceTests.cs` passed.
+*   Identified 3 CA2000 warnings in the test output for `ArtifactContent` and `QueuedInteractionProcessorService` instances not being disposed.
 
-## Next Steps (Immediate)
+## Watched Files for Next Update Cycle
+*   `/workspaces/Nucleus/tests/Unit/Nucleus.Domain.Tests/QueuedInteractionProcessorServiceTests.cs` (for warning resolution and test results)
 
-1.  Edit `/workspaces/Nucleus/tests/Integration/Nucleus.Services.Api.IntegrationTests/LocalAdapterScopingTests.cs` to use `FileName`.
-2.  Search for other incorrect usages.
-3.  Run `dotnet build`.
+## Agent Confidence Score (1-5)
+5 (Confident in resolving these types of warnings)
+
+## Next Steps Outline
+
+1.  Read the test file.
+2.  Apply `using` statements to the disposable objects causing warnings.
+3.  Execute `dotnet test`.
+4.  Analyze results.
+5.  If all clear, confirm with the user and await guidance on MVP tasks.

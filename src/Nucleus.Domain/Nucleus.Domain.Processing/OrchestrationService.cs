@@ -4,10 +4,11 @@
 using Microsoft.Extensions.Logging;
 using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.ApiContracts;
-using Nucleus.Abstractions.Models.Configuration; 
+using Nucleus.Abstractions.Models.Configuration;
 using Nucleus.Abstractions.Orchestration;
+using Nucleus.Abstractions.Results; // Added for Result<TSuccess, TError>
 using System;
-using System.Collections.Generic; 
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,25 +26,25 @@ public class OrchestrationService : IOrchestrationService
     private static readonly ActivitySource ActivitySource = new("Nucleus.Domain.Processing.OrchestrationService");
 
     private readonly ILogger<OrchestrationService> _logger;
-    private readonly IActivationChecker _activationChecker; 
-    private readonly IBackgroundTaskQueue _backgroundTaskQueue; 
-    private readonly IPersonaConfigurationProvider _personaConfigurationProvider; 
+    private readonly IActivationChecker _activationChecker;
+    private readonly IBackgroundTaskQueue _backgroundTaskQueue;
+    private readonly IPersonaConfigurationProvider _personaConfigurationProvider;
 
     public OrchestrationService(
         ILogger<OrchestrationService> logger,
-        IActivationChecker activationChecker, 
-        IBackgroundTaskQueue backgroundTaskQueue, 
+        IActivationChecker activationChecker,
+        IBackgroundTaskQueue backgroundTaskQueue,
         IPersonaConfigurationProvider personaConfigurationProvider
         )
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _activationChecker = activationChecker ?? throw new ArgumentNullException(nameof(activationChecker)); 
-        _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue)); 
-        _personaConfigurationProvider = personaConfigurationProvider ?? throw new ArgumentNullException(nameof(personaConfigurationProvider)); 
+        _activationChecker = activationChecker ?? throw new ArgumentNullException(nameof(activationChecker));
+        _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
+        _personaConfigurationProvider = personaConfigurationProvider ?? throw new ArgumentNullException(nameof(personaConfigurationProvider));
     }
 
     /// <inheritdoc />
-    public async Task<OrchestrationResult> ProcessInteractionAsync(AdapterRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<AdapterResponse, OrchestrationError>> ProcessInteractionAsync(AdapterRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -54,7 +55,7 @@ public class OrchestrationService : IOrchestrationService
         activity?.SetTag("nucleus.message_id", request.MessageId);
 
         // Derive a unique ID for tracing, preferring the adapter's message ID.
-        string interactionId = request.MessageId ?? Guid.NewGuid().ToString(); 
+        string interactionId = request.MessageId ?? Guid.NewGuid().ToString();
         activity?.SetTag("nucleus.interaction_id", interactionId);
 
         try
@@ -66,14 +67,14 @@ public class OrchestrationService : IOrchestrationService
             // 1. Check for Persona Activation
             _logger.LogDebug("Checking activation for interaction {InteractionId}", interactionId);
             var configurations = await _personaConfigurationProvider.GetAllConfigurationsAsync(cancellationToken);
-            var activationResult = await _activationChecker.CheckActivationAsync(request, configurations, cancellationToken); 
+            var activationResult = await _activationChecker.CheckActivationAsync(request, configurations, cancellationToken);
 
-            if (!activationResult.ShouldActivate)
+            if (!activationResult.ShouldActivate || string.IsNullOrEmpty(activationResult.PersonaId))
             {
-                _logger.LogInformation("Interaction {InteractionId} did not meet activation criteria.",
+                _logger.LogInformation("Interaction {InteractionId} did not meet activation criteria or PersonaId is missing.",
                     interactionId);
-                activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Ignored");
-                return new OrchestrationResult(OrchestrationStatus.Ignored);
+                activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Ignored or PersonaId Missing");
+                return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.ActivationCheckFailed);
             }
 
             _logger.LogInformation("Interaction {InteractionId} activated persona {PersonaId}",
@@ -87,22 +88,34 @@ public class OrchestrationService : IOrchestrationService
                 PlatformType: request.PlatformType,
                 OriginatingUserId: request.UserId,
                 OriginatingConversationId: request.ConversationId,
-                OriginatingReplyToMessageId: request.ReplyToMessageId, 
-                OriginatingMessageId: request.MessageId,         
-                ResolvedPersonaId: activationResult.PersonaId, 
-                TimestampUtc: DateTimeOffset.UtcNow,            
+                OriginatingReplyToMessageId: request.ReplyToMessageId,
+                OriginatingMessageId: request.MessageId,
+                ResolvedPersonaId: activationResult.PersonaId, // Now guaranteed to be non-null
+                TimestampUtc: DateTimeOffset.UtcNow,
                 QueryText: request.QueryText,
                 ArtifactReferences: request.ArtifactReferences,
-                CorrelationId: interactionId,                    
-                Metadata: request.Metadata                        
+                CorrelationId: interactionId,
+                Metadata: request.Metadata,
+                TenantId: request.TenantId
             );
 
             await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(ingestionRequest, cancellationToken);
 
-            _logger.LogInformation("Interaction {InteractionId} successfully queued.", interactionId);
+            _logger.LogInformation("Interaction {InteractionId} successfully queued for persona {PersonaId}.", interactionId, activationResult.PersonaId);
             activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Queued");
 
-            return new OrchestrationResult(OrchestrationStatus.Queued, activationResult.PersonaId);
+            var successResponse = new AdapterResponse(
+                Success: true,
+                ResponseMessage: $"Request for persona '{activationResult.PersonaId}' received and queued for processing. Interaction ID: {interactionId}"
+            );
+            return Result<AdapterResponse, OrchestrationError>.Success(successResponse);
+        }
+        catch (ArgumentNullException ex)
+        {
+            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", interactionId, ex.Message, ex.ParamName);
+            activity?.SetStatus(ActivityStatusCode.Error, $"ArgumentNull: {ex.ParamName}");
+            if (activity != null) { activity.AddException(ex); }
+            return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.InvalidRequest);
         }
         catch (Exception ex)
         {
@@ -112,12 +125,7 @@ public class OrchestrationService : IOrchestrationService
             {
                 activity.AddException(ex);
             }
-            return new OrchestrationResult(
-                OrchestrationStatus.UnhandledError,
-                null, 
-                null, 
-                ex.Message,
-                ex);
+            return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.UnknownError);
         }
     }
 }

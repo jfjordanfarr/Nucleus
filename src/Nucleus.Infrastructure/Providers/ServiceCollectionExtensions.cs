@@ -16,12 +16,11 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="configuration">The application configuration.</param>
     /// <returns>The <see cref="IServiceCollection" /> so that additional calls can be chained.</returns>
-    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructureProviderServices(this IServiceCollection services, IConfiguration configuration) // Renamed method
     {
-        // TODO: Register actual infrastructure services here
-        // Example: services.AddSingleton<IArtifactProvider, LocalFileArtifactProvider>();
+        // Note: LocalFileArtifactProvider is now registered with LocalAdapter
         // Example: Add LLM Client registration (Gemini, OpenAI, etc.)
-        // Example: Add Client Adapters registration (Console, Teams, etc.)
+        // Example: Add other *general* Client Adapters registration (Console, Teams, etc.) if not self-registering
         
         return services;
     }

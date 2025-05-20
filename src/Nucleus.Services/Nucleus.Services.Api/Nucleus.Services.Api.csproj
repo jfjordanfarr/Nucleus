@@ -22,9 +22,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Core" Version="1.46.1" /> <!-- Updated to resolve NU1605 downgrade warning -->
+    <PackageReference Include="Azure.Identity" Version="1.14.0" /> 
     <PackageReference Include="Azure.Messaging.ServiceBus" Version="7.19.0" />
     <PackageReference Include="Aspire.Azure.Messaging.ServiceBus" Version="9.2.1" /> <!-- Added for Aspire extension methods -->
-    <PackageReference Include="Azure.Identity" Version="1.14.0" /> <!-- Explicitly to resolve NU1605 -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.5" />
     <PackageReference Include="Microsoft.AspNetCore.Components" Version="9.0.5" /> 
     <PackageReference Include="Microsoft.Extensions.AI" Version="9.5.0" />

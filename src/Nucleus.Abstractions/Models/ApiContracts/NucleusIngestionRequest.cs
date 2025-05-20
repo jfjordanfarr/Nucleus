@@ -50,51 +50,54 @@ public record NucleusIngestionRequest(
     string? OriginatingReplyToMessageId,
 
     /// <summary>
-    /// Optional: The platform-specific ID of the message that triggered this request,
-    /// if applicable. Useful for threading responses or associating with a specific message.
+    /// Optional: The platform-specific ID of the message this interaction is replying to, if applicable.
+    /// Important for maintaining conversation context, especially for async replies.
     /// </summary>
-    string? OriginatingMessageId,
+    string? OriginatingMessageId, // Corrected: this was OriginatingReplyToMessageId before, which is duplicative. This should be the primary message ID.
 
     /// <summary>
-    /// Optional but important for async processing: The canonical Persona ID resolved
-    /// for this interaction by the IPersonaResolver during the initial API request.
+    /// REQUIRED: The ID of the Persona that has been resolved to handle this request.
+    /// This is determined by the API layer before queueing.
     /// </summary>
-    string? ResolvedPersonaId,
+    string ResolvedPersonaId,
 
     /// <summary>
-    /// REQUIRED: The timestamp (UTC) when the original event occurred on the platform.
+    /// Optional: The UTC timestamp when the original event (e.g., message creation) occurred on the source platform.
+    /// Defaults to UtcNow if not provided.
     /// </summary>
-    DateTimeOffset TimestampUtc,
-
-    // --- Optional Triggering Info ---
+    DateTimeOffset? TimestampUtc,
 
     /// <summary>
-    /// Optional: The primary textual query or content from the user's message, potentially
-    /// after removing mentions or bot commands if done by the adapter.
+    /// Optional: The primary text query or command from the user.
+    /// Can be null if the interaction is purely artifact-based (e.g., file upload with no text).
     /// </summary>
     string? QueryText,
 
-    // --- Attachment/File References ---
-
     /// <summary>
-    /// Optional: A list of references to artifacts (files, links, etc.) provided
-    /// in the original interaction. These are direct references usable by the backend's
-    /// <see cref="IArtifactProvider"/> implementations.
+    /// Optional: A list of references to artifacts (files, URLs, etc.) associated with the request.
+    /// These references will be used by <see cref="IArtifactProvider"/> implementations to fetch content.
     /// </summary>
     List<ArtifactReference>? ArtifactReferences,
 
-    // --- Tracing/Metadata ---
+    /// <summary>
+    /// Optional: A unique identifier for tracing the request through various systems and logs.
+    /// If not provided by the client, the API should generate one.
+    /// </summary>
+    string? CorrelationId,
 
     /// <summary>
-    /// Optional: A correlation ID that can be used to trace this request across
-    /// different services or log entries. If not provided by the adapter, the backend might generate one.
+    /// Optional: Additional key-value metadata from the platform adapter or client.
+    /// Can be used for platform-specific information or custom data.
     /// </summary>
-    string? CorrelationId, // Consider making non-nullable and generated if null? Default constructor needed then.
+    Dictionary<string, string>? Metadata,
 
     /// <summary>
-    /// Optional: A dictionary for any additional adapter-specific context or metadata
-    /// that doesn't fit the standard fields but might be useful for specialized backend logic or future enhancements.
-    /// Use sparingly.
+    /// Optional: The ID of the tenant this request is associated with.
+    /// This is crucial for data partitioning and access control in multi-tenant deployments.
     /// </summary>
-    Dictionary<string, string>? Metadata
+    string? TenantId
+
+    // --- Control & Status Flags (Future Use) ---
+    // Example: bool RequestImmediateResponse = false;
+    // Example: ProcessingPriority Priority = ProcessingPriority.Normal;
 );

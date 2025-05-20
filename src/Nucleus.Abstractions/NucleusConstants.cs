@@ -219,7 +219,7 @@ public static class NucleusConstants
     /// <summary>
     /// Constants defining environment variable names used for configuration, typically in launchSettings.json or system environment.
     /// </summary>
-    public static class EnvironmentVariables
+    public static class NucleusEnvironmentVariables // Renamed from EnvironmentVariables
     {
         /// <summary>
         /// Environment variable to enable/disable all integration tests.

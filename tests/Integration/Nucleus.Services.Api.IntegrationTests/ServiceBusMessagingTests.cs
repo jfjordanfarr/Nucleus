@@ -29,8 +29,8 @@ public class ServiceBusMessagingTests : IAsyncLifetime
 
     private static bool AreServiceBusTestsEnabled()
     {
-        var integrationTestsEnabled = Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled);
-        var serviceBusEnabled = Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.AzureServiceBusEnabled);
+        var integrationTestsEnabled = Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled);
+        var serviceBusEnabled = Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.AzureServiceBusEnabled);
 
         return (string.Equals(integrationTestsEnabled, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(integrationTestsEnabled, "1")) &&
                (string.Equals(serviceBusEnabled, "true", StringComparison.OrdinalIgnoreCase) || string.Equals(serviceBusEnabled, "1"));
@@ -43,7 +43,7 @@ public class ServiceBusMessagingTests : IAsyncLifetime
 
         if (_skipTests)
         {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Skipping Service Bus tests: Either {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled} or {NucleusConstants.EnvironmentVariables.AzureServiceBusEnabled} is not set to 'true'.");
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Skipping Service Bus tests: Either {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled} or {NucleusConstants.NucleusEnvironmentVariables.AzureServiceBusEnabled} is not set to 'true'.");
         }
     }
 
@@ -52,7 +52,7 @@ public class ServiceBusMessagingTests : IAsyncLifetime
         if (_skipTests) return;
 
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- ServiceBusMessagingTests InitializeAsync START ---");
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled} and {NucleusConstants.EnvironmentVariables.AzureServiceBusEnabled} are 'true'. Proceeding with Service Bus test initialization.");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled} and {NucleusConstants.NucleusEnvironmentVariables.AzureServiceBusEnabled} are 'true'. Proceeding with Service Bus test initialization.");
 
         try
         {
@@ -158,7 +158,7 @@ public class ServiceBusMessagingTests : IAsyncLifetime
     [SkippableFact(Timeout = 60000)]
     public async Task SendMessage_ShouldSucceed()
     {
-        Skip.If(_skipTests, $"Service Bus tests skipped: {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled} or {NucleusConstants.EnvironmentVariables.AzureServiceBusEnabled} not set to \'true\'.");
+        Skip.If(_skipTests, $"Service Bus tests skipped: {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled} or {NucleusConstants.NucleusEnvironmentVariables.AzureServiceBusEnabled} not set to \'true\'.");
 
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: SendMessage_ShouldSucceed START ---");
         Assert.NotNull(_serviceBusClient); 

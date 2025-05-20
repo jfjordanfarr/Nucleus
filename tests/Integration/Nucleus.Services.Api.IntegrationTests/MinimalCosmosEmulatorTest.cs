@@ -23,7 +23,7 @@ public class MinimalCosmosEmulatorTest : IAsyncLifetime
     private DistributedApplication? _app;
 
     private static bool ShouldSkipGlobalIntegrationTests => 
-        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
 
     // This specific test has known persistent issues with .NET Aspire dashboard configuration.
     // It should be skipped even if INTEGRATION_TESTS_ENABLED is true, until those issues are resolved.
@@ -38,7 +38,7 @@ public class MinimalCosmosEmulatorTest : IAsyncLifetime
     public void CosmosEmulatorLifecycleTest_ShouldNotCauseDcpErrors()
     {
         Skip.If(ShouldSkipGlobalIntegrationTests || HasPersistentDashboardIssues, 
-            $"Skipping integration tests. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable (this test also has persistent dashboard issues).");
+            $"Skipping integration tests. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable (this test also has persistent dashboard issues).");
         
         // Test logic would go here if not skipped.
         // For now, the primary purpose is to ensure the DistributedApplication lifecycle for the emulator
@@ -54,7 +54,7 @@ public class MinimalCosmosEmulatorTest : IAsyncLifetime
 
         if (ShouldSkipGlobalIntegrationTests || HasPersistentDashboardIssues)
         {
-            _outputHelper.WriteLine($"Skipping InitializeAsync content for MinimalCosmosEmulatorTest due to {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled} or persistent dashboard issues.");
+            _outputHelper.WriteLine($"Skipping InitializeAsync content for MinimalCosmosEmulatorTest due to {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled} or persistent dashboard issues.");
             return;
         }
 

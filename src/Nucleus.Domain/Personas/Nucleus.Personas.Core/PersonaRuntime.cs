@@ -28,14 +28,12 @@ public class PersonaRuntime : IPersonaRuntime
 {
     private readonly ILogger<PersonaRuntime> _logger;
     private readonly IEnumerable<IAgenticStrategyHandler> _handlers;
-    
 
-    public PersonaRuntime(ILogger<PersonaRuntime> logger, 
+    public PersonaRuntime(ILogger<PersonaRuntime> logger,
                           IEnumerable<IAgenticStrategyHandler> handlers)
     {
         _logger = logger;
         _handlers = handlers;
-        
     }
 
     /// <inheritdoc />
@@ -48,16 +46,12 @@ public class PersonaRuntime : IPersonaRuntime
         ArgumentNullException.ThrowIfNull(interactionContext);
 
         var stopwatch = Stopwatch.StartNew();
-        // Use ConversationId and MessageId for logging correlation
-        _logger.LogInformation("Executing persona {PersonaId} with strategy {StrategyKey} for conversation {ConversationId}, message {MessageId}. Raw artifact count: {RawArtifactCount}",
+        _logger.LogInformation("Executing persona {PersonaId} with strategy {StrategyKey} for conversation {ConversationId}, message {MessageId}. Processed artifact count: {ProcessedArtifactCount}",
             personaConfig.PersonaId, 
             personaConfig.AgenticStrategy?.StrategyKey ?? "None", 
             interactionContext.OriginalRequest.ConversationId, 
             interactionContext.OriginalRequest.MessageId ?? "(no message ID)",
-            interactionContext.RawArtifacts.Count);
-
-        // Content extraction is now assumed to have happened upstream, 
-        // and interactionContext.ProcessedArtifacts is populated before this method is called.
+            interactionContext.ProcessedArtifacts.Count); // Changed from RawArtifacts to ProcessedArtifacts
 
         if (personaConfig.AgenticStrategy == null || string.IsNullOrEmpty(personaConfig.AgenticStrategy.StrategyKey))
         {

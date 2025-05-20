@@ -28,7 +28,7 @@ public class InMemoryMessagingTests : IAsyncLifetime
 
     // Static property to check if integration tests are enabled via environment variable.
     private static bool ShouldSkipIntegrationTests => 
-        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
 
     public InMemoryMessagingTests(ITestOutputHelper outputHelper)
     {
@@ -38,7 +38,7 @@ public class InMemoryMessagingTests : IAsyncLifetime
     public async Task InitializeAsync() // Part of IAsyncLifetime
     {
         // Use Skip.If directly here. If this condition is met, InitializeAsync won't proceed.
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping InMemoryMessagingTests. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping InMemoryMessagingTests. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
 
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InMemoryMessagingTests InitializeAsync START ---");
         try
@@ -107,7 +107,7 @@ public class InMemoryMessagingTests : IAsyncLifetime
     [SkippableFact(Timeout = 30000)] // Changed from Fact to SkippableFact
     public async Task QueueItemViaApi_ShouldSucceed()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: QueueItemViaApi_ShouldSucceed START ---");
         Assert.NotNull(_apiClient); // apiClient will be null if InitializeAsync was skipped
 

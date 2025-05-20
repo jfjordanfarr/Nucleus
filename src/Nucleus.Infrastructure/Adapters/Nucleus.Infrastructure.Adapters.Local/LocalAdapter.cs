@@ -6,6 +6,7 @@ using Nucleus.Abstractions.Adapters.Local; // Added for ILocalAdapterClient
 using Nucleus.Abstractions.Models; // Added for AdapterRequest, AdapterResponse
 using Nucleus.Abstractions.Models.ApiContracts; // Added for AdapterRequest, AdapterResponse
 using Nucleus.Abstractions.Orchestration;
+using Nucleus.Abstractions.Results; // Added for Result<TSuccess, TError> and OrchestrationError
 using System;
 using System.Threading.Tasks;
 
@@ -50,81 +51,57 @@ namespace Nucleus.Infrastructure.Adapters.Local
                 "LocalAdapter: Submitting interaction. InteractionId={InteractionId}, TenantId={TenantId}, PersonaId={PersonaId}, UserId={UserId}, ConversationId={ConversationId}, PlatformType={PlatformType}",
                 request.MessageId ?? "N/A",
                 request.TenantId ?? "N/A",
-                request.PersonaId ?? "N/A",
+                request.PersonaId ?? "N/A", // This might be null if not specified by the caller of LocalAdapter
                 request.UserId ?? "N/A",
                 request.ConversationId ?? "N/A",
                 request.PlatformType);
 
             try
             {
-                OrchestrationResult orchestrationResult = await _orchestrationService.ProcessInteractionAsync(request, System.Threading.CancellationToken.None);
+                Result<AdapterResponse, OrchestrationError> orchestrationResult = await _orchestrationService.ProcessInteractionAsync(request, System.Threading.CancellationToken.None);
 
-                switch (orchestrationResult.Status)
+                if (orchestrationResult.IsSuccess)
                 {
-                    case OrchestrationStatus.Queued:
-                        _logger.LogInformation("Interaction {InteractionId} successfully queued by orchestration service. Job/Persona ID: {JobId}",
-                            request.MessageId ?? "N/A",
-                            orchestrationResult.ResolvedPersonaId ?? "N/A");
-                        return new AdapterResponse(
-                            Success: true,
-                            ResponseMessage: "Interaction submitted for asynchronous processing.",
-                            SentMessageId: orchestrationResult.ResolvedPersonaId
-                        );
+                    _logger.LogInformation("Interaction {InteractionId} successfully processed by orchestration service. Response: {ResponseMessage}",
+                        request.MessageId ?? "N/A",
+                        orchestrationResult.SuccessValue.ResponseMessage);
+                    return orchestrationResult.SuccessValue;
+                }
+                else // IsFailure
+                {
+                    _logger.LogWarning("Orchestration service indicated failure for interaction {InteractionId}: Error: {Error}",
+                        request.MessageId ?? "N/A",
+                        orchestrationResult.ErrorValue);
 
-                    case OrchestrationStatus.ValidationFailed:
-                    case OrchestrationStatus.ActivationFailed:
-                    case OrchestrationStatus.PersonaResolutionFailed:
-                    case OrchestrationStatus.ContentExtractionFailed:
-                    case OrchestrationStatus.RateLimited:
-                    case OrchestrationStatus.UnhandledError:
-                        _logger.LogWarning("Orchestration service indicated failure for interaction {InteractionId}: Status {Status}, Error: {Error}",
-                            request.MessageId ?? "N/A",
-                            orchestrationResult.Status,
-                            orchestrationResult.ErrorMessage ?? "No specific error message provided.");
-                        if (orchestrationResult.AdapterResponse != null)
-                        {
-                            return orchestrationResult.AdapterResponse;
-                        }
-                        return new AdapterResponse(
-                            Success: false,
-                            ResponseMessage: $"Interaction processing failed: {orchestrationResult.Status}",
-                            ErrorMessage: orchestrationResult.ErrorMessage ?? $"Orchestration resulted in {orchestrationResult.Status} without a specific error message."
-                        );
+                    // Map OrchestrationError to an AdapterResponse
+                    string errorMessage = $"Orchestration failed: {orchestrationResult.ErrorValue}";
+                    string responseMessage = "Interaction processing failed."; // Generic message for failure
 
-                    case OrchestrationStatus.ProcessingIgnored:
-                        _logger.LogInformation("Interaction {InteractionId} was ignored by the orchestration service as per activation rules or persona configuration. Status: {Status}",
-                            request.MessageId ?? "N/A",
-                            orchestrationResult.Status);
-                        if (orchestrationResult.AdapterResponse != null)
-                        {
-                            return orchestrationResult.AdapterResponse; // Likely indicates non-salience
-                        }
-                        return new AdapterResponse(
-                            Success: true, // Technically successful hand-off, but ignored.
-                            ResponseMessage: $"Interaction ignored by processing rules: {orchestrationResult.Status}",
-                            GeneratedArtifactReference: null // Pass along if available, might be null
-                        );
+                    // Potentially customize messages based on specific OrchestrationError values
+                    switch (orchestrationResult.ErrorValue)
+                    {
+                        case OrchestrationError.InvalidRequest:
+                            responseMessage = "The request was invalid.";
+                            break;
+                        case OrchestrationError.ActivationCheckFailed:
+                            responseMessage = "Interaction did not meet activation criteria.";
+                            break;
+                        // Add other cases as needed
+                    }
 
-                    default:
-                        _logger.LogError("Unhandled OrchestrationStatus '{Status}' for interaction {InteractionId}. Error: {Error}",
-                            orchestrationResult.Status,
-                            request.MessageId ?? "N/A",
-                            orchestrationResult.ErrorMessage ?? "N/A");
-                        return new AdapterResponse(
-                            Success: false,
-                            ResponseMessage: "An unexpected orchestration outcome occurred.",
-                            ErrorMessage: $"Unhandled orchestration status: {orchestrationResult.Status}. Details: {orchestrationResult.ErrorMessage ?? "N/A"}"
-                        );
+                    return new AdapterResponse(
+                        Success: false,
+                        ResponseMessage: responseMessage,
+                        ErrorMessage: errorMessage
+                    );
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Exception occurred in LocalAdapter.SubmitInteractionAsync while processing interaction {InteractionId} for User {UserId}.",
-                    request.MessageId ?? "N/A",
-                    request.UserId ?? "N/A");
+                _logger.LogError(ex, "Unhandled exception during LocalAdapter.SubmitInteractionAsync for interaction {InteractionId}.", request.MessageId ?? "N/A");
                 return new AdapterResponse(
                     Success: false,
-                    ResponseMessage: "A critical error occurred while submitting the interaction.",
+                    ResponseMessage: "An unexpected error occurred while submitting the interaction.",
                     ErrorMessage: ex.Message
                 );
             }

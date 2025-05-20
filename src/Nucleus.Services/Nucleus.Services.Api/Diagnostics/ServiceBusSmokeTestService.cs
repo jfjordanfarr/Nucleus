@@ -78,8 +78,9 @@ public class ServiceBusSmokeTestService : IHostedService
                 ArtifactReferences: [], // Required: Provide an empty list for this test
                 OriginatingMessageId: Guid.NewGuid().ToString(), // Optional
                 OriginatingReplyToMessageId: null, // Optional but compiler insists
-                ResolvedPersonaId: null, // Optional but compiler insists
+                ResolvedPersonaId: string.Empty, // CHANGED: null to string.Empty to satisfy non-nullable string
                 QueryText: "This is a smoke test message.", // Optional: Use QueryText
+                TenantId: "smoke-test-tenant", // ADDED TenantId for smoke test
                 CorrelationId: Guid.NewGuid().ToString(), // Optional
                 Metadata: null // Optional: Use Metadata, explicitly add null
             );

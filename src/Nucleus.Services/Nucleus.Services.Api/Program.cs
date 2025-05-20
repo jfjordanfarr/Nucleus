@@ -1,40 +1,19 @@
-using Azure.Identity;
+using Azure.Identity; // For DefaultAzureCredential if used by AddInfrastructureServices or its callees
 using Azure.Messaging.ServiceBus;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http;
-using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Microsoft.Graph;
-using Microsoft.Identity.Web;
-using Mscc.GenerativeAI;
-using Mscc.GenerativeAI.Microsoft;
 using Nucleus.Abstractions;
-using Nucleus.Abstractions.Models;
-using Nucleus.Abstractions.Models.Configuration;
-using Nucleus.Abstractions.Orchestration;
-using Nucleus.Abstractions.Repositories;
-using Nucleus.Domain.Processing;
-using Nucleus.Infrastructure.Data.Persistence;
-using Nucleus.Infrastructure.Data.Persistence.Repositories; // For CosmosDbArtifactMetadataRepository etc.
-using Nucleus.Infrastructure.Adapters.Local; // Added for LocalClientAdapter
-using Nucleus.Infrastructure.Providers;
-using Nucleus.Services.Api.Diagnostics;
-using Nucleus.Services.Api.Infrastructure; // For LocalFileArtifactProvider
-using Nucleus.Services.Api.Infrastructure.Messaging; // For NullMessageQueuePublisher
-using Nucleus.Infrastructure.Messaging; // For IBackgroundTaskQueue
-using System.Collections.Generic;
-using System.Linq;
+using Nucleus.Abstractions.Models.ApiContracts; // Added for NucleusIngestionRequest for publisher types
+using Nucleus.Infrastructure.Adapters.Local; 
+using Nucleus.Infrastructure.Data.Persistence; // For AddPersistenceServices
+using Nucleus.Domain.Processing;             // For AddProcessingServices
+using Nucleus.Infrastructure.Providers;      // Corrected: Was Nucleus.Infrastructure
+using Nucleus.Infrastructure.Messaging;      // For IBackgroundTaskQueue, IMessageQueuePublisher<>, AzureServiceBusPublisher, NullMessageQueuePublisher, ServiceBusBackgroundTaskQueue, InMemoryBackgroundTaskQueue
 using System.Threading.Tasks;
-using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Serialization;
-using Nucleus.Services.Api; // ADDED
+using Nucleus.Services.Api; // For AddNucleusServices, MapNucleusEndpoints
 
 namespace Nucleus.Services.Api
 {
@@ -87,45 +66,25 @@ namespace Nucleus.Services.Api
                 _logger.LogInformation("Strict DI Scope/Build Validation Enabled: {ValidationEnabled}", options.ValidateScopes);
             });
 
-            // --- Nucleus Domain Services --- 
-            // Add Persistence services (including Persona Configuration Provider)
+            // --- Nucleus Domain & Infrastructure Service Registrations ---
+            // These extension methods are expected to register their specific services,
+            // including any hosted services like QueuedInteractionProcessorService.
+
+            // Add Persistence services (CosmosDB Repositories, Persona Configuration Provider)
             builder.Services.AddPersistenceServices(builder.Configuration);
+            _logger.LogInformation("Registered Persistence Services.");
 
-            // Add Domain Processing services (including Orchestration, Persona Resolver)
+            // Add Domain Processing services (Orchestration, Persona Resolver, QueuedInteractionProcessorService)
             builder.Services.AddProcessingServices(builder.Configuration);
+            _logger.LogInformation("Registered Processing Services.");
 
-            // Add Infrastructure services (Adapters, Providers)
-            builder.Services.AddInfrastructureServices(builder.Configuration);
+            // Add Infrastructure services (Adapters, general Providers not covered by specific adapters)
+            // This is where IMessageQueuePublisher and IBackgroundTaskQueue should be registered based on environment.
+            builder.Services.AddInfrastructureProviderServices(builder.Configuration); // Removed builder.Environment.IsDevelopment()
+            _logger.LogInformation("Registered Infrastructure Services (including environment-specific messaging).");
 
-            // Add services specific to the Development environment
-            if (builder.Environment.IsDevelopment())
-            {
-                _logger.LogInformation("Development environment detected. Registering InMemoryBackgroundTaskQueue and NullMessageQueuePublisher.");
-                builder.Services.AddSingleton<IBackgroundTaskQueue, InMemoryBackgroundTaskQueue>();
-                builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(NullMessageQueuePublisher<>));
-            }
-            else
-            {
-                _logger.LogInformation("Non-Development environment detected. Registering Azure Service Bus for background tasks and publishing.");
-                builder.Services.AddAzureClients(clientBuilder =>
-                {
-                    // Configure the Service Bus Client connection using the connection string from AppHost (expected)
-                    // The connection string "sbBackgroundTasks" is the key Aspire uses by default when a resource is named "sbBackgroundTasks"
-                    clientBuilder.AddServiceBusClient(builder.Configuration.GetConnectionString("sbBackgroundTasks"))
-                                 .WithName(NucleusConstants.ServiceBusNames.BackgroundTasksClientName) // Ensures it can be resolved by this name if needed, e.g. by ServiceBusHealthIndicator
-                                 .ConfigureOptions(options =>
-                                 {
-                                     // Configure client-level options if needed
-                                     // options.TransportType = ServiceBusTransportType.AmqpWebSockets;
-                                 });
-                });
-
-                builder.Services.AddSingleton<IBackgroundTaskQueue, ServiceBusBackgroundTaskQueue>();
-                builder.Services.AddSingleton(typeof(IMessageQueuePublisher<>), typeof(AzureServiceBusPublisher<>));
-            }
-
-            // Add Local Adapter Services (this is generic, might be used in dev or specific deployments)
-            // Ensure this doesn't take builder.Configuration if not needed by the method itself
+            // Add Local Adapter Services (registers LocalFileArtifactProvider, etc.)
+            // This is called separately as it's a specific, pluggable adapter.
             builder.Services.AddLocalAdapterServices();
             _logger.LogInformation("Registered Local Adapter Services.");
 
@@ -133,9 +92,6 @@ namespace Nucleus.Services.Api
 
             // Middleware and endpoint mapping are now handled in MapNucleusEndpoints
             app.MapNucleusEndpoints();
-
-            // --- Initialize Cosmos DB Container on startup --- 
-            // REMOVED: Initialization is now handled within AddNucleusServices when registering the Container singleton.
 
             await app.RunAsync();
         }

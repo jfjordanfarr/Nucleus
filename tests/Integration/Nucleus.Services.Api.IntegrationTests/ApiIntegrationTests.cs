@@ -42,7 +42,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     // Static property to check if integration tests are enabled via environment variable.
     // Uses NucleusConstants for the environment variable name.
     private static bool ShouldSkipIntegrationTests => 
-        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
+        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
 
     // New private record to hold common test data
     private record TestIngestionData(
@@ -80,6 +80,7 @@ public class ApiIntegrationTests : IAsyncLifetime
             originatingUserId: userId,
             originatingConversationId: conversationId,
             timestampUtc: DateTimeOffset.UtcNow,
+            tenantId: tenantId, // ADDED tenantId argument
             queryText: queryText ?? $"Test query for {baseName}",
             artifactReferences: new List<ArtifactReference> { testArtifact },
             resolvedPersonaId: personaId,
@@ -138,6 +139,7 @@ public class ApiIntegrationTests : IAsyncLifetime
         string originatingUserId,
         string originatingConversationId,
         DateTimeOffset timestampUtc,
+        string? tenantId, // Parameter already added in previous step, ensure it's not duplicated
         string? resolvedPersonaId = null,
         string? queryText = null,
         List<ArtifactReference>? artifactReferences = null,
@@ -147,15 +149,16 @@ public class ApiIntegrationTests : IAsyncLifetime
         Dictionary<string, string>? metadata = null)
     {
         return new NucleusIngestionRequest(
-            PlatformType: platformType, // Corrected from PlatformType.Test to a valid enum member if necessary
+            PlatformType: platformType, 
             OriginatingUserId: originatingUserId,
             OriginatingConversationId: originatingConversationId,
             OriginatingReplyToMessageId: originatingReplyToMessageId,
             OriginatingMessageId: originatingMessageId ?? originatingConversationId, // Ensure not null, default to conversationId
-            ResolvedPersonaId: resolvedPersonaId,
+            ResolvedPersonaId: resolvedPersonaId ?? string.Empty, // CHANGED: Ensure non-null for ResolvedPersonaId
             TimestampUtc: timestampUtc,
             QueryText: queryText,
             ArtifactReferences: artifactReferences ?? new List<ArtifactReference>(),
+            TenantId: tenantId, // ADDED TenantId argument
             CorrelationId: correlationId ?? Guid.NewGuid().ToString(),
             Metadata: metadata
         );
@@ -171,7 +174,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync() // Part of IAsyncLifetime
     {
         // Use Skip.If directly here. If this condition is met, InitializeAsync won't proceed, effectively skipping all tests in this class.
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping all ApiIntegrationTests. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping all ApiIntegrationTests. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InitializeAsync START ---");
         Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- InitializeAsync START ---");
@@ -351,7 +354,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task BasicHealthCheck_ShouldReturnOk()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: BasicHealthCheck_ShouldReturnOk START ---");
         // Arrange
         Assert.NotNull(_httpClient); // Ensure HttpClient is ready
@@ -372,7 +375,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task PostIngestionRequest_WithValidData_ShouldReturnAccepted()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient); 
 
         var testData = SetupTestIngestionData("acceptance");
@@ -387,7 +390,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task PostIngestionRequest_WithValidData_ShouldPersistArtifactMetadata()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient);
         Assert.NotNull(_cosmosClient);
 
@@ -426,7 +429,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task PostIngestionRequest_WithValidData_ShouldPersistPersonaKnowledge()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient);
         Assert.NotNull(_cosmosClient);
 
@@ -488,7 +491,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task GetArtifactMetadata_WithValidId_ShouldReturnOkAndMetadata()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient);
         Assert.NotNull(_cosmosClient);
 
@@ -531,7 +534,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task GetPersonaKnowledge_WithValidIds_ShouldReturnOkAndKnowledge()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient);
         Assert.NotNull(_cosmosClient);
 
@@ -579,7 +582,7 @@ public class ApiIntegrationTests : IAsyncLifetime
     [SkippableFact]
     public async Task GetPersonaConfiguration_ShouldReturnConfiguredPersona()
     {
-        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.EnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         Assert.NotNull(_httpClient);
 
         var personaIdToGet = "test-persona-metadata-saver"; 
