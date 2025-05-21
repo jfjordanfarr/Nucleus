@@ -83,25 +83,28 @@ public class InteractionController : ControllerBase
 
         await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
 
-        _logger.LogInformation("Received interaction request for ConversationId: {ConversationId}", request.ConversationId);
+        var sanitizedConversationId = request.ConversationId?.Replace("\n", " ").Replace("\r", " ") ?? "unknown-conversation";
+        _logger.LogInformation("Received interaction request for ConversationId: {ConversationId}", sanitizedConversationId);
 
         try
         {
-            _logger.LogInformation("Invoking orchestration service for ConversationId: {ConversationId}...", request.ConversationId);
+            _logger.LogInformation("Invoking orchestration service for ConversationId: {ConversationId}...", sanitizedConversationId);
             Result<AdapterResponse, OrchestrationError> result = await _orchestrationService.ProcessInteractionAsync(request, cancellationToken);
 
             if (result.IsSuccess)
             {
+                var sanitizedResponseMessage = result.SuccessValue?.ResponseMessage?.Replace("\n", " ").Replace("\r", " ") ?? "<empty_response>";
                 _logger.LogInformation("Orchestration successful for ConversationId: {ConversationId}. Response: {ResponseMessage}", 
-                    request.ConversationId, result.SuccessValue.ResponseMessage);
+                    sanitizedConversationId, sanitizedResponseMessage);
                 // Assuming a successful orchestration (e.g., queued) returns an AdapterResponse indicating this.
                 // If SuccessValue itself is the direct response to send to the client:
                 return Ok(result.SuccessValue);
             }
             else // IsFailure
             {
+                var sanitizedErrorValue = result.ErrorValue.ToString().Replace("\n", " ").Replace("\r", " ");
                 _logger.LogWarning("Orchestration failed for ConversationId: {ConversationId}. Error: {Error}", 
-                    request.ConversationId, result.ErrorValue);
+                    sanitizedConversationId, sanitizedErrorValue);
 
                 // Map OrchestrationError to a suitable IActionResult
                 switch (result.ErrorValue)
@@ -133,7 +136,8 @@ public class InteractionController : ControllerBase
                         return NotFound(new AdapterResponse(false, "Resource not found.", ErrorMessage: result.ErrorValue.ToString()));
 
                     default:
-                        _logger.LogError("Unhandled OrchestrationError: {Error} for ConversationId: {ConversationId}", result.ErrorValue, request.ConversationId);
+                        var defaultSanitizedErrorValue = result.ErrorValue.ToString().Replace("\n", " ").Replace("\r", " ");
+                        _logger.LogError("Unhandled OrchestrationError: {Error} for ConversationId: {ConversationId}", defaultSanitizedErrorValue, sanitizedConversationId);
                         return Problem(
                             detail: "An unexpected orchestration error occurred.", 
                             statusCode: StatusCodes.Status500InternalServerError,
@@ -144,8 +148,9 @@ public class InteractionController : ControllerBase
         }
         catch (ArgumentException argEx)
         {
-            _logger.LogWarning(argEx, "Invalid arguments during interaction processing for ConversationId: {ConversationId}", request.ConversationId);
-            return BadRequest(new AdapterResponse(false, "Invalid request data.", argEx.Message));
+            var sanitizedArgExMessage = argEx.Message.Replace("\n", " ").Replace("\r", " ");
+            _logger.LogWarning(argEx, "Invalid arguments during interaction processing for ConversationId: {ConversationId}: {ErrorMessage}", sanitizedConversationId, sanitizedArgExMessage);
+            return BadRequest(new AdapterResponse(false, "Invalid request data.", sanitizedArgExMessage));
         }
         catch (Exception ex)
         {

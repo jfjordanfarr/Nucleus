@@ -112,15 +112,18 @@ public class OrchestrationService : IOrchestrationService
         }
         catch (ArgumentNullException ex)
         {
-            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", interactionId, ex.Message, ex.ParamName);
+            var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
+            var sanitizedParamName = ex.ParamName?.Replace("\n", " ").Replace("\r", " ") ?? "unknown";
+            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", interactionId, sanitizedErrorMessage, sanitizedParamName);
             activity?.SetStatus(ActivityStatusCode.Error, $"ArgumentNull: {ex.ParamName}");
             if (activity != null) { activity.AddException(ex); }
             return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.InvalidRequest);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}", interactionId);
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
+            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}: {ErrorMessage}", interactionId, sanitizedErrorMessage);
+            activity?.SetStatus(ActivityStatusCode.Error, sanitizedErrorMessage);
             if (activity != null)
             {
                 activity.AddException(ex);
