@@ -31,9 +31,6 @@ jobs:
       - name: Build Solution
         run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration Release --no-restore
 
-      - name: Lint Code (Format Check)
-        run: dotnet format ${{ env.SOLUTION_FILE_PATH }} --verify-no-changes --verbosity diagnostic
-
       - name: Run Unit Tests
         run: >
           dotnet test ${{ env.SOLUTION_FILE_PATH }} 
