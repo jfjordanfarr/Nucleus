@@ -1,7 +1,7 @@
 ---
 title: "Copilot Session State"
 description: "Current operational status and context for the Copilot agent."
-version: 4.36
+version: 4.41
 date: 2025-05-22
 ---
 
@@ -34,11 +34,14 @@ date: 2025-05-22
 
 *   **Previous Actions:**
     *   User successfully rebased local `develop` on `origin/develop` and pushed changes.
-    *   CI pipeline build step passed, but the `dotnet format --verify-no-changes` step failed with numerous "IMPORTS: Fix imports ordering" errors.
-    *   Agent proposed setting `dotnet_separate_import_directive_groups = true` in `.editorconfig`, which user found introduced unwanted blank lines.
-    *   Agent then proposed setting `dotnet_separate_import_directive_groups = false` to address the blank line issue.
+    *   CI pipeline build step passed, but the `dotnet format --verify-no-changes` step failed.
     *   User committed `icon.png` to the repository root.
-    *   User removed the `dotnet format` step from `pr-validation.yml` due to conflicts with preferred manual styling.
+    *   User removed the `dotnet format` step from `pr-validation.yml`.
+    *   Agent modified `pr-validation.yml` to target the integration test `.csproj` directly and added `--diag` flags to test steps. This resolved the `dotnet test` failures.
+    *   User reported that the SAST (CodeQL) step was being skipped. Agent incorrectly attempted to add new CodeQL steps.
+    *   Agent correctly modified the `if` condition for the existing `sast_scan` (CodeQL) job in `pr-validation.yml` to run on pushes to `develop` and on PRs.
+    *   User clarified skepticism regarding the SAST scan, suspecting an interaction with GitHub's default security features or caching of results.
+    *   Agent performed web searches and explained the relationship between default CodeQL setup, advanced (custom workflow) setup, and GitHub Advanced Security settings.
 *   **Key Decisions Made (from previous tasks):**
     *   Sanitize or encode user input before logging by replacing newline characters.
 *   **Key Decisions (Current Task - Inferred from User & Agent):**
@@ -47,22 +50,25 @@ date: 2025-05-22
     *   GitHub Actions are the primary means of CI/CD automation.
     *   `INTEGRATION_TESTS_ENABLED` is explicitly set to `"false"` in `pr-validation.yml`'s `integration_test` job.
     *   Environment Secrets are used for `GOOGLE_AI_API_KEY_FOR_TESTS`.
-    *   `Nucleus.Services.Api.Tests.csproj` relies on transitive dependencies for ASP.NET Core and Logging types.
     *   The CI pipeline's `dotnet format` step was removed by the user to favor manual code styling.
-*   **User Philosophy:** User strongly prefers human-driven code styling for readability and expressiveness, questioning the strict enforcement of automated style formatting (especially for non-critical rules) in the CI pipeline if it overrides human intent. Linting for quality/security is fine, but stylistic choices should be more flexible.
+    *   Targeting specific test project files (`.csproj`) for `dotnet test` in CI, rather than the solution file with filters, resolved test execution errors.
+    *   The existing `sast_scan` job in `pr-validation.yml` uses GitHub CodeQL. Its `if` condition was updated to run on PRs and pushes to `develop`.
+    *   The `pr-validation.yml` includes a `nuget_vulnerability_scan` job that runs `dotnet list package --vulnerable`.
+    *   User has enabled GitHub Advanced Security features for the repository.
+    *   The current understanding is that the custom `sast_scan` (CodeQL) job in `pr-validation.yml` is now the primary controller for CodeQL SAST, and previous "skipped" behavior might have been due to a combination of the default setup being superseded and the custom job's `if` condition.
+    *   User observes that SAST results might be cached or stick if no relevant (C#) code changes occur, which is a plausible compute-saving measure by GitHub.
 
 ## 4. Current Focus & Pending Actions
 
-*   **Immediate Focus:** Resolve `dotnet test` errors in the CI pipeline. The errors indicate "invalid argument" for test DLL paths when `dotnet test` is run on the solution file (`./Nucleus.sln`) with a category filter (e.g., `Category=Integration`).
-*   **Hypothesis:** The `dotnet test` command, when used with a solution file and a category filter, is incorrectly passing discovered test assembly paths to the underlying VSTest runner.
+*   **Immediate Focus:** Awaiting results of a user-initiated push to `develop` to observe the behavior of the `sast_scan` (CodeQL) job with the updated `if` condition and to see if new SAST results are generated or if previous results persist.
+*   **Hypothesis:** The custom `sast_scan` job in `pr-validation.yml` is now correctly configured to run on pushes to `develop` and PRs. GitHub may optimize SAST runs by not re-scanning if no relevant code files (e.g., C# files for CodeQL C# analysis) have changed.
 *   **Pending Actions (for GitHub Actions setup & Documentation):**
-    1.  **ACTIVE AGENT TASK:** Modify the `pr-validation.yml` workflow to fix the `dotnet test` errors.
-        *   For the "Run Integration Tests" step, target the specific integration test project (`.csproj`) directly instead of the solution file.
-        *   Add diagnostic logging (`--diag`) to the test commands.
-        *   Evaluate and potentially apply similar changes to the "Run Unit Tests" step if it uses a similar pattern and also fails.
-    2.  **Future Task:** Enable full integration testing in `pr-validation.yml` (set `INTEGRATION_TESTS_ENABLED` to `true`).
-    3.  **Future Task:** Enable Trivy security scanning in `release.yml`.
-    4.  **Future Task:** Implement `release-drafter` or similar for automated release notes.
+    1.  **COMPLETED:** Modify the `pr-validation.yml` workflow to fix the `dotnet test` errors.
+    2.  **COMPLETED:** Modify the `if` condition for the existing `sast_scan` (CodeQL) job in `pr-validation.yml`.
+    3.  **COMPLETED (pending user confirmation after push):** Investigate and understand GitHub's default CodeQL behavior and its interaction with custom workflows.
+    4.  **Future Task:** Enable full integration testing in `pr-validation.yml` (set `INTEGRATION_TESTS_ENABLED` to `true`).
+    5.  **Future Task:** Enable Trivy security scanning in `release.yml`.
+    6.  **Future Task:** Implement `release-drafter` or similar for automated release notes.
 *   **Pending Actions (for the story and overall task - previously on hold, remains on hold):**
     1.  Read and analyze `Docs/Architecture/05_ARCHITECTURE_CLIENTS.md`.
     2.  Append analysis of `Docs/Architecture/05_ARCHITECTURE_CLIENTS.md` to the story.
@@ -85,7 +91,6 @@ date: 2025-05-22
 ## 6. Known Issues & Blockers
 
 *   Ongoing issues with integration test harness paths, leading to `INTEGRATION_TESTS_ENABLED` being set to `false` in `pr-validation.yml` for the time being.
-*   CI pipeline is failing during the `dotnet test` step (specifically when filtering for `Category=Integration` at the solution level) with "invalid argument" errors for test DLLs.
 *   The `dotnet format --verify-no-changes` step was removed from CI by the user.
 
 ## 7. User Preferences & Feedback
@@ -111,11 +116,15 @@ date: 2025-05-22
 *   **User explicitly dislikes `dotnet format` adding/removing blank lines between `using` directive groups.**
 *   **User values human-driven styling for readability and questions the strict enforcement of automated style formatting in CI if it overrides human intent.**
 *   **User has removed the `dotnet format` step from the CI pipeline.**
+*   **User reports that targeting test `.csproj` files directly in CI fixed the `dotnet test` failures.**
+*   **User wants to re-enable SAST in the `pr-validation.yml` workflow, similar to default GitHub Actions configurations, and noted it was being skipped.** (Addressed by modifying existing CodeQL job condition).
+*   User undid a previous incorrect agent edit to `pr-validation.yml`.
+*   User was skeptical that the `if` condition change to the `sast_scan` job was the sole root cause for a SAST scan (likely CodeQL) being skipped, suspecting an interaction with GitHub's default security features or result caching.
+*   **User has enabled GitHub Advanced Security features on the repository and is now observing CI behavior after a push.**
 
 ## 8. Next Steps (Proposed)
 
-1.  **Modify `pr-validation.yml`:**
-    *   Change the "Run Integration Tests" step to target the specific integration test project directly (`.csproj`) instead of the solution file (`.sln`). Include the `--diag` flag for detailed logs.
-    *   Review the "Run Unit Tests" step. If it uses a similar pattern (solution file + category filter), add the `--diag` flag. If it also fails, it will likely need a similar modification to target unit test projects directly or use a different strategy.
-2.  **Commit and push changes** to trigger the CI pipeline and observe the results.
-3.  **Analyze diagnostic logs** if tests still fail.
+1.  **Await user confirmation** on the behavior of the `sast_scan` job after their recent push to `develop`.
+2.  **If the `sast_scan` job runs as expected** and new results (or confirmation of no new findings) appear, then this issue can be considered resolved.
+3.  **If the `sast_scan` job is still skipped or behaves unexpectedly**, further investigation into the workflow run logs and repository security settings will be needed.
+4.  Once CI/CD pipeline issues are fully resolved and confirmed, discuss moving to the next high-priority task (e.g., enabling full integration tests or other items from the backlog).
