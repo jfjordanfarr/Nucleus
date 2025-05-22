@@ -23,8 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../../../src/Nucleus.Services/Nucleus.Services.Api/Nucleus.Services.Api.csproj" />
-    <ProjectReference Include="../../../../src/Nucleus.Abstractions/Nucleus.Abstractions.csproj" />
+    <ProjectReference Include="../../../src/Nucleus.Services.Api/Nucleus.Services.Api.csproj" />
+    <ProjectReference Include="../../../src/Nucleus.Abstractions/Nucleus.Abstractions.csproj" />
     <ProjectReference Include="../../Infrastructure.Testing/Nucleus.Infrastructure.Testing.csproj" />
   </ItemGroup>
 
