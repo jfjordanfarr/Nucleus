@@ -23,9 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="\workspaces\Nucleus\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
-    <ProjectReference Include="\workspaces\Nucleus\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
-    <ProjectReference Include="\workspaces\Nucleus\tests\Infrastructure.Testing\Nucleus.Infrastructure.Testing.csproj" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Services\Nucleus.Services.Api\Nucleus.Services.Api.csproj" />
+    <ProjectReference Include="..\..\..\src\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Infrastructure.Testing\Nucleus.Infrastructure.Testing.csproj" />
   </ItemGroup>
 
 </Project>
