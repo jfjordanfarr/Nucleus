@@ -135,7 +135,7 @@ Adopting Conventional Commits is the most impactful first step, as it lays the g
 
 The primary outputs of the CD process for consumers will be:
 
-*   **Versioned Docker Images:** Available on GitHub Container Registry (`ghcr.io/<your-org>/nucleus-api`) tagged with SemVer (e.g., `v0.1.0`, `0.1`, `latest`).
+*   **Versioned Docker Images:** Available on GitHub Container Registry (`ghcr.io/jfjordanfarr/nucleus-api`) tagged with SemVer (e.g., `v0.1.0`, `0.1`, `latest`).
 *   **GitHub Releases:** Each release will have:
     *   A `nucleus-vX.Y.Z-assets.zip` file containing the `docker-compose.yml` and `README.md` for that version.
     *   A standalone `docker-compose.yml` file.
