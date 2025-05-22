@@ -38,6 +38,7 @@ jobs:
           --no-build 
           --filter "Category!=Integration"
           --logger "trx;LogFileName=unit_test_results.trx"
+          --diag "${{ env.TEST_RESULTS_PATH }}/unit_test_diag.log"
       
       - name: Upload Unit Test Results
         if: always()
@@ -76,13 +77,16 @@ jobs:
       - name: Restore Dependencies
         run: dotnet restore ${{ env.SOLUTION_FILE_PATH }}
 
-      - name: Run .NET Aspire Integration Tests
+      - name: Run Integration Tests
+        if: steps.filter.outputs.integration == 'true' && env.INTEGRATION_TESTS_ENABLED == 'true'
+        env:
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY_FOR_TESTS }}
         run: >
-          dotnet test ${{ env.SOLUTION_FILE_PATH }} 
-          --configuration Release 
-          --no-build 
-          --filter "Category=Integration"
+          dotnet test ./tests/Integration/Nucleus.Services.Api.IntegrationTests/Nucleus.Services.Api.IntegrationTests.csproj
+          --filter "TestCategory=Integration"
           --logger "trx;LogFileName=integration_test_results.trx"
+          --results-directory ${{ env.TEST_RESULTS_PATH }}
+          --diag "${{ env.TEST_RESULTS_PATH }}/integration_test_diag.log"
       
       - name: Upload Integration Test Results
         if: always()
