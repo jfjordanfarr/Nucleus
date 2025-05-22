@@ -1,4 +1,4 @@
-name: "CodeQL Language Analysis"
+name: "CodeQL"
 
 on:
   push:
