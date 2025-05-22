@@ -37,17 +37,20 @@ public class QueuedInteractionProcessorService : BackgroundService
     private readonly IBackgroundTaskQueue _backgroundTaskQueue;
     private readonly IServiceProvider _serviceProvider;
     private readonly IEnumerable<IArtifactProvider> _artifactProviders;
+    private readonly IEnumerable<IContentExtractor> _contentExtractors; // Added
 
     public QueuedInteractionProcessorService(
         ILogger<QueuedInteractionProcessorService> logger,
         IBackgroundTaskQueue backgroundTaskQueue,
         IServiceProvider serviceProvider,
-        IEnumerable<IArtifactProvider> artifactProviders)
+        IEnumerable<IArtifactProvider> artifactProviders,
+        IEnumerable<IContentExtractor> contentExtractors) // Added
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _backgroundTaskQueue = backgroundTaskQueue ?? throw new ArgumentNullException(nameof(backgroundTaskQueue));
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         _artifactProviders = artifactProviders ?? throw new ArgumentNullException(nameof(artifactProviders));
+        _contentExtractors = contentExtractors ?? throw new ArgumentNullException(nameof(contentExtractors)); // Added
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -132,8 +135,8 @@ public class QueuedInteractionProcessorService : BackgroundService
         var personaConfigurationProvider = scopedServiceProvider.GetRequiredService<IPersonaConfigurationProvider>();
         var personaRuntime = scopedServiceProvider.GetRequiredService<IPersonaRuntime>();
         // IPlatformNotifier will be resolved later, based on platform type
-        // IArtifactProvider and IContentExtractor are resolved by PersonaRuntime as needed
-        // CORRECTED COMMENT: IArtifactProvider is used here in QIPS, IContentExtractor in PersonaRuntime
+        // IArtifactProvider is used here in QIPS.
+        // IContentExtractor is injected directly now.
 
         try
         {
@@ -200,68 +203,152 @@ public class QueuedInteractionProcessorService : BackgroundService
                             messageContext, artifactRef.ReferenceId, provider.GetType().Name);
                         try
                         {
-                            var artifactContent = await provider.GetContentAsync(artifactRef, cancellationToken);
-                            if (artifactContent != null)
+                            var content = await provider.GetContentAsync(artifactRef, cancellationToken);
+                            if (content != null && content.ContentStream != null)
                             {
-                                fetchedArtifactContents.Add(artifactContent);
-                                logger.LogInformation("[BackgroundQueue:{MessageContext}] Successfully fetched content for Artifact ReferenceId: {ArtifactRefId}. ContentType: {ContentType}, Length: {Length}", 
-                                    messageContext, artifactRef.ReferenceId, artifactContent.ContentType, artifactContent.ContentStream?.Length ?? -1);
+                                logger.LogInformation("[BackgroundQueue:{MessageContext}] Successfully fetched content for Artifact ReferenceId: {ArtifactRefId}. ContentType: {ContentType}, Length: {Length}",
+                                    messageContext, artifactRef.ReferenceId, content.ContentType ?? "Unknown", content.ContentStream.CanSeek ? content.ContentStream.Length : -1);
+                                fetchedArtifactContents.Add(content);
                             }
                             else
                             {
-                                logger.LogWarning("[BackgroundQueue:{MessageContext}] Provider {ProviderType} returned null content for Artifact ReferenceId: {ArtifactRefId}.", 
+                                logger.LogWarning("[BackgroundQueue:{MessageContext}] Provider {ProviderType} returned null content or null stream for Artifact ReferenceId: {ArtifactRefId}.",
                                     messageContext, provider.GetType().Name, artifactRef.ReferenceId);
                             }
                         }
                         catch (Exception ex)
                         {
-                            logger.LogError(ex, "[BackgroundQueue:{MessageContext}] Error fetching content for Artifact ReferenceId: {ArtifactRefId} using provider {ProviderType}.", 
+                            logger.LogError(ex, "[BackgroundQueue:{MessageContext}] Error fetching content for Artifact ReferenceId: {ArtifactRefId} using provider {ProviderType}.",
                                 messageContext, artifactRef.ReferenceId, provider.GetType().Name);
-                            // Optionally, decide if this error should lead to message abandonment earlier.
-                            // For now, we collect what we can and proceed.
+                            // Optionally, decide if this error should prevent further processing or just be logged.
                         }
                     }
                     else
                     {
-                        logger.LogWarning("[BackgroundQueue:{MessageContext}] No IArtifactProvider found for ReferenceType: {ReferenceType} (ArtifactRefId: {ArtifactRefId}). Skipping artifact.", 
-                            messageContext, artifactRef.ReferenceType, artifactRef.ReferenceId);
+                        logger.LogWarning("[BackgroundQueue:{MessageContext}] No IArtifactProvider found for Artifact ReferenceId: {ArtifactRefId} with ReferenceType: {ArtifactRefType}. This artifact will be skipped.",
+                            messageContext, artifactRef.ReferenceId, artifactRef.ReferenceType);
                     }
                 }
+                logger.LogInformation("[BackgroundQueue:{MessageContext}] Finished fetching content for {FetchedCount} of {TotalCount} artifact references.",
+                    messageContext, fetchedArtifactContents.Count, request.ArtifactReferences.Count);
             }
             else
             {
-                logger.LogDebug("[BackgroundQueue:{MessageContext}] No artifact references found in the request.", messageContext);
+                logger.LogInformation("[BackgroundQueue:{MessageContext}] No artifact references found in the request.", messageContext);
             }
 
-            // Create the AdapterRequest for the InteractionContext from the NucleusIngestionRequest
-            var adapterRequestForContext = new AdapterRequest(
+            // 3. Extract Content from Fetched Artifacts
+            var processedArtifacts = new List<ExtractedArtifact>();
+            if (fetchedArtifactContents.Any())
+            {
+                logger.LogInformation("[BackgroundQueue:{MessageContext}] Attempting to extract content from {FetchedCount} fetched artifacts.",
+                    messageContext, fetchedArtifactContents.Count);
+
+                foreach (var artifactContent in fetchedArtifactContents)
+                {
+                    if (artifactContent.ContentStream == null || string.IsNullOrWhiteSpace(artifactContent.ContentType))
+                    {
+                        logger.LogWarning("[BackgroundQueue:{MessageContext}] Skipping content extraction for artifact {ArtifactRefId} due to null stream or missing ContentType.",
+                            messageContext, artifactContent.OriginalReference.ReferenceId);
+                        continue;
+                    }
+
+                    logger.LogDebug("[BackgroundQueue:{MessageContext}] Attempting to find IContentExtractor for artifact {ArtifactRefId} with ContentType: {ContentType}.",
+                        messageContext, artifactContent.OriginalReference.ReferenceId, artifactContent.ContentType);
+
+                    var extractor = _contentExtractors.FirstOrDefault(e => e.SupportsMimeType(artifactContent.ContentType));
+
+                    if (extractor != null)
+                    {
+                        logger.LogDebug("[BackgroundQueue:{MessageContext}] Found IContentExtractor {ExtractorType} for artifact {ArtifactRefId}.",
+                            messageContext, extractor.GetType().Name, artifactContent.OriginalReference.ReferenceId);
+                        try
+                        {
+                            // Ensure stream is at the beginning if it's seekable
+                            if (artifactContent.ContentStream.CanSeek)
+                            {
+                                artifactContent.ContentStream.Seek(0, SeekOrigin.Begin);
+                            }
+
+                            var extractionResult = await extractor.ExtractContentAsync(
+                                artifactContent.ContentStream,
+                                artifactContent.ContentType,
+                                artifactContent.OriginalReference.SourceUri);
+
+                            if (extractionResult != null)
+                            {
+                                logger.LogInformation("[BackgroundQueue:{MessageContext}] Successfully extracted content from artifact {ArtifactRefId}. Extracted text length: {Length}",
+                                    messageContext, artifactContent.OriginalReference.ReferenceId, extractionResult.ExtractedText?.Length ?? 0);
+                                
+                                var extractedArtifact = new ExtractedArtifact(
+                                    OriginalArtifactReferenceId: artifactContent.OriginalReference.ReferenceId,
+                                    OriginalReferenceType: artifactContent.OriginalReference.ReferenceType,
+                                    OriginalSourceUri: artifactContent.OriginalReference.SourceUri,
+                                    FetchedContentType: artifactContent.ContentType,
+                                    ExtractionDetails: extractionResult
+                                );
+                                processedArtifacts.Add(extractedArtifact);
+                            }
+                            else
+                            {
+                                logger.LogWarning("[BackgroundQueue:{MessageContext}] Content extractor {ExtractorType} returned null result for artifact {ArtifactRefId}.",
+                                    messageContext, extractor.GetType().Name, artifactContent.OriginalReference.ReferenceId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(ex, "[BackgroundQueue:{MessageContext}] Error extracting content from artifact {ArtifactRefId} using extractor {ExtractorType}.",
+                                messageContext, artifactContent.OriginalReference.ReferenceId, extractor.GetType().Name);
+                        }
+                        finally
+                        {
+                            // The ArtifactContent is responsible for disposing its stream if it created it.
+                            // If we created a new stream or copied, we'd dispose here.
+                            // For now, assuming ArtifactContent's Dispose will handle it.
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("[BackgroundQueue:{MessageContext}] No IContentExtractor found for artifact {ArtifactRefId} with ContentType: {ContentType}. This artifact's content will not be extracted.",
+                            messageContext, artifactContent.OriginalReference.ReferenceId, artifactContent.ContentType);
+                    }
+                }
+                logger.LogInformation("[BackgroundQueue:{MessageContext}] Finished content extraction. {ProcessedCount} artifacts were processed.",
+                    messageContext, processedArtifacts.Count);
+            }
+
+
+            // 4. Create AdapterRequest (part of InteractionContext construction)
+            var adapterRequest = new AdapterRequest(
                 PlatformType: request.PlatformType,
-                ConversationId: request.OriginatingConversationId,
-                UserId: request.OriginatingUserId,
-                QueryText: request.QueryText ?? string.Empty,
-                MessageId: request.OriginatingMessageId,
-                ReplyToMessageId: request.OriginatingReplyToMessageId,
-                ArtifactReferences: request.ArtifactReferences?.Select(a => new ArtifactReference(a.ReferenceId, a.ReferenceType, a.SourceUri, string.Empty /* TenantId - TODO: Review this, NucleusIngestionRequest has no TenantId */, a.FileName, a.MimeType)).ToList(),
-                Metadata: request.Metadata,
-                PersonaId: personaConfig.PersonaId,
-                TenantId: null,
-                TimestampUtc: request.TimestampUtc,
-                InteractionType: null
+                ConversationId: request.OriginatingConversationId, // Mapped from NucleusIngestionRequest
+                UserId: request.OriginatingUserId, // Mapped from NucleusIngestionRequest
+                QueryText: request.QueryText ?? string.Empty, // Mapped from NucleusIngestionRequest, ensure not null
+                MessageId: request.OriginatingMessageId, // Mapped from NucleusIngestionRequest
+                ReplyToMessageId: request.OriginatingReplyToMessageId, // Mapped from NucleusIngestionRequest
+                ArtifactReferences: request.ArtifactReferences, // Pass along the original references
+                Metadata: request.Metadata, // Mapped from NucleusIngestionRequest
+                InteractionType: null, // This might need to be set based on some logic or passed if available in NucleusIngestionRequest
+                TenantId: request.TenantId, // Mapped from NucleusIngestionRequest
+                PersonaId: request.ResolvedPersonaId, // Use the resolved persona ID
+                TimestampUtc: request.TimestampUtc // Mapped from NucleusIngestionRequest
             );
 
-            // Now create the InteractionContext
+            logger.LogDebug("[BackgroundQueue:{MessageContext}] AdapterRequest constructed for CorrelationId: {CorrelationId}. TenantId: {TenantId}", messageContext, request.CorrelationId, adapterRequest.TenantId ?? "N/A");
+
+            // 5. Construct InteractionContext
             var interactionContext = new InteractionContext(
-                originalRequest: adapterRequestForContext,
-                platformType: adapterRequestForContext.PlatformType, // Use PlatformType from the created AdapterRequest
-                resolvedPersonaId: personaConfig.PersonaId, // Use the ID from the loaded persona configuration
-                rawArtifacts: fetchedArtifactContents, // Contains successfully fetched artifacts
-                processedArtifacts: new List<ExtractedArtifact>() // Initialize with empty list
+                originalRequest: adapterRequest,
+                platformType: request.PlatformType,
+                resolvedPersonaId: personaConfig.PersonaId, // Use the validated persona ID from config
+                rawArtifacts: fetchedArtifactContents.AsReadOnly(), // Pass the fetched raw artifacts
+                processedArtifacts: processedArtifacts.AsReadOnly() // Pass the newly processed artifacts
             );
 
-            logger.LogDebug("[BackgroundQueue:{MessageContext}] InteractionContext created. ResolvedPersonaId: {ResolvedPersonaId}, Artifacts fetched: {ArtifactCount}", 
-                messageContext, interactionContext.ResolvedPersonaId, interactionContext.RawArtifacts.Count);
+            logger.LogInformation("[BackgroundQueue:{MessageContext}] InteractionContext constructed. Raw Artifacts: {RawCount}, Processed Artifacts: {ProcessedCount}. Invoking PersonaRuntime.",
+                messageContext, interactionContext.RawArtifacts.Count, interactionContext.ProcessedArtifacts.Count);
 
-            // 3. Invoke Persona Runtime
+            // 6. Invoke Persona Runtime
             logger.LogInformation("[BackgroundQueue:{MessageContext}] Invoking PersonaRuntime for PersonaId: {PersonaId}",
                 messageContext, interactionContext.ResolvedPersonaId);
 
@@ -270,7 +357,7 @@ public class QueuedInteractionProcessorService : BackgroundService
             logger.LogInformation("[BackgroundQueue:{MessageContext}] PersonaRuntime execution completed. Status: {Status}, Success: {Success}, Message: '{ResponseMessage}'", 
                 messageContext, personaStatus, adapterResponse.Success, adapterResponse.ResponseMessage?.Substring(0, Math.Min(adapterResponse.ResponseMessage.Length, 100)));
 
-            // 4. Handle Response - Send notification if needed
+            // 7. Handle Response - Send notification if needed
             if (adapterResponse.Success && !string.IsNullOrWhiteSpace(adapterResponse.ResponseMessage))
             {
                 try
@@ -314,7 +401,7 @@ public class QueuedInteractionProcessorService : BackgroundService
                 }
             }
 
-            // 5. Message Lifecycle Management based on PersonaExecutionStatus
+            // 8. Message Lifecycle Management based on PersonaExecutionStatus
             if (personaStatus == PersonaExecutionStatus.Success || 
                 personaStatus == PersonaExecutionStatus.Filtered || 
                 personaStatus == PersonaExecutionStatus.NoActionTaken)

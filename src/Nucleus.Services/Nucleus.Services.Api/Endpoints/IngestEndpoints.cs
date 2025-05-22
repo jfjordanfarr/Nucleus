@@ -58,6 +58,7 @@ public static class IngestEndpoints
                 ResolvedPersonaId: "test-persona",                                  // Optional - Mapped from old PersonaId for test
                 QueryText: request.TestData,                                        // Optional - Mapped from old MessageContent for test
                 ArtifactReferences: new List<Nucleus.Abstractions.Models.ArtifactReference>(), // Optional
+                TenantId: "test-tenant", // ADDED TenantId for testing
                 CorrelationId: System.Guid.NewGuid().ToString(),                    // Optional
                 Metadata: null                                                      // Optional
             );

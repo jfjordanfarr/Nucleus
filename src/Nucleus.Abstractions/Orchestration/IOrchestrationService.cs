@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.ApiContracts;
+using Nucleus.Abstractions.Results; // Add this using directive
 
 namespace Nucleus.Abstractions.Orchestration;
 
@@ -35,8 +36,8 @@ public interface IOrchestrationService
     /// </summary>
     /// <param name="request">The adapter request containing interaction details.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <returns>A task representing the asynchronous operation, yielding an OrchestrationResult.</returns>
-    Task<OrchestrationResult> ProcessInteractionAsync(
+    /// <returns>A task representing the asynchronous operation, yielding a Result containing either an AdapterResponse on success or an OrchestrationError on failure.</returns>
+    Task<Result<AdapterResponse, OrchestrationError>> ProcessInteractionAsync(
         AdapterRequest request,
         CancellationToken cancellationToken = default);
 

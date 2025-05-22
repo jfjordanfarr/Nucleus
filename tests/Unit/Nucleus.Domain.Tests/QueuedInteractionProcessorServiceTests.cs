@@ -18,6 +18,7 @@ using Nucleus.Abstractions.Adapters;
 using System.IO; // Added for MemoryStream
 using System.Text; // Added for Encoding
 using Nucleus.Abstractions.Exceptions; // Added for NotificationFailedException
+using Nucleus.Abstractions.Extraction; // Added for IContentExtractor
 
 namespace Nucleus.Domain.Tests;
 
@@ -39,9 +40,88 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     private readonly Mock<IPlatformNotifier> _mockPlatformNotifier;
     private readonly List<Mock<IArtifactProvider>> _mockArtifactProviders;
     private readonly Mock<IArtifactProvider> _mockArtifactProvider1;
+    private readonly Mock<IEnumerable<IContentExtractor>> _mockContentExtractors;
 
     private readonly QueuedInteractionProcessorService _service;
-    private bool disposedValue; // To detect redundant calls
+    private bool disposedValue;
+
+    // Helper methods for creating test data
+    private static AdapterRequest CreateAdapterRequest(
+        PlatformType platformType = PlatformType.Test,
+        string conversationId = "test-conversation",
+        string userId = "test-user",
+        string queryText = "Hello",
+        // Corrected order and types based on AdapterRequest record definition
+        string? messageId = null,
+        string? replyToMessageId = null,
+        List<ArtifactReference>? artifactReferences = null,
+        Dictionary<string, string>? metadata = null,
+        string? interactionType = null,
+        string? tenantId = "test-tenant",
+        string? personaId = "DefaultPersona",
+        DateTimeOffset? timestampUtc = null)
+    {
+        return new AdapterRequest(
+            PlatformType: platformType,
+            ConversationId: conversationId,
+            UserId: userId,
+            QueryText: queryText,
+            MessageId: messageId,
+            ReplyToMessageId: replyToMessageId,
+            ArtifactReferences: artifactReferences ?? new List<ArtifactReference>(),
+            Metadata: metadata,
+            InteractionType: interactionType,
+            TenantId: tenantId,
+            PersonaId: personaId,
+            TimestampUtc: timestampUtc ?? DateTimeOffset.UtcNow
+        );
+    }
+
+    private static NucleusIngestionRequest CreateNucleusIngestionRequest(
+        AdapterRequest adapterRequest,
+        string? correlationId = null)
+    {
+        return new NucleusIngestionRequest(
+            PlatformType: adapterRequest.PlatformType,
+            OriginatingUserId: adapterRequest.UserId,
+            OriginatingConversationId: adapterRequest.ConversationId,
+            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
+            OriginatingMessageId: adapterRequest.MessageId,
+            ResolvedPersonaId: adapterRequest.PersonaId!,
+            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
+            QueryText: adapterRequest.QueryText,
+            ArtifactReferences: adapterRequest.ArtifactReferences,
+            CorrelationId: correlationId,
+            Metadata: adapterRequest.Metadata,
+            TenantId: adapterRequest.TenantId // Added TenantId
+        );
+    }
+
+    private static PersonaConfiguration CreatePersonaConfiguration(
+        string personaId = "test-persona",
+        string displayName = "Test Persona",
+        bool isEnabled = true,
+        string tenantId = "test-tenant",
+        string chatModelId = "gpt-4",
+        string systemMessage = "Test System Message")
+    {
+        return new PersonaConfiguration
+        {
+            PersonaId = personaId,
+            DisplayName = displayName,
+            IsEnabled = isEnabled,
+            SystemMessage = systemMessage,
+            LlmConfiguration = new LlmConfiguration
+            {
+                ChatModelId = chatModelId
+            },
+            DataGovernance = new DataGovernanceConfiguration
+            {
+                AllowedTenantIds = { tenantId }
+            }
+        };
+    }
+
 
     public QueuedInteractionProcessorServiceTests()
     {
@@ -56,6 +136,7 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockArtifactProviders = new List<Mock<IArtifactProvider>>();
         _mockArtifactProvider1 = new Mock<IArtifactProvider>();
         _mockArtifactProviders.Add(_mockArtifactProvider1);
+        _mockContentExtractors = new Mock<IEnumerable<IContentExtractor>>();
 
         _mockServiceScopeFactory.Setup(x => x.CreateScope()).Returns(_mockServiceScope.Object);
 
@@ -70,13 +151,16 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
             .Returns(() => _mockArtifactProviders.Select(m => m.Object));
         _mockServiceProvider.Setup(x => x.GetService(typeof(IServiceScopeFactory))).Returns(_mockServiceScopeFactory.Object);
         _mockServiceProvider.Setup(x => x.GetService(typeof(IPersonaConfigurationProvider))).Returns(_mockPersonaConfigProvider.Object);
+        _mockServiceProvider.Setup(x => x.GetService(typeof(IEnumerable<IContentExtractor>))).Returns(_mockContentExtractors.Object);
 
+        // Corrected constructor arguments for QueuedInteractionProcessorService
         _service = new QueuedInteractionProcessorService(
             _mockLogger.Object,
             _mockBackgroundTaskQueue.Object,
-            _mockServiceProvider.Object,
-            _mockArtifactProviders.Select(m => m.Object)
-        );
+            _mockServiceProvider.Object, // IServiceProvider
+            _mockArtifactProviders.Select(m => m.Object).ToList(), // IEnumerable<IArtifactProvider>
+            _mockContentExtractors.Object // IEnumerable<IContentExtractor>
+            );
     }
 
     // Standard IDisposable implementation
@@ -96,8 +180,8 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
                 _service?.Dispose();
             }
 
-            // TODO: free unmanaged resources (unmanaged objects) and override finalizer
-            // TODO: set large fields to null
+            // No unmanaged resources to free
+            // No large fields to set to null
             disposedValue = true;
         }
     }
@@ -110,51 +194,12 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     [Fact]
     public async Task ProcessRequestAsync_ValidMessage_ShouldProcessSuccessfully()
     {
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test,
-            ConversationId: "test-conversation",
-            UserId: "test-user",
-            QueryText: "Hello",
-            TenantId: "test-tenant",
-            PersonaId: "DefaultPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference>()
-        );
-
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var adapterRequest = CreateAdapterRequest(personaId: "DefaultPersona", tenantId: "test-tenant");
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
-        const string TestTenantId = "test-tenant";
-
-        var personaConfiguration = new PersonaConfiguration
-        {
-            PersonaId = "test-persona",
-            DisplayName = "Test Persona",
-            IsEnabled = true,
-            LlmConfiguration = new LlmConfiguration
-            {
-                ChatModelId = "gpt-4"
-            },
-            DataGovernance = new DataGovernanceConfiguration
-            {
-                AllowedTenantIds = { TestTenantId } // Initialize list with the tenant ID
-            }
-            // ImageUrl is no longer a direct property and was null in the previous constructor call.
-        };
+        var personaConfiguration = CreatePersonaConfiguration(personaId: adapterRequest.PersonaId!, tenantId: adapterRequest.TenantId!);
 
         _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken))
             .ReturnsAsync(personaConfiguration);
@@ -162,15 +207,15 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         var expectedPersonaResponse = new AdapterResponse(true, "Processed successfully");
         _mockPersonaRuntime.Setup(p => p.ExecuteAsync(
                 It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfiguration.PersonaId),
-                It.Is<InteractionContext>(ic => 
-                    ic.ResolvedPersonaId == personaConfiguration.PersonaId // &&
-                    //ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
-                    //ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
-                    //ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
-                    //ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                    //ic.OriginalRequest.PersonaId == nucleusIngestionRequest.ResolvedPersonaId &&
-                    //(ic.OriginalRequest.ArtifactReferences == null || ic.OriginalRequest.ArtifactReferences.Count == 0) &&
-                    //ic.RawArtifacts.Count == 0
+                It.Is<InteractionContext>(ic =>
+                    ic.ResolvedPersonaId == personaConfiguration.PersonaId &&
+                    ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText && // Restored some checks
+                    ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
+                    ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
+                    ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
+                    ic.OriginalRequest.PersonaId == nucleusIngestionRequest.ResolvedPersonaId &&
+                    (ic.OriginalRequest.ArtifactReferences == null || !ic.OriginalRequest.ArtifactReferences.Any()) &&
+                    !ic.RawArtifacts.Any()
                 ),
                 cancellationToken))
             .ReturnsAsync((expectedPersonaResponse, PersonaExecutionStatus.Success));
@@ -188,15 +233,15 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken), Times.Once);
         _mockPersonaRuntime.Verify(p => p.ExecuteAsync(
             It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfiguration.PersonaId),
-            It.Is<InteractionContext>(ic => 
-                ic.ResolvedPersonaId == personaConfiguration.PersonaId // &&
-                //ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
-                //ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
-                //ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
-                //ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                //ic.OriginalRequest.PersonaId == nucleusIngestionRequest.ResolvedPersonaId &&
-                //(ic.OriginalRequest.ArtifactReferences == null || ic.OriginalRequest.ArtifactReferences.Count == 0) &&
-                //ic.RawArtifacts.Count == 0
+            It.Is<InteractionContext>(ic =>
+                ic.ResolvedPersonaId == personaConfiguration.PersonaId &&
+                ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText && // Restored some checks
+                ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
+                ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
+                ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
+                ic.OriginalRequest.PersonaId == nucleusIngestionRequest.ResolvedPersonaId &&
+                (ic.OriginalRequest.ArtifactReferences == null || !ic.OriginalRequest.ArtifactReferences.Any()) &&
+                !ic.RawArtifacts.Any()
             ),
             cancellationToken), Times.Once);
         _mockPlatformNotifier.Verify(n => n.SendNotificationAsync(
@@ -211,35 +256,19 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     [Fact]
     public async Task ProcessRequestAsync_PersonaRuntimeThrowsException_ShouldAbandonMessage()
     {
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test,
-            ConversationId: "test-conversation-runtime-ex",
-            UserId: "test-user-runtime-ex",
-            QueryText: "Hello with runtime exception",
-            TenantId: "test-tenant-runtime-ex",
-            PersonaId: "FaultyPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference>()
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "FaultyPersona",
+            tenantId: "test-tenant-runtime-ex",
+            queryText: "Hello with runtime exception",
+            conversationId: "test-conversation-runtime-ex",
+            userId: "test-user-runtime-ex"
         );
-
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
-        var personaConfig = new PersonaConfiguration { DisplayName = "FaultyPersona", PersonaId = "faulty-persona-id" };
+        // Use a more specific personaId in the config to ensure the mock is correctly targeted
+        var personaConfig = CreatePersonaConfiguration(personaId: adapterRequest.PersonaId!, displayName: "FaultyPersona");
         var runtimeException = new InvalidOperationException("Runtime error");
 
         _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken))
@@ -247,15 +276,16 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
 
         _mockPersonaRuntime.Setup(p => p.ExecuteAsync(
                 It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-                It.Is<InteractionContext>(ic => 
+                It.Is<InteractionContext>(ic =>
                     ic.ResolvedPersonaId == personaConfig.PersonaId &&
                     ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
                     ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
                     ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
                     ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                    ic.OriginalRequest.PersonaId == personaConfig.PersonaId &&
-                    (ic.OriginalRequest.ArtifactReferences == null || ic.OriginalRequest.ArtifactReferences.Count == 0) &&
-                    ic.RawArtifacts.Count == 0
+                    ic.OriginalRequest.PersonaId == personaConfig.PersonaId && 
+                    (ic.OriginalRequest.ArtifactReferences == null || !ic.OriginalRequest.ArtifactReferences.Any()) &&
+                    !ic.RawArtifacts.Any() && 
+                    !ic.ProcessedArtifacts.Any()
                     ),
                 cancellationToken))
             .ThrowsAsync(runtimeException);
@@ -265,15 +295,16 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken), Times.Once);
         _mockPersonaRuntime.Verify(p => p.ExecuteAsync(
             It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-            It.Is<InteractionContext>(ic => 
+            It.Is<InteractionContext>(ic =>
                 ic.ResolvedPersonaId == personaConfig.PersonaId &&
                 ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
                 ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
                 ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
                 ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                ic.OriginalRequest.PersonaId == personaConfig.PersonaId &&
-                (ic.OriginalRequest.ArtifactReferences == null || ic.OriginalRequest.ArtifactReferences.Count == 0) &&
-                ic.RawArtifacts.Count == 0
+                ic.OriginalRequest.PersonaId == personaConfig.PersonaId && 
+                (ic.OriginalRequest.ArtifactReferences == null || !ic.OriginalRequest.ArtifactReferences.Any()) &&
+                !ic.RawArtifacts.Any() &&
+                !ic.ProcessedArtifacts.Any()
                 ),
             cancellationToken), Times.Once);
         _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, cancellationToken), Times.Never);
@@ -284,89 +315,69 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     public async Task ProcessRequestAsync_NotificationThrowsException_ShouldCompleteMessageAndLogError()
     {
         // Arrange
-        var platformType = PlatformType.Test; // Assuming a PlatformType for the request
-        var originatingUserId = "user-test";
-        var originatingConversationId = "conversation-test";
-        var resolvedPersonaId = "testPersonaId";
-        var queryText = "Hello";
-        var correlationId = "trace-002"; // Using CorrelationId as per NucleusIngestionRequest definition
-
-        var request = new NucleusIngestionRequest(
-            PlatformType: platformType,
-            OriginatingUserId: originatingUserId,
-            OriginatingConversationId: originatingConversationId,
-            OriginatingReplyToMessageId: null,
-            OriginatingMessageId: "message-id-123", // Example originating message ID
-            ResolvedPersonaId: resolvedPersonaId,
-            TimestampUtc: DateTimeOffset.UtcNow,
-            QueryText: queryText,
-            ArtifactReferences: null,
-            CorrelationId: correlationId,
-            Metadata: null
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "testPersonaId",
+            queryText: "Hello",
+            messageId: "message-id-123"
+            // Removed correlationId as it's not a param of AdapterRequest
         );
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest, correlationId: "trace-002");
 
-        using var cancellationTokenSource = new CancellationTokenSource(); // Added using
+        using var cancellationTokenSource = new CancellationTokenSource();
         var cancellationToken = cancellationTokenSource.Token;
 
-        var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(request, "test-message-context-notification-fail");
+        var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, "test-message-context-notification-fail");
 
-        var personaConfig = new PersonaConfiguration
-        {
-            PersonaId = resolvedPersonaId,
-            DisplayName = "Test Persona",
-            IsEnabled = true,
-            SystemMessage = "Test Instructions", // Corrected from Instructions
-            LlmConfiguration = new LlmConfiguration
-            {
-                Provider = "TestProvider", // Added provider
-                ChatModelId = "gpt-4",      // Corrected from ModelId
-                EmbeddingModelId = "text-embedding-ada-002" // Added embedding model ID
-            }
-        };
+        var personaConfig = CreatePersonaConfiguration(
+            personaId: nucleusIngestionRequest.ResolvedPersonaId!,
+            displayName: "Test Persona",
+            systemMessage: "Test Instructions",
+            chatModelId: "gpt-4"
+        );
+        personaConfig.LlmConfiguration.Provider = "TestProvider";
+        personaConfig.LlmConfiguration.EmbeddingModelId = "text-embedding-ada-002";
 
-        // This is the response expected from IPersonaRuntime.ExecuteAsync
-        var dummyAdapterResponse = new AdapterResponse(true, "Processed successfully by runtime"); 
-        var personaExecutionResult = (Response: dummyAdapterResponse, Status: PersonaExecutionStatus.Success); // Correct tuple for IPersonaRuntime
+        var dummyAdapterResponse = new AdapterResponse(true, "Processed successfully by runtime");
+        var personaExecutionResult = (Response: dummyAdapterResponse, Status: PersonaExecutionStatus.Success);
 
         _mockPersonaConfigProvider
-            .Setup(p => p.GetConfigurationAsync(resolvedPersonaId, cancellationToken)) // Corrected signature
+            .Setup(p => p.GetConfigurationAsync(nucleusIngestionRequest.ResolvedPersonaId!, cancellationToken)) // Use nucleusIngestionRequest
             .ReturnsAsync(personaConfig);
 
-        // Mock IPersonaRuntime which is used internally by QueuedInteractionProcessorService
         _mockPersonaRuntime
             .Setup(r => r.ExecuteAsync(
-                It.Is<PersonaConfiguration>(pc => pc.PersonaId == resolvedPersonaId),
-                It.IsAny<InteractionContext>(), // QueuedInteractionProcessorService creates this internally
+                It.Is<PersonaConfiguration>(pc => pc.PersonaId == nucleusIngestionRequest.ResolvedPersonaId),
+                It.IsAny<InteractionContext>(),
                 cancellationToken))
-            .Returns(Task.FromResult(personaExecutionResult)); // Corrected from .ReturnsAsync
+            .Returns(Task.FromResult(personaExecutionResult));
 
         var notificationException = new NotificationFailedException("Simulated notification failure");
         _mockPlatformNotifier
             .Setup(n => n.SendNotificationAsync(
-                originatingConversationId, // Corrected argument: conversationId
-                personaExecutionResult.Response.ResponseMessage!, // Corrected argument: messageText from runtime's response
-                request.OriginatingMessageId, // replyToMessageId
+                nucleusIngestionRequest.OriginatingConversationId, // Use nucleusIngestionRequest
+                personaExecutionResult.Response.ResponseMessage!,
+                nucleusIngestionRequest.OriginatingMessageId, // Use nucleusIngestionRequest
                 cancellationToken))
             .ThrowsAsync(notificationException);
-        
+
         _mockPlatformNotifier
             .Setup(n => n.SupportedPlatformType)
-            .Returns(platformType.ToString()); // Ensure notifier supports the platform type
+            .Returns(adapterRequest.PlatformType.ToString()); // Use adapterRequest
 
         // Act
-        await _service.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken); // Use _service
+        await _service.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken);
 
         // Assert
-        _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(resolvedPersonaId, cancellationToken), Times.Once);
+        _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(nucleusIngestionRequest.ResolvedPersonaId!, cancellationToken), Times.Once);
         _mockPersonaRuntime.Verify(r => r.ExecuteAsync(
-            It.Is<PersonaConfiguration>(pc => pc.PersonaId == resolvedPersonaId),
+            It.Is<PersonaConfiguration>(pc => pc.PersonaId == nucleusIngestionRequest.ResolvedPersonaId),
             It.IsAny<InteractionContext>(),
             cancellationToken), Times.Once);
-        
+
         _mockPlatformNotifier.Verify(n => n.SendNotificationAsync(
-            originatingConversationId,
+            nucleusIngestionRequest.OriginatingConversationId,
             personaExecutionResult.Response.ResponseMessage!,
-            request.OriginatingMessageId,
+            nucleusIngestionRequest.OriginatingMessageId,
             cancellationToken), Times.Once);
 
         _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, cancellationToken), Times.Once);
@@ -391,31 +402,13 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     [Fact]
     public async Task ProcessRequestAsync_PersonaConfigNotFound_ShouldAbandonMessage()
     {
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test,
-            ConversationId: "test-conversation-cfg-notfound",
-            UserId: "test-user-cfg-notfound",
-            QueryText: "Hello with config not found",
-            TenantId: "test-tenant",
-            PersonaId: "NonExistentPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference>()
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "NonExistentPersona",
+            queryText: "Hello with config not found",
+            conversationId: "test-conversation-cfg-notfound",
+            userId: "test-user-cfg-notfound"
         );
-
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
@@ -429,7 +422,7 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockPlatformNotifier.Verify(n => n.SendNotificationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, cancellationToken), Times.Never);
         _mockBackgroundTaskQueue.Verify(q => q.AbandonAsync(dequeuedMessage.MessageContext, 
-            It.Is<ArgumentException>(ex => ex.Message.Contains($"Persona configuration not found for {adapterRequest.PersonaId}")),
+            It.Is<ArgumentException>(ex => ex.Message == $"Persona configuration not found for {adapterRequest.PersonaId}"), // Exact match for exception message
             cancellationToken), Times.Once);
 
         _mockLogger.Verify(
@@ -438,8 +431,8 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => 
                     v != null && 
-                    v.ToString()!.Contains($"Persona configuration not found for PersonaId: {adapterRequest.PersonaId}. Abandoning message.")), 
-                It.Is<Exception?>(ex => ex == null), 
+                    v.ToString()!.Contains($"[BackgroundQueue:{dequeuedMessage.MessageContext}] Persona configuration not found for PersonaId: {adapterRequest.PersonaId}. Abandoning message.")), 
+                null, // Service logs this specific error without an exception instance
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()
             ), Times.Once);
     }
@@ -447,40 +440,20 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     [Fact]
     public async Task ProcessRequestAsync_PersonaConfigDisabled_ShouldAbandonMessage()
     {
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test,
-            ConversationId: "test-conversation-cfg-disabled",
-            UserId: "test-user",
-            QueryText: "Config disabled test",
-            TenantId: "test-tenant",
-            PersonaId: "DisabledPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference>()
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "DisabledPersona",
+            queryText: "Config disabled test",
+            conversationId: "test-conversation-cfg-disabled"
         );
-
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
-        var personaConfig = new PersonaConfiguration 
-        { 
-            DisplayName = "DisabledPersona", 
-            PersonaId = "disabled-persona-id", 
-            IsEnabled = false // Mark this persona as disabled
-        };
+        var personaConfig = CreatePersonaConfiguration(
+            personaId: "DisabledPersona", // Match the adapterRequest.PersonaId for clarity in mock setup
+            displayName: "DisabledPersonaDisplay",
+            isEnabled: false
+        );
         _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken))
             .ReturnsAsync(personaConfig);
 
@@ -490,7 +463,10 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockPersonaRuntime.Verify(p => p.ExecuteAsync(It.IsAny<PersonaConfiguration>(), It.IsAny<InteractionContext>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockPlatformNotifier.Verify(n => n.SendNotificationAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, cancellationToken), Times.Never);
-        _mockBackgroundTaskQueue.Verify(q => q.AbandonAsync(dequeuedMessage.MessageContext, It.Is<Exception>(ex => ex.Message.Contains("Persona configuration DisabledPersona is disabled")), cancellationToken), Times.Once);
+        // Verify abandon with InvalidOperationException and specific message
+        _mockBackgroundTaskQueue.Verify(q => q.AbandonAsync(dequeuedMessage.MessageContext, 
+            It.Is<InvalidOperationException>(ex => ex.Message == $"Persona configuration {adapterRequest.PersonaId} is disabled."), 
+            cancellationToken), Times.Once);
 
         _mockLogger.Verify(
             x => x.Log(
@@ -498,11 +474,8 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => 
                     v != null && 
-                    v.ToString()!.Contains(string.Format(
-                        "Persona configuration {0} is disabled. Aborting processing for message {1}.", 
-                        dequeuedMessage.Payload.ResolvedPersonaId, // Use ResolvedPersonaId from the payload
-                        dequeuedMessage.Payload.OriginatingMessageId ?? "unknown"))), // Use OriginatingMessageId from the payload
-                It.IsAny<Exception>(),
+                    v.ToString()!.Contains($"[BackgroundQueue:{dequeuedMessage.MessageContext}] Persona configuration {adapterRequest.PersonaId} is disabled. Aborting processing for message {nucleusIngestionRequest.OriginatingMessageId ?? "unknown"}.")),
+                null, // Service logs this specific warning without an exception instance
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()
             ), Times.Once);
     }
@@ -516,70 +489,74 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
             SourceUri: new Uri("test://artifact1"),
             TenantId: "test-tenant"
         );
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test, // Corrected from TestArtifacts
-            ConversationId: "test-conversation-artifacts",
-            UserId: "test-user-artifacts",
-            QueryText: "Hello with artifacts",
-            TenantId: "test-tenant-artifacts",
-            PersonaId: "ArtifactPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference> { artifactReference1 }
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "ArtifactPersona",
+            tenantId: "test-tenant-artifacts",
+            queryText: "Hello with artifacts",
+            artifactReferences: new List<ArtifactReference> { artifactReference1 },
+            conversationId: "test-conversation-artifacts",
+            userId: "test-user-artifacts"
         );
 
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
-        var personaConfig = new PersonaConfiguration { DisplayName = "ArtifactPersona", PersonaId = "artifact-persona-id" };
+        var personaConfig = CreatePersonaConfiguration(personaId: adapterRequest.PersonaId!, displayName: "ArtifactPersona", tenantId: adapterRequest.TenantId!);
         _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken))
             .ReturnsAsync(personaConfig);
 
         var expectedPersonaResponse = new AdapterResponse(true, "Processed successfully");
-        var expectedArtifactCount_ProviderFound_Setup = nucleusIngestionRequest.ArtifactReferences?.Count ?? 0;
+        
+        using var fetchedArtifactContentStream = new MemoryStream(Encoding.UTF8.GetBytes("This is fetched content."));
+        // The CA2000 warning was here. ArtifactContent is IDisposable.
+        using var fetchedArtifactContent = new ArtifactContent(
+            originalReference: artifactReference1,
+            contentStream: fetchedArtifactContentStream, 
+            contentType: "text/plain",
+            textEncoding: Encoding.UTF8
+        );
+
+        var mockArtifactProvider = new Mock<IArtifactProvider>();
+        mockArtifactProvider.Setup(p => p.SupportedReferenceTypes).Returns(new[] { "TestArtifactType" });
+        mockArtifactProvider.Setup(p => p.GetContentAsync(artifactReference1, cancellationToken))
+            .ReturnsAsync(fetchedArtifactContent);
+
+        var specificProviders = new List<IArtifactProvider> { mockArtifactProvider.Object }; 
+        
+        // Ensure no content extractors are available for this specific test to guarantee ProcessedArtifacts is empty
+        // The CA2000 warning was here. QueuedInteractionProcessorService is IDisposable.
+        // This instance is already explicitly disposed at the end of the test, so a using statement is not strictly necessary
+        // but can be added for consistency if preferred. However, the explicit Dispose() call is sufficient.
+        // For now, I will leave the explicit Dispose() as it was already in place.
+        // If the CA2000 warning persists for this line after the other fixes, we can revisit.
+        var serviceWithSpecificProviderAndNoExtractors = new QueuedInteractionProcessorService(
+            _mockLogger.Object,
+            _mockBackgroundTaskQueue.Object,
+            _mockServiceProvider.Object, 
+            specificProviders, 
+            new List<IContentExtractor>() // Pass an empty list of content extractors
+        );
+
         _mockPersonaRuntime.Setup(p => p.ExecuteAsync(
                 It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-                It.Is<InteractionContext>(ic => 
+                It.Is<InteractionContext>(ic =>
                     ic.ResolvedPersonaId == personaConfig.PersonaId &&
-                    ic.RawArtifacts.Count == expectedArtifactCount_ProviderFound_Setup &&
+                    ic.RawArtifacts.Count == 1 && 
                     ic.RawArtifacts[0].OriginalReference.ReferenceId == artifactReference1.ReferenceId &&
                     ic.RawArtifacts[0].OriginalReference.ReferenceType == artifactReference1.ReferenceType &&
+                    ic.RawArtifacts[0].ContentType == "text/plain" && 
+                    ic.ProcessedArtifacts.Count == 0 && // This should now hold true
                     ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
                     ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
                     ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
                     ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                    ic.OriginalRequest.PersonaId == personaConfig.PersonaId && // CORRECTED THIS LINE
-                    ((ic.OriginalRequest.ArtifactReferences == null || expectedArtifactCount_ProviderFound_Setup == 0) || (ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == expectedArtifactCount_ProviderFound_Setup))
+                    ic.OriginalRequest.PersonaId == personaConfig.PersonaId &&
+                    ((ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == 1) && 
+                     (ic.OriginalRequest.ArtifactReferences[0].ReferenceId == artifactReference1.ReferenceId))
                     ),
                 cancellationToken))
             .ReturnsAsync((expectedPersonaResponse, PersonaExecutionStatus.Success));
-
-        var mockArtifactProvider = new Mock<IArtifactProvider>();
-        mockArtifactProvider.Setup(p => p.SupportedReferenceTypes).Returns(new[] { "TestArtifactType" });
-        using var fetchedArtifactContent = new ArtifactContent(
-            originalReference: artifactReference1,
-            contentStream: new MemoryStream(Encoding.UTF8.GetBytes("This is fetched content.")),
-            contentType: "text/plain",
-            textEncoding: Encoding.UTF8
-        );
-        
-        _mockArtifactProviders.Add(mockArtifactProvider);
-
-        mockArtifactProvider.Setup(p => p.GetContentAsync(artifactReference1, cancellationToken))
-            .ReturnsAsync(fetchedArtifactContent);
 
         _mockPlatformNotifier.Setup(n => n.SupportedPlatformType).Returns(adapterRequest.PlatformType.ToString());
         _mockPlatformNotifier.Setup(n => n.SendNotificationAsync(
@@ -592,25 +569,27 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockServiceProvider.Setup(x => x.GetService(typeof(IEnumerable<IPlatformNotifier>)))
             .Returns(new[] { _mockPlatformNotifier.Object });
 
-        await _service.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken);
+        await serviceWithSpecificProviderAndNoExtractors.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken);
 
         _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken), Times.Once);
         mockArtifactProvider.Verify(p => p.GetContentAsync(artifactReference1, cancellationToken), Times.Once);
 
-        var expectedArtifactCount_ProviderFound_Verify = nucleusIngestionRequest.ArtifactReferences?.Count ?? 0;
         _mockPersonaRuntime.Verify(p => p.ExecuteAsync(
             It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-            It.Is<InteractionContext>(ic => 
+            It.Is<InteractionContext>(ic =>
                 ic.ResolvedPersonaId == personaConfig.PersonaId &&
-                ic.RawArtifacts.Count == expectedArtifactCount_ProviderFound_Verify &&
+                ic.RawArtifacts.Count == 1 &&
                 ic.RawArtifacts[0].OriginalReference.ReferenceId == artifactReference1.ReferenceId &&
                 ic.RawArtifacts[0].OriginalReference.ReferenceType == artifactReference1.ReferenceType &&
+                ic.RawArtifacts[0].ContentType == "text/plain" &&
+                ic.ProcessedArtifacts.Count == 0 && // Verify this condition
                 ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
                 ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
                 ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
                 ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                ic.OriginalRequest.PersonaId == personaConfig.PersonaId && // CORRECTED THIS LINE
-                ((ic.OriginalRequest.ArtifactReferences == null && expectedArtifactCount_ProviderFound_Verify == 0) || (ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == expectedArtifactCount_ProviderFound_Verify))
+                ic.OriginalRequest.PersonaId == personaConfig.PersonaId &&
+                ((ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == 1) && 
+                 (ic.OriginalRequest.ArtifactReferences[0].ReferenceId == artifactReference1.ReferenceId))
                 ),
             cancellationToken), Times.Once);
 
@@ -621,6 +600,9 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
             cancellationToken), Times.Once);
         _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, cancellationToken), Times.Once);
         _mockBackgroundTaskQueue.Verify(q => q.AbandonAsync(dequeuedMessage.MessageContext, It.IsAny<Exception>(), cancellationToken), Times.Never);
+        
+        // Dispose the service instance created for this test
+        serviceWithSpecificProviderAndNoExtractors.Dispose();
     }
 
     [Fact]
@@ -632,55 +614,50 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
             SourceUri: new Uri("http://example.com/artifact1"),
             TenantId: "test-tenant"
         );
-        var adapterRequest = new AdapterRequest(
-            PlatformType.Test,
-            ConversationId: "test-conversation-no-provider",
-            UserId: "test-user-no-provider",
-            QueryText: "Hello with unsupportable artifacts",
-            TenantId: "test-tenant-no-provider",
-            PersonaId: "NoProviderPersona",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            ArtifactReferences: new List<ArtifactReference> { artifactReference1 }
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "NoProviderPersona",
+            tenantId: "test-tenant-no-provider",
+            queryText: "Hello with unsupportable artifacts",
+            artifactReferences: new List<ArtifactReference> { artifactReference1 },
+            conversationId: "test-conversation-no-provider",
+            userId: "test-user-no-provider"
         );
 
-        var nucleusIngestionRequest = new NucleusIngestionRequest(
-            PlatformType: adapterRequest.PlatformType,
-            OriginatingUserId: adapterRequest.UserId,
-            OriginatingConversationId: adapterRequest.ConversationId,
-            OriginatingReplyToMessageId: adapterRequest.ReplyToMessageId,
-            OriginatingMessageId: adapterRequest.MessageId,
-            ResolvedPersonaId: adapterRequest.PersonaId!, // QueuedInteractionProcessorService uses this to load PersonaConfig
-            TimestampUtc: adapterRequest.TimestampUtc ?? DateTimeOffset.UtcNow,
-            QueryText: adapterRequest.QueryText,
-            ArtifactReferences: adapterRequest.ArtifactReferences,
-            CorrelationId: null, // Or a test Correlation ID if needed
-            Metadata: adapterRequest.Metadata
-        );
-
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
         var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, new object());
         var cancellationToken = CancellationToken.None;
 
-        var personaConfig = new PersonaConfiguration { DisplayName = "NoProviderPersona", PersonaId = "no-provider-persona-id" };
+        var personaConfig = CreatePersonaConfiguration(personaId: adapterRequest.PersonaId!, displayName: "NoProviderPersona", tenantId: adapterRequest.TenantId!);
         _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken))
             .ReturnsAsync(personaConfig);
 
-        _mockArtifactProviders.Clear();
+        // Ensure no providers are available for this test by creating a new service instance with an empty list
+        // The CA2000 warning was here. QueuedInteractionProcessorService is IDisposable.
+        using var serviceWithNoProviders = new QueuedInteractionProcessorService(
+            _mockLogger.Object,
+            _mockBackgroundTaskQueue.Object,
+            _mockServiceProvider.Object,
+            new List<IArtifactProvider>(), // Empty list of artifact providers
+            _mockContentExtractors.Object
+        );
 
         var expectedPersonaResponse = new AdapterResponse(true, "Processed without artifacts as none were resolvable.");
-        var expectedArtifactCount_NoMatchingProvider_Setup = nucleusIngestionRequest.ArtifactReferences?.Count ?? 0;
+        var expectedOriginalArtifactCount = nucleusIngestionRequest.ArtifactReferences?.Count ?? 0;
         _mockPersonaRuntime.Setup(p => p.ExecuteAsync(
-            It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-            It.Is<InteractionContext>(ic => 
-                ic.ResolvedPersonaId == personaConfig.PersonaId &&
-                ic.RawArtifacts.Count == 0 &&
-                ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
-                ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
-                ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
-                ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                ic.OriginalRequest.PersonaId == personaConfig.PersonaId && // CORRECTED THIS LINE IN SETUP AS WELL
-                ((ic.OriginalRequest.ArtifactReferences == null && expectedArtifactCount_NoMatchingProvider_Setup == 0) || (ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == expectedArtifactCount_NoMatchingProvider_Setup))
-                ),
-            cancellationToken))
+                It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
+                It.Is<InteractionContext>(ic =>
+                    ic.ResolvedPersonaId == personaConfig.PersonaId &&
+                    ic.RawArtifacts.Count == 0 && // Expect no raw artifacts
+                    ic.ProcessedArtifacts.Count == 0 && // Expect no processed artifacts
+                    ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
+                    ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
+                    ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
+                    ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
+                    ic.OriginalRequest.PersonaId == personaConfig.PersonaId &&
+                    ((ic.OriginalRequest.ArtifactReferences == null && expectedOriginalArtifactCount == 0) || 
+                     (ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == expectedOriginalArtifactCount))
+                    ),
+                cancellationToken))
         .ReturnsAsync((expectedPersonaResponse, PersonaExecutionStatus.Success));
 
         _mockPlatformNotifier.Setup(n => n.SupportedPlatformType).Returns(adapterRequest.PlatformType.ToString());
@@ -694,31 +671,28 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
         _mockServiceProvider.Setup(x => x.GetService(typeof(IEnumerable<IPlatformNotifier>)))
             .Returns(new[] { _mockPlatformNotifier.Object });
 
-        await _service.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken);
+        // Act: Use the service instance with no providers
+        await serviceWithNoProviders.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, cancellationToken);
 
+        // Assert
         _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, cancellationToken), Times.Once);
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains(
-                    $"[BackgroundQueue:{dequeuedMessage.MessageContext}] No IArtifactProvider found for ReferenceType: {artifactReference1.ReferenceType} (ArtifactRefId: {artifactReference1.ReferenceId}). Skipping artifact.")),
-                null, // No exception is logged with this specific warning in the SUT
+                    $"No IArtifactProvider found for Artifact ReferenceId: {artifactReference1.ReferenceId} with ReferenceType: {artifactReference1.ReferenceType}. This artifact will be skipped.")),
+                null, 
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             Times.Once);
 
-        var expectedArtifactCount_NoMatchingProvider_Verify = nucleusIngestionRequest.ArtifactReferences?.Count ?? 0;
         _mockPersonaRuntime.Verify(p => p.ExecuteAsync(
             It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
-            It.Is<InteractionContext>(ic => 
+            It.Is<InteractionContext>(ic =>
                 ic.ResolvedPersonaId == personaConfig.PersonaId &&
-                ic.RawArtifacts.Count == 0 &&
-                ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText &&
-                ic.OriginalRequest.PlatformType == nucleusIngestionRequest.PlatformType &&
-                ic.OriginalRequest.UserId == nucleusIngestionRequest.OriginatingUserId &&
-                ic.OriginalRequest.ConversationId == nucleusIngestionRequest.OriginatingConversationId &&
-                ic.OriginalRequest.PersonaId == personaConfig.PersonaId && // CORRECTED THIS LINE
-                ((ic.OriginalRequest.ArtifactReferences == null && expectedArtifactCount_NoMatchingProvider_Verify == 0) || (ic.OriginalRequest.ArtifactReferences != null && ic.OriginalRequest.ArtifactReferences.Count == expectedArtifactCount_NoMatchingProvider_Verify))
+                ic.RawArtifacts.Count == 0 && 
+                ic.ProcessedArtifacts.Count == 0 &&
+                ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText
                 ),
             cancellationToken), Times.Once);
 
@@ -734,57 +708,92 @@ public class QueuedInteractionProcessorServiceTests : IDisposable
     [Fact]
     public async Task ProcessRequestAsync_WithArtifacts_ProviderThrowsException_ShouldProceedWithoutArtifactsAndLogError()
     {
-        string logVerificationMessageContext = "test-context-for-artifact-exception"; // Defined context for verification
-        
-        var personaConfig = new PersonaConfiguration { PersonaId = "test-persona", IsEnabled = true };
-        
+        string logVerificationMessageContext = "test-context-for-artifact-exception";
+
         var artifactReference1 = new ArtifactReference(
-            "test-ref-id-1", 
-            "file", 
-            new Uri("file:///test/file1.txt"), 
-            "test-tenant-id", 
-            null, 
-            null
-        ); 
+            "test-ref-id-1",
+            "file",
+            new Uri("file:///test/file1.txt"),
+            "test-tenant-id" 
+        );
 
-        var request = new NucleusIngestionRequest(
-            PlatformType.Test, 
-            "test-user", 
-            "test-conversation", 
-            null, 
-            null, 
-            "test-persona-id", 
-            DateTimeOffset.UtcNow, 
-            "Test query with artifact exception", 
-            new List<ArtifactReference> { artifactReference1 }, 
-            null, 
-            null
-        ); 
+        var adapterRequest = CreateAdapterRequest(
+            personaId: "test-persona-id-ex", // Unique personaId for this test
+            queryText: "Test query with artifact exception",
+            artifactReferences: new List<ArtifactReference> { artifactReference1 },
+            tenantId: artifactReference1.TenantId 
+        );
+        var nucleusIngestionRequest = CreateNucleusIngestionRequest(adapterRequest);
+        var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(nucleusIngestionRequest, logVerificationMessageContext);
 
-        var dequeuedMessage = new DequeuedMessage<NucleusIngestionRequest>(request, logVerificationMessageContext); 
+        var personaConfig = CreatePersonaConfiguration(personaId: adapterRequest.PersonaId!, isEnabled: true, tenantId: artifactReference1.TenantId! ); 
 
         var providerException = new InvalidOperationException("Provider failed to fetch");
-        _mockArtifactProvider1.Setup(p => p.SupportedReferenceTypes).Returns(new[] { "file" });
-        _mockArtifactProvider1.Setup(p => p.GetContentAsync(artifactReference1, It.IsAny<CancellationToken>()))
+        
+        var specificMockArtifactProvider = new Mock<IArtifactProvider>();
+        specificMockArtifactProvider.Setup(p => p.SupportedReferenceTypes).Returns(new[] { "file" });
+        specificMockArtifactProvider.Setup(p => p.GetContentAsync(artifactReference1, It.IsAny<CancellationToken>()))
                                    .ThrowsAsync(providerException);
+        
+        // Create a new service instance with only the throwing provider
+        // The CA2000 warning was here. QueuedInteractionProcessorService is IDisposable.
+        using var serviceWithThrowingProvider = new QueuedInteractionProcessorService(
+            _mockLogger.Object,
+            _mockBackgroundTaskQueue.Object,
+            _mockServiceProvider.Object,
+            new List<IArtifactProvider> { specificMockArtifactProvider.Object }, // Only the throwing provider
+            _mockContentExtractors.Object
+        );
 
-        _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        _mockPersonaConfigProvider.Setup(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, It.IsAny<CancellationToken>())) 
                                   .ReturnsAsync(personaConfig);
+        
+        var expectedPersonaResponse = new AdapterResponse(true, "Processed despite artifact error");
+        _mockPersonaRuntime.Setup(p => p.ExecuteAsync(
+                It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
+                It.Is<InteractionContext>(ic => 
+                    ic.RawArtifacts.Count == 0 && 
+                    ic.ProcessedArtifacts.Count == 0 &&
+                    ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText // Ensure other parts of context are as expected
+                    ), 
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((expectedPersonaResponse, PersonaExecutionStatus.Success));
+
+        _mockPlatformNotifier.Setup(n => n.SupportedPlatformType).Returns(adapterRequest.PlatformType.ToString());
+        _mockPlatformNotifier.Setup(n => n.SendNotificationAsync(
+            It.IsAny<string>(),
+            expectedPersonaResponse.ResponseMessage,
+            dequeuedMessage.Payload.OriginatingMessageId,
+            It.IsAny<CancellationToken>()
+        )).ReturnsAsync((true, "test-sent-message-id", null as string));
 
         // Act
-        await _service.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, CancellationToken.None);
+        await serviceWithThrowingProvider.ProcessRequestAsync(dequeuedMessage.Payload, dequeuedMessage.MessageContext, CancellationToken.None);
 
         // Assert
+        _mockPersonaConfigProvider.Verify(p => p.GetConfigurationAsync(adapterRequest.PersonaId!, It.IsAny<CancellationToken>()), Times.Once);
+        specificMockArtifactProvider.Verify(p => p.GetContentAsync(artifactReference1, It.IsAny<CancellationToken>()), Times.Once); // Verify the provider was called
+
         _mockLogger.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((v, t) => 
-                    v != null && v!.ToString().Contains($"[BackgroundQueue:{logVerificationMessageContext}] Error fetching content for Artifact ReferenceId: {artifactReference1.ReferenceId} using provider {_mockArtifactProvider1.Object.GetType().Name}.")),
-                providerException!, 
+                    v != null && v.ToString()!.Contains($"[BackgroundQueue:{logVerificationMessageContext}] Error fetching content for Artifact ReferenceId: {artifactReference1.ReferenceId} using provider {specificMockArtifactProvider.Object.GetType().Name}")),
+                providerException, 
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()
             ), Times.Once);
 
-        // Verify that the runtime was still called (proceeded without artifacts)
+        _mockPersonaRuntime.Verify(p => p.ExecuteAsync(
+            It.Is<PersonaConfiguration>(pc => pc.PersonaId == personaConfig.PersonaId),
+            It.Is<InteractionContext>(ic => 
+                ic.RawArtifacts.Count == 0 && 
+                ic.ProcessedArtifacts.Count == 0 &&
+                ic.OriginalRequest.QueryText == nucleusIngestionRequest.QueryText
+                ),
+            It.IsAny<CancellationToken>()), Times.Once);
+        
+        _mockBackgroundTaskQueue.Verify(q => q.CompleteAsync(dequeuedMessage.MessageContext, CancellationToken.None), Times.Once);
+        _mockBackgroundTaskQueue.Verify(q => q.AbandonAsync(dequeuedMessage.MessageContext, It.IsAny<Exception>(), CancellationToken.None), Times.Never);
     }
 }

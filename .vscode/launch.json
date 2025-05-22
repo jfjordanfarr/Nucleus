@@ -7,9 +7,9 @@
             "request": "launch",
             // IMPORTANT: Please verify the TargetFramework ('net9.0') and Configuration ('Debug') match your build output.
             // You can check the actual path in: d:\Projects\Nucleus\Nucleus.AppHost\bin\Debug\net9.0\
-            "program": "${workspaceFolder}/Nucleus.AppHost/bin/Debug/net9.0/Nucleus.AppHost.dll",
+            "program": "${workspaceFolder}/Aspire/Nucleus.AppHost/bin/Debug/net9.0/Nucleus.AppHost.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/Nucleus.AppHost",
+            "cwd": "${workspaceFolder}/Aspire/Nucleus.AppHost",
             "stopAtEntry": false,
             "serverReadyAction": {
                 "action": "openExternally",

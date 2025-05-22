@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging; 
+using Nucleus.Abstractions; // Added for IArtifactProvider
 using Nucleus.Abstractions.Adapters.Local; 
 using System;
 
@@ -36,6 +37,9 @@ namespace Nucleus.Infrastructure.Adapters.Local
             // If LocalAdapter's dependencies change, this registration might need adjustment
             // (e.g., if it requires an HttpClientFactory or other specific services).
             services.AddScoped<ILocalAdapterClient, LocalAdapter>();
+
+            // Register the LocalFileArtifactProvider for the LocalAdapter
+            services.AddSingleton<IArtifactProvider, LocalFileArtifactProvider>();
 
             return services;
         }

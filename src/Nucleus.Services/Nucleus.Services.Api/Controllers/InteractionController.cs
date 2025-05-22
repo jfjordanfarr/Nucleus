@@ -5,6 +5,7 @@ using Nucleus.Abstractions.Models;
 using Nucleus.Abstractions.Models.ApiContracts;
 using Nucleus.Abstractions.Orchestration;
 using Nucleus.Abstractions.Adapters.Local;
+using Nucleus.Abstractions.Results; // Added for Result<TSuccess, TError> and OrchestrationError
 using System;
 using System.Linq;
 using System.Threading;
@@ -44,74 +45,112 @@ public class InteractionController : ControllerBase
         _jsonSerializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
     }
 
+    /// <summary>
     /// Process an interaction request.
     /// </summary>
     /// <param name="request">The interaction request details.</param>
     /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
     /// <returns>An IActionResult indicating the result of the processing.</returns>
-    [HttpPost("query")] // Ensure route is explicit if needed
+    [HttpPost("query")]
     public async Task<IActionResult> Post([FromBody] AdapterRequest request, CancellationToken cancellationToken)
     {
-        // TODO: Add robust validation for the incoming request
         if (request == null)
         {
             _logger.LogWarning("Received null request body.");
-            return BadRequest("Request body cannot be null.");
+            return BadRequest(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
         }
 
-        // Persist the interaction securely before further processing
+        if (request.PlatformType == PlatformType.Unknown)
+        {
+            _logger.LogWarning("Received request with Unknown PlatformType.");
+            return BadRequest(new AdapterResponse(false, "PlatformType cannot be Unknown.", ErrorMessage: "PlatformType cannot be Unknown."));
+        }
+        if (string.IsNullOrEmpty(request.ConversationId))
+        {
+            _logger.LogWarning("Received request with null or empty ConversationId.");
+            return BadRequest(new AdapterResponse(false, "ConversationId cannot be null or empty.", ErrorMessage: "ConversationId cannot be null or empty."));
+        }
+        if (string.IsNullOrEmpty(request.UserId))
+        {
+            _logger.LogWarning("Received request with null or empty UserId.");
+            return BadRequest(new AdapterResponse(false, "UserId cannot be null or empty.", ErrorMessage: "UserId cannot be null or empty."));
+        }
+        if (string.IsNullOrEmpty(request.QueryText) && (request.ArtifactReferences == null || !request.ArtifactReferences.Any()))
+        {
+            _logger.LogWarning("Received request with null or empty QueryText and no ArtifactReferences.");
+            return BadRequest(new AdapterResponse(false, "QueryText cannot be null or empty if no ArtifactReferences are provided.", ErrorMessage: "QueryText cannot be null or empty if no ArtifactReferences are provided."));
+        }
+
         await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
 
-        _logger.LogInformation("Received interaction request for ConversationId: {ConversationId}", request.ConversationId);
+        var sanitizedConversationId = request.ConversationId?.Replace("\n", " ").Replace("\r", " ") ?? "unknown-conversation";
+        _logger.LogInformation("Received interaction request for ConversationId: {ConversationId}", sanitizedConversationId);
 
         try
         {
-            // Extract user information if available (e.g., from JWT)
-            // For now, we might pass a default or null user
-            // string userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "anonymous";
-            // _logger.LogInformation("Processing request for User ID: {UserId}", userId);
+            _logger.LogInformation("Invoking orchestration service for ConversationId: {ConversationId}...", sanitizedConversationId);
+            Result<AdapterResponse, OrchestrationError> result = await _orchestrationService.ProcessInteractionAsync(request, cancellationToken);
 
-            // The 'files' parameter is removed, pass null or an empty collection if the interface still requires it temporarily.
-            var result = await _orchestrationService.ProcessInteractionAsync(request, cancellationToken); // Pass request and cancellationToken
-
-            _logger.LogInformation("Invoking orchestration service...");
-            _logger.LogInformation("Orchestration result: {Status}", result.Status);
-
-            // Map orchestration result to HTTP response
-            return result.Status switch
+            if (result.IsSuccess)
             {
-                // Immediate success with a response
-                OrchestrationStatus.Success when result.AdapterResponse != null =>
-                    Ok(result.AdapterResponse), // Use correct enum: Success, Access response via AdapterResponse
+                var sanitizedResponseMessage = result.SuccessValue?.ResponseMessage?.Replace("\n", " ").Replace("\r", " ") ?? "<empty_response>";
+                _logger.LogInformation("Orchestration successful for ConversationId: {ConversationId}. Response: {ResponseMessage}", 
+                    sanitizedConversationId, sanitizedResponseMessage);
+                // Assuming a successful orchestration (e.g., queued) returns an AdapterResponse indicating this.
+                // If SuccessValue itself is the direct response to send to the client:
+                return Ok(result.SuccessValue);
+            }
+            else // IsFailure
+            {
+                var sanitizedErrorValue = result.ErrorValue.ToString().Replace("\n", " ").Replace("\r", " ");
+                _logger.LogWarning("Orchestration failed for ConversationId: {ConversationId}. Error: {Error}", 
+                    sanitizedConversationId, sanitizedErrorValue);
 
-                // Accepted for asynchronous processing (HTTP 202)
-                OrchestrationStatus.Queued =>
-                    Accepted(), // Use correct enum: Queued
+                // Map OrchestrationError to a suitable IActionResult
+                switch (result.ErrorValue)
+                {
+                    case OrchestrationError.InvalidRequest:
+                        return BadRequest(new AdapterResponse(false, "The request was invalid.", ErrorMessage: result.ErrorValue.ToString()));
+                    
+                    case OrchestrationError.ActivationCheckFailed:
+                        // This might be considered a "success" from the API perspective (request processed, determined no action needed)
+                        // Or it could be a specific client error if activation was expected.
+                        // For now, treating as a 200 OK with a specific message.
+                        return Ok(new AdapterResponse(true, "Interaction did not meet activation criteria and was ignored.", ErrorMessage: result.ErrorValue.ToString()));
 
-                // Interaction ignored (e.g., didn't meet activation criteria)
-                OrchestrationStatus.Ignored =>
-                    Ok(), // Use correct enum: Ignored - Return 200 OK, as it's not an error, just no action needed.
+                    case OrchestrationError.PersonaResolutionFailed:
+                    case OrchestrationError.ArtifactProcessingFailed:
+                    case OrchestrationError.RuntimeExecutionFailed:
+                    case OrchestrationError.UnknownError:
+                        return Problem(
+                            detail: $"Orchestration failed with error: {result.ErrorValue}", 
+                            statusCode: StatusCodes.Status500InternalServerError,
+                            title: "Orchestration Error"
+                        );
 
-                // Failure cases - return Problem details
-                OrchestrationStatus.Failed or
-                OrchestrationStatus.PersonaResolutionFailed or
-                OrchestrationStatus.ActivationCheckFailed or
-                OrchestrationStatus.ArtifactProcessingFailed or
-                OrchestrationStatus.RuntimeExecutionFailed =>
-                    Problem(detail: result.ErrorMessage ?? "Orchestration failed.", statusCode: StatusCodes.Status500InternalServerError),
+                    case OrchestrationError.OperationCancelled:
+                        return StatusCode(StatusCodes.Status499ClientClosedRequest, 
+                            new AdapterResponse(false, "Operation was cancelled.", ErrorMessage: result.ErrorValue.ToString()));
 
-                // Unhandled error case
-                OrchestrationStatus.UnhandledError =>
-                    Problem(detail: result.ErrorMessage ?? "An unexpected error occurred.", statusCode: StatusCodes.Status500InternalServerError),
+                    case OrchestrationError.NotFound: // Example if you had a NotFound error
+                        return NotFound(new AdapterResponse(false, "Resource not found.", ErrorMessage: result.ErrorValue.ToString()));
 
-                // Default/Unexpected status - should ideally not happen
-                _ => Problem(detail: $"Unexpected orchestration status: {result.Status}", statusCode: StatusCodes.Status500InternalServerError)
-            };
+                    default:
+                        var defaultSanitizedErrorValue = result.ErrorValue.ToString().Replace("\n", " ").Replace("\r", " ");
+                        _logger.LogError("Unhandled OrchestrationError: {Error} for ConversationId: {ConversationId}", defaultSanitizedErrorValue, sanitizedConversationId);
+                        return Problem(
+                            detail: "An unexpected orchestration error occurred.", 
+                            statusCode: StatusCodes.Status500InternalServerError,
+                            title: "Unexpected Orchestration Error"
+                        );
+                }
+            }
         }
         catch (ArgumentException argEx)
         {
-            _logger.LogWarning(argEx, "Invalid arguments during interaction processing for ConversationId: {ConversationId}", request.ConversationId);
-            return BadRequest(new AdapterResponse(false, "Invalid request data.", argEx.Message));
+            var sanitizedArgExMessage = argEx.Message.Replace("\n", " ").Replace("\r", " ");
+            _logger.LogWarning(argEx, "Invalid arguments during interaction processing for ConversationId: {ConversationId}: {ErrorMessage}", sanitizedConversationId, sanitizedArgExMessage);
+            return BadRequest(new AdapterResponse(false, "Invalid request data.", sanitizedArgExMessage));
         }
         catch (Exception ex)
         {

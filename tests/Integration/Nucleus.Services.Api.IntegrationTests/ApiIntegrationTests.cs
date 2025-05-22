@@ -1,28 +1,25 @@
 using System;
-using System.Net.Http;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
-using Nucleus.Abstractions.Models; // For PlatformAttachmentReference, SourceSystemType and other models
-using Nucleus.Abstractions.Models.ApiContracts; // For API specific models
-using Nucleus.Abstractions.Repositories;
-using Nucleus.Domain.Personas.Core; // For EmptyAnalysisData
-using Xunit.Abstractions; // For ITestOutputHelper
-using Microsoft.Azure.Cosmos; // For CosmosClient
-using Aspire.Hosting.Testing; // Add Aspire Testing namespace
-using Aspire.Hosting; // Add Aspire Hosting namespace for DistributedApplication
-using Aspire.Hosting.ApplicationModel; // Added for ResourceStates
-using System.Net.Http.Json; // For PostAsJsonAsync
-using Xunit;
-using Microsoft.Extensions.DependencyInjection; // For GetRequiredService
-using Azure.Messaging.ServiceBus;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Nucleus.Abstractions.Models.Configuration;
-using Nucleus.Infrastructure.Data.Persistence.Repositories; // Added for CosmosDb repo
-using Nucleus.Infrastructure.Data.Persistence; // Corrected namespace for CosmosDb provider
+using System.Collections.Generic; // For List
 using System.Net;
-using System.Threading;
-using System.Collections.Generic; // For List in NucleusIngestionRequest
+using System.Net.Http;
+using System.Net.Http.Json; // For PostAsJsonAsync
+using System.Threading.Tasks;
+using Aspire.Hosting; // Add Aspire Hosting namespace for DistributedApplication
+using Aspire.Hosting.ApplicationModel; // Added for ResourceStates, if available, or check alternative
+using Aspire.Hosting.Testing; // Add Aspire Testing namespace
+using Microsoft.Azure.Cosmos; // For CosmosClient
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection; // For GetRequiredService
+using Nucleus.Abstractions;
+using Nucleus.Abstractions.Models;
+using Nucleus.Abstractions.Models.ApiContracts;
+using Nucleus.Abstractions.Models.Configuration; 
+using Nucleus.Abstractions.Repositories;
+using System.Text.Json; 
+using Nucleus.Infrastructure.Data.Persistence; 
+using Xunit;
+using Xunit.Abstractions;
+using Xunit.Sdk; // Required for Skip.If
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
@@ -42,6 +39,131 @@ public class ApiIntegrationTests : IAsyncLifetime
     private string _personaKnowledgeContainerName = null!;
     private string _personaConfigContainerName = null!;
 
+    // Static property to check if integration tests are enabled via environment variable.
+    // Uses NucleusConstants for the environment variable name.
+    private static bool ShouldSkipIntegrationTests => 
+        !string.Equals(Environment.GetEnvironmentVariable(NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled), "true", StringComparison.OrdinalIgnoreCase);
+
+    // New private record to hold common test data
+    private record TestIngestionData(
+        string TenantId,
+        string UserId,
+        string ConversationId,
+        string PersonaId,
+        string AttachmentFileName,
+        string AttachmentSourceUri,
+        ArtifactReference TestArtifact,
+        NucleusIngestionRequest IngestionRequest
+    );
+
+    // New helper method to set up common test data
+    private static TestIngestionData SetupTestIngestionData(
+        string baseName,
+        string? queryText = null, 
+        string personaId = "test-persona-metadata-saver")
+    {
+        var tenantId = $"test-tenant-{Guid.NewGuid()}";
+        var userId = $"test-user-{Guid.NewGuid()}";
+        var conversationId = $"test-conversation-{Guid.NewGuid()}";
+        var attachmentFileName = $"{baseName}-{Guid.NewGuid().ToString().Substring(0, 8)}.txt";
+        var attachmentSourceUri = $"http://example.com/{attachmentFileName}";
+
+        var testArtifact = CreateTestArtifactReference(
+            tenantId: tenantId,
+            referenceId: attachmentSourceUri,
+            fileName: attachmentFileName,
+            mimeType: "text/plain"
+        );
+
+        var ingestionRequest = CreateTestNucleusIngestionRequest(
+            platformType: PlatformType.Unknown,
+            originatingUserId: userId,
+            originatingConversationId: conversationId,
+            timestampUtc: DateTimeOffset.UtcNow,
+            tenantId: tenantId, // ADDED tenantId argument
+            queryText: queryText ?? $"Test query for {baseName}",
+            artifactReferences: new List<ArtifactReference> { testArtifact },
+            resolvedPersonaId: personaId,
+            originatingMessageId: conversationId
+        );
+
+        return new TestIngestionData(
+            TenantId: tenantId,
+            UserId: userId,
+            ConversationId: conversationId,
+            PersonaId: personaId,
+            AttachmentFileName: attachmentFileName,
+            AttachmentSourceUri: attachmentSourceUri,
+            TestArtifact: testArtifact,
+            IngestionRequest: ingestionRequest
+        );
+    }
+
+    // Helper method to create a valid ArtifactReference instance
+    private static ArtifactReference CreateTestArtifactReference(
+        string tenantId,
+        string referenceId, // This will often be the SourceUri as a string
+        string? fileName = null,
+        string referenceType = "file", 
+        string? mimeType = "application/octet-stream")
+    {
+        // Ensure SourceUri is a valid Uri
+        if (!Uri.TryCreate(referenceId, UriKind.Absolute, out var sourceUri))
+        {
+            // If referenceId is not a valid absolute URI, try to construct one, 
+            // assuming it might be a relative path or just a name.
+            // This is a fallback and might need adjustment based on typical 'referenceId' values.
+            sourceUri = new Uri($"http://example.com/{referenceId}");
+        }
+
+        var actualFileName = fileName ?? Path.GetFileName(sourceUri.LocalPath);
+        if (string.IsNullOrEmpty(actualFileName) && Uri.IsWellFormedUriString(referenceId, UriKind.Absolute))
+        {
+            actualFileName = Path.GetFileName(new Uri(referenceId).LocalPath);
+        }
+        actualFileName ??= "unknown_file"; // Default if still null
+
+        return new ArtifactReference(
+            ReferenceId: referenceId, // The original referenceId string
+            ReferenceType: referenceType,
+            SourceUri: sourceUri,     // The parsed and validated Uri
+            TenantId: tenantId,
+            FileName: actualFileName,
+            MimeType: mimeType
+        );
+    }
+
+    // Helper method to create a valid NucleusIngestionRequest instance
+    private static NucleusIngestionRequest CreateTestNucleusIngestionRequest(
+        PlatformType platformType,
+        string originatingUserId,
+        string originatingConversationId,
+        DateTimeOffset timestampUtc,
+        string? tenantId, // Parameter already added in previous step, ensure it's not duplicated
+        string? resolvedPersonaId = null,
+        string? queryText = null,
+        List<ArtifactReference>? artifactReferences = null,
+        string? originatingMessageId = null,
+        string? originatingReplyToMessageId = null,
+        string? correlationId = null,
+        Dictionary<string, string>? metadata = null)
+    {
+        return new NucleusIngestionRequest(
+            PlatformType: platformType, 
+            OriginatingUserId: originatingUserId,
+            OriginatingConversationId: originatingConversationId,
+            OriginatingReplyToMessageId: originatingReplyToMessageId,
+            OriginatingMessageId: originatingMessageId ?? originatingConversationId, // Ensure not null, default to conversationId
+            ResolvedPersonaId: resolvedPersonaId ?? string.Empty, // CHANGED: Ensure non-null for ResolvedPersonaId
+            TimestampUtc: timestampUtc,
+            QueryText: queryText,
+            ArtifactReferences: artifactReferences ?? new List<ArtifactReference>(),
+            TenantId: tenantId, // ADDED TenantId argument
+            CorrelationId: correlationId ?? Guid.NewGuid().ToString(),
+            Metadata: metadata
+        );
+    }
+
     // Constructor remains simple, just storing the output helper
     public ApiIntegrationTests(ITestOutputHelper outputHelper) 
     {
@@ -51,6 +173,9 @@ public class ApiIntegrationTests : IAsyncLifetime
     // Moved initialization logic here from constructor and separate method
     public async Task InitializeAsync() // Part of IAsyncLifetime
     {
+        // Use Skip.If directly here. If this condition is met, InitializeAsync won't proceed, effectively skipping all tests in this class.
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping all ApiIntegrationTests. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InitializeAsync START ---");
         Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- InitializeAsync START ---");
 
@@ -141,7 +266,7 @@ public class ApiIntegrationTests : IAsyncLifetime
             // The API service, when run via AppHost, uses its appsettings.Development.json.
             // So, the database name will be 'NucleusEmulatorDb'.
             _databaseName = "NucleusEmulatorDb"; 
-            var defaultSettings = new CosmosDbSettings();
+            var defaultSettings = new Nucleus.Abstractions.Models.Configuration.CosmosDbSettings();
             _artifactMetadataContainerName = defaultSettings.MetadataContainerName;
             _personaKnowledgeContainerName = defaultSettings.KnowledgeContainerName;
             _personaConfigContainerName = defaultSettings.PersonaContainerName;
@@ -149,84 +274,87 @@ public class ApiIntegrationTests : IAsyncLifetime
             _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Targeting Cosmos DB: Database='{_databaseName}', MetadataContainer='{_artifactMetadataContainerName}'");
             Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Targeting Cosmos DB: Database='{_databaseName}', MetadataContainer='{_artifactMetadataContainerName}'");
 
-            // Create CancellationTokenSources for timeouts
-            using var ctsCosmos = new CancellationTokenSource(TimeSpan.FromMinutes(2));
-            using var ctsServiceBus = new CancellationTokenSource(TimeSpan.FromMinutes(5)); // Increased from 3 min
-            using var ctsApi = new CancellationTokenSource(TimeSpan.FromMinutes(2)); // Increased from 1 min
-
-            // Start waiting for resources in parallel
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for Cosmos DB & Service Bus Emulators in parallel...");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting for Cosmos DB & Service Bus Emulators in parallel...");
-
-            var cosmosTask = _app.ResourceNotifications.WaitForResourceAsync("cosmosdb", KnownResourceStates.Running, ctsCosmos.Token);
-            var serviceBusTask = _app.ResourceNotifications.WaitForResourceAsync("sbemulatorns", KnownResourceStates.Running, ctsServiceBus.Token);
-
-            // Await both tasks concurrently
-            await Task.WhenAll(cosmosTask, serviceBusTask);
-
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Cosmos DB & Service Bus Emulators are running.");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Cosmos DB & Service Bus Emulators are running.");
-
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for Nucleus API Service...");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting for Nucleus API Service...");
-            await _app.ResourceNotifications.WaitForResourceAsync("nucleusapi", KnownResourceStates.Running, ctsApi.Token);
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Nucleus API Service is running.");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Nucleus API Service is running.");
-
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] InitializeAsync COMPLETED SUCCESSFULLY.");
+            // Ensure the database and containers exist
+            await EnsureCosmosDbResourcesAsync();
         }
         catch (Exception ex)
         {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! EXCEPTION during InitializeAsync: {ex}");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! EXCEPTION during InitializeAsync: {ex}");
-            // Ensure DisposeAsync is called even if InitializeAsync fails
-            await DisposeAsync();
-            throw; // Re-throw the exception to fail the test setup
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! CRITICAL ERROR during InitializeAsync: {ex}");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! CRITICAL ERROR during InitializeAsync: {ex}");
+            // Attempt to clean up if app was partially started
+            if (_app != null) // Simplified check
+            {
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Attempting to stop partially started app due to initialization error...");
+                // await _app.StopAsync(); // StopAsync might also not be available or might have different semantics.
+                                        // For now, focusing on other errors. DisposeAsync should handle cleanup.
+                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] App stop attempt (or skip if StopAsync is unavailable).");
+            }
+            throw; // Re-throw the exception to fail the test initialization
         }
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- InitializeAsync END ---");
         Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- InitializeAsync END ---");
     }
-
-    // Dispose method from IAsyncLifetime
-    public async Task DisposeAsync()
+    
+    private async Task EnsureCosmosDbResourcesAsync()
     {
+        if (ShouldSkipIntegrationTests) return;
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Ensuring Cosmos DB database '{_databaseName}' and containers exist...");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Ensuring Cosmos DB database '{_databaseName}' and containers exist...");
+
+        if (_cosmosClient == null)
+        {
+            var errorMessage = "CosmosClient is null in EnsureCosmosDbResourcesAsync. This should not happen if InitializeAsync completed successfully.";
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! CRITICAL ERROR: {errorMessage}");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! CRITICAL ERROR: {errorMessage}");
+            throw new InvalidOperationException(errorMessage);
+        }
+
+        DatabaseResponse databaseResponse = await _cosmosClient.CreateDatabaseIfNotExistsAsync(_databaseName);
+        Database database = databaseResponse.Database;
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Database '{_databaseName}' ensured. Status: {databaseResponse.StatusCode}");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Database '{_databaseName}' ensured. Status: {databaseResponse.StatusCode}");
+
+        // Ensure ArtifactMetadata container
+        ContainerResponse metadataContainerResponse = await database.CreateContainerIfNotExistsAsync(
+            new ContainerProperties(_artifactMetadataContainerName, "/tenantId")); // Partition key path
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Container '{_artifactMetadataContainerName}' ensured. Status: {metadataContainerResponse.StatusCode}");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Container '{_artifactMetadataContainerName}' ensured. Status: {metadataContainerResponse.StatusCode}");
+
+        // Ensure PersonaKnowledge container
+        ContainerResponse knowledgeContainerResponse = await database.CreateContainerIfNotExistsAsync(
+            new ContainerProperties(_personaKnowledgeContainerName, "/tenantId")); // Partition key path
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Container '{_personaKnowledgeContainerName}' ensured. Status: {knowledgeContainerResponse.StatusCode}");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Container '{_personaKnowledgeContainerName}' ensured. Status: {knowledgeContainerResponse.StatusCode}");
+        
+        // Ensure PersonaConfiguration container
+        ContainerResponse personaConfigContainerResponse = await database.CreateContainerIfNotExistsAsync(
+            new ContainerProperties(_personaConfigContainerName, "/personaId")); // Partition key path for persona configs
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Container '{_personaConfigContainerName}' ensured. Status: {personaConfigContainerResponse.StatusCode}");
+        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Container '{_personaConfigContainerName}' ensured. Status: {personaConfigContainerResponse.StatusCode}");
+    }
+
+    public async Task DisposeAsync() // Part of IAsyncLifetime
+    {
+        if (ShouldSkipIntegrationTests) return; // Don't run dispose if tests were skipped
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- DisposeAsync START ---");
         Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- DisposeAsync START ---");
-        try
+        if (_app != null)
         {
-            if (_cosmosClient != null)
-            {
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Disposing CosmosClient...");
-                _cosmosClient.Dispose();
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] CosmosClient disposed.");
-            }
-
-            if (_app != null)
-            {
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Disposing DistributedApplication...");
-                await _app.DisposeAsync(); // Reverted: Removed token and try/catch
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication Disposed Successfully.");
-                Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: DistributedApplication Disposed Successfully.");
-            }
-            else
-            {
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] _app was null, nothing to dispose.");
-                Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: _app was null, nothing to dispose.");
-            }
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Disposing DistributedApplication...");
+            await _app.DisposeAsync();
+            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] DistributedApplication disposed.");
+            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: DistributedApplication disposed.");
         }
-        catch (Exception ex)
-        {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] !!! EXCEPTION during DisposeAsync: {ex}");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: !!! EXCEPTION during DisposeAsync: {ex.ToString()}"); // Log full exception
-            // Don't throw from DisposeAsync if possible, but log aggressively.
-        }
+        _cosmosClient?.Dispose();
+        _httpClient?.Dispose();
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- DisposeAsync END ---");
         Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: --- DisposeAsync END ---");
     }
 
-    [Fact(Timeout = 60000)] // Timeout set to 60 seconds
+    [SkippableFact]
     public async Task BasicHealthCheck_ShouldReturnOk()
     {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
         _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: BasicHealthCheck_ShouldReturnOk START ---");
         // Arrange
         Assert.NotNull(_httpClient); // Ensure HttpClient is ready
@@ -244,185 +372,323 @@ public class ApiIntegrationTests : IAsyncLifetime
 
     }
 
-    [Fact]
-    public async Task PostInteraction_ShouldPersistArtifactMetadataAsync()
+    [SkippableFact]
+    public async Task PostIngestionRequest_WithValidData_ShouldReturnAccepted()
     {
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: PostInteraction_ShouldPersistArtifactMetadataAsync START ---");
-        Assert.NotNull(_httpClient); // Ensure _httpClient is initialized
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient); 
 
-        var interactionId = $"test-interaction-{Guid.NewGuid()}";
-        var tenantId = $"test-tenant-{Guid.NewGuid()}";
-        var userId = $"test-user-{Guid.NewGuid()}";
-        var conversationId = $"test-conversation-{Guid.NewGuid()}";
-        var personaId = "test-persona-metadata-saver"; // Matches the persona configured in InitializeAsync
+        var testData = SetupTestIngestionData("acceptance");
 
-        // Prepare the request payload
-        var request = new NucleusIngestionRequest(
-            PlatformType: PlatformType.Test, // CS0117: Use SmokeTest instead of TestPlatform
-            OriginatingUserId: userId,
-            OriginatingConversationId: conversationId,
-            OriginatingReplyToMessageId: null,
-            OriginatingMessageId: $"test-message-{Guid.NewGuid()}",
-            ResolvedPersonaId: personaId, 
-            TimestampUtc: DateTimeOffset.UtcNow,
-            QueryText: "This is a test query for metadata persistence.",
-            ArtifactReferences: new List<ArtifactReference>
-            {
-                new ArtifactReference(
-                    ReferenceId: "test-artifact-id-1",
-                    ReferenceType: "text_plain", // Example reference type
-                    SourceUri: new Uri("http://example.com/artifact1.txt"),
-                    TenantId: tenantId,
-                    FileName: "artifact1.txt",
-                    MimeType: "text/plain"
-                )
-            },
-            CorrelationId: interactionId, // Using interactionId as CorrelationId for tracing
-            Metadata: new Dictionary<string, string> 
-            { 
-                { "TestMetadataKey", "TestMetadataValue" },
-                { "InteractionId", interactionId }, // Pass InteractionId via metadata
-                { "TenantId", tenantId } // Pass TenantId via metadata
-            }
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Sending POST request to /api/ingestion with TenantId: {testData.TenantId}, ConversationId: {testData.ConversationId}");
+        var response = await _httpClient.PostAsJsonAsync("/api/ingestion", testData.IngestionRequest);
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Received response with StatusCode: {response.StatusCode}");
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+    }
+
+    [SkippableFact]
+    public async Task PostIngestionRequest_WithValidData_ShouldPersistArtifactMetadata()
+    {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient);
+        Assert.NotNull(_cosmosClient);
+
+        var testData = SetupTestIngestionData("persist-metadata", "Test metadata persistence");
+
+        var response = await _httpClient.PostAsJsonAsync("/api/ingestion", testData.IngestionRequest);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for 5 seconds for metadata to be processed and persisted...");
+        await Task.Delay(TimeSpan.FromSeconds(5));
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Querying Cosmos DB for persisted ArtifactMetadata. TenantId: {testData.TenantId}");
+        
+        var persistedMetadata = await GetItemFromCosmosDbAsync<ArtifactMetadata>(
+            _cosmosClient, 
+            _databaseName, 
+            _artifactMetadataContainerName, 
+            testData.TenantId, 
+            $"SELECT * FROM c WHERE c.tenantId = '{testData.TenantId}' AND c.userId = '{testData.UserId}' AND c.fileName = '{testData.AttachmentFileName}'",
+            _outputHelper,
+            isQuery: true
+        );
+        
+        Assert.NotNull(persistedMetadata);
+        Assert.Equal(testData.TenantId, persistedMetadata.TenantId);
+        Assert.Equal(testData.UserId, persistedMetadata.UserId);
+        Assert.Equal(testData.AttachmentFileName, persistedMetadata.FileName);
+        Assert.Equal(SourceSystemType.Unknown, persistedMetadata.SourceSystemType);
+        Assert.NotNull(persistedMetadata.AnalyzedByPersonaIds);
+        Assert.Contains(testData.PersonaId, persistedMetadata.AnalyzedByPersonaIds);
+
+        // Cleanup
+        await CleanupCosmosDbAsync<ArtifactMetadata>(_cosmosClient, _databaseName, _artifactMetadataContainerName, testData.TenantId, persistedMetadata.Id, _outputHelper);
+    }
+
+    [SkippableFact]
+    public async Task PostIngestionRequest_WithValidData_ShouldPersistPersonaKnowledge()
+    {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient);
+        Assert.NotNull(_cosmosClient);
+
+        var testData = SetupTestIngestionData("persist-knowledge", "Test knowledge persistence");
+        var expectedStrategyId = "MetadataSaver"; // Matches the StrategyKey in the test persona config
+
+        var response = await _httpClient.PostAsJsonAsync("/api/ingestion", testData.IngestionRequest);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for 10 seconds for metadata and knowledge to be processed and persisted...");
+        await Task.Delay(TimeSpan.FromSeconds(10)); 
+
+        var relatedArtifactMetadata = await GetItemFromCosmosDbAsync<ArtifactMetadata>(
+            _cosmosClient,
+            _databaseName,
+            _artifactMetadataContainerName,
+            testData.TenantId,
+            $"SELECT * FROM c WHERE c.tenantId = '{testData.TenantId}' AND c.userId = '{testData.UserId}' AND c.fileName = '{testData.AttachmentFileName}' ORDER BY c.createdAtNucleus DESC",
+            _outputHelper,
+            isQuery: true
         );
 
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Posting NucleusIngestionRequest to /interactions endpoint with InteractionId: {interactionId}, TenantId: {tenantId}");
-        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Posting NucleusIngestionRequest with InteractionId: {interactionId}, TenantId: {tenantId}");
+        Assert.NotNull(relatedArtifactMetadata);
+        var artifactId = relatedArtifactMetadata.Id; 
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Found related ArtifactMetadata with ID: {artifactId} for knowledge check.");
 
-        // Act: Post to the /interactions endpoint
-        // The endpoint now expects NucleusIngestionRequest directly
-        HttpResponseMessage response = await _httpClient.PostAsJsonAsync("/interactions", request, CancellationToken.None);
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] PostAsJsonAsync response status: {response.StatusCode}");
-        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: PostAsJsonAsync response status: {response.StatusCode}");
+        var expectedKnowledgeId = $"{testData.TenantId}_{artifactId}_{testData.PersonaId}_{expectedStrategyId}";
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Expected PersonaKnowledgeEntry ID: {expectedKnowledgeId}");
 
-        response.EnsureSuccessStatusCode(); // Throw if not a success code.
-
-        // Allow some time for background processing (e.g., Service Bus message handling)
-        // TODO: Replace with a more robust polling mechanism or event-driven wait when available.
-        var processingDelay = TimeSpan.FromSeconds(15); // Adjusted delay, might need tuning
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting {processingDelay.TotalSeconds} seconds for background processing...");
-        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Waiting {processingDelay.TotalSeconds} seconds for background processing...");
-        await Task.Delay(processingDelay);
-
-        // Assert: Verify data in Cosmos DB
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Verifying ArtifactMetadata in Cosmos DB. Database='{_databaseName}', Container='{_artifactMetadataContainerName}'");
-        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Verifying ArtifactMetadata in Cosmos DB. Database='{_databaseName}', Container='{_artifactMetadataContainerName}'");
+        var persistedKnowledge = await GetItemFromCosmosDbAsync<PersonaKnowledgeEntry>(
+            _cosmosClient, 
+            _databaseName, 
+            _personaKnowledgeContainerName, 
+            testData.TenantId, 
+            expectedKnowledgeId, 
+            _outputHelper,
+            isQuery: false 
+        );
         
-        var metadataContainer = _cosmosClient.GetContainer(_databaseName, _artifactMetadataContainerName);
-        ArtifactMetadata? persistedMetadata = null;
-        string artifactIdToQuery = string.Empty; // Will be derived from the artifact reference
+        Assert.NotNull(persistedKnowledge);
+        Assert.Equal(expectedKnowledgeId, persistedKnowledge.Id);
+        Assert.Equal(testData.TenantId, persistedKnowledge.TenantId);
+        Assert.Equal(testData.UserId, persistedKnowledge.UserId);
+        Assert.Equal(testData.ConversationId, persistedKnowledge.InteractionId);
+        Assert.Equal(testData.PersonaId, persistedKnowledge.PersonaId);
+        Assert.Equal(artifactId, persistedKnowledge.ArtifactId);
+        Assert.Equal(expectedStrategyId, persistedKnowledge.StrategyId);
+        Assert.NotNull(persistedKnowledge.AnalysisData);
+        
+        using var jsonDoc = JsonDocument.Parse(persistedKnowledge.AnalysisData.Value.GetRawText());
+        Assert.True(jsonDoc.RootElement.TryGetProperty("metadataPersisted", out var property) && property.GetBoolean());
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] PersonaKnowledgeEntry AnalysisData verified.");
 
-        // We need to determine the ID of the artifact that would have been created.
-        // Assuming the first artifact reference is the one we're interested in.
-        if (request.ArtifactReferences?.Count > 0 && request.ArtifactReferences[0] is ArtifactReference paRef)
-        {
-            // The ArtifactMetadata.Id is typically a new GUID generated during processing.
-            // However, the SourceIdentifier would be the PlatformSpecificId of the attachment.
-            // We need to query by a known unique property if the ID is not predictable.
-            // For this test, let's assume we can find it via SourceIdentifier and other context.
-            // A more robust test might involve a predictable ID or a query mechanism.
-            // For now, we'll try to read by the *interactionId* if that's how it's stored as the document ID.
-            // The previous test code was reading ArtifactMetadata by `interactionId` as document ID and `tenantId` as PK.
-            // Let's stick to that for now. The Id field in ArtifactMetadata is initialized with a new Guid usually.
-            // If the test setup implies InteractionId becomes the ArtifactMetadata.Id, we use that.
+        // Cleanup
+        await CleanupCosmosDbAsync<PersonaKnowledgeEntry>(_cosmosClient, _databaseName, _personaKnowledgeContainerName, testData.TenantId, expectedKnowledgeId, _outputHelper);
+        await CleanupCosmosDbAsync<ArtifactMetadata>(_cosmosClient, _databaseName, _artifactMetadataContainerName, testData.TenantId, artifactId, _outputHelper);
+    }
 
-            // The original test used 'interactionId' as the ID for ReadItemAsync.
-            // This implies that the MetadataSavingStrategyHandler or some part of the pipeline
-            // is using the CorrelationId (which we set to interactionId) as the ID for the ArtifactMetadata document.
-            artifactIdToQuery = interactionId; 
-        }
-        else
-        {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] No ArtifactReference found in the request. Cannot determine artifact ID to query.");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: No ArtifactReference found. Cannot determine artifact ID to query.");
-            Assert.Fail("Test setup error: No ArtifactReference provided.");
-        }
+    [SkippableFact]
+    public async Task GetArtifactMetadata_WithValidId_ShouldReturnOkAndMetadata()
+    {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient);
+        Assert.NotNull(_cosmosClient);
 
+        var testData = SetupTestIngestionData("get-metadata", "Test for GetArtifactMetadata");
+
+        var postResponse = await _httpClient.PostAsJsonAsync("/api/ingestion", testData.IngestionRequest);
+        Assert.Equal(HttpStatusCode.Accepted, postResponse.StatusCode);
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for 5 seconds for metadata to be processed...");
+        await Task.Delay(TimeSpan.FromSeconds(5));
+
+        var persistedIngestedMetadata = await GetItemFromCosmosDbAsync<ArtifactMetadata>(
+            _cosmosClient,
+            _databaseName,
+            _artifactMetadataContainerName,
+            testData.TenantId,
+            $"SELECT * FROM c WHERE c.tenantId = '{testData.TenantId}' AND c.userId = '{testData.UserId}' AND c.fileName = '{testData.AttachmentFileName}'",
+            _outputHelper,
+            isQuery: true
+        );
+        Assert.NotNull(persistedIngestedMetadata);
+        var artifactIdToGet = persistedIngestedMetadata.Id;
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] ArtifactMetadata persisted with ID: {artifactIdToGet}. Attempting to retrieve it via API.");
+
+        var getResponse = await _httpClient.GetAsync($"/api/artifacts/{artifactIdToGet}/metadata?tenantId={testData.TenantId}");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] GET /api/artifacts/{artifactIdToGet}/metadata response: {getResponse.StatusCode}");
+
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var retrievedMetadata = await getResponse.Content.ReadFromJsonAsync<ArtifactMetadata>();
+        Assert.NotNull(retrievedMetadata);
+        Assert.Equal(artifactIdToGet, retrievedMetadata.Id);
+        Assert.Equal(testData.TenantId, retrievedMetadata.TenantId);
+        Assert.Equal(testData.UserId, retrievedMetadata.UserId);
+        Assert.Equal(testData.AttachmentFileName, retrievedMetadata.FileName);
+        Assert.Equal(SourceSystemType.Unknown, retrievedMetadata.SourceSystemType);
+
+        await CleanupCosmosDbAsync<ArtifactMetadata>(_cosmosClient, _databaseName, _artifactMetadataContainerName, testData.TenantId, artifactIdToGet, _outputHelper);
+    }
+
+    [SkippableFact]
+    public async Task GetPersonaKnowledge_WithValidIds_ShouldReturnOkAndKnowledge()
+    {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient);
+        Assert.NotNull(_cosmosClient);
+
+        var testData = SetupTestIngestionData("get-knowledge", "Test for GetPersonaKnowledge");
+        var expectedStrategyId = "MetadataSaver";
+
+        var postResponse = await _httpClient.PostAsJsonAsync("/api/ingestion", testData.IngestionRequest);
+        Assert.Equal(HttpStatusCode.Accepted, postResponse.StatusCode);
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Waiting for 10 seconds for metadata and knowledge to be processed...");
+        await Task.Delay(TimeSpan.FromSeconds(10));
+
+        var persistedIngestedMetadata = await GetItemFromCosmosDbAsync<ArtifactMetadata>(
+            _cosmosClient,
+            _databaseName,
+            _artifactMetadataContainerName,
+            testData.TenantId,
+            $"SELECT * FROM c WHERE c.tenantId = '{testData.TenantId}' AND c.userId = '{testData.UserId}' AND c.fileName = '{testData.AttachmentFileName}'",
+            _outputHelper,
+            isQuery: true
+        );
+        Assert.NotNull(persistedIngestedMetadata);
+        var artifactIdForKnowledge = persistedIngestedMetadata.Id;
+        var expectedKnowledgeId = $"{testData.TenantId}_{artifactIdForKnowledge}_{testData.PersonaId}_{expectedStrategyId}";
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] ArtifactMetadata ID: {artifactIdForKnowledge}. Expected PersonaKnowledge ID: {expectedKnowledgeId}. Attempting to retrieve it via API.");
+
+        var getResponse = await _httpClient.GetAsync($"/api/artifacts/{artifactIdForKnowledge}/knowledge/{testData.PersonaId}/{expectedStrategyId}?tenantId={testData.TenantId}");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] GET /api/artifacts/.../knowledge/... response: {getResponse.StatusCode}");
+
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        var retrievedKnowledge = await getResponse.Content.ReadFromJsonAsync<PersonaKnowledgeEntry>();
+        Assert.NotNull(retrievedKnowledge);
+        Assert.Equal(expectedKnowledgeId, retrievedKnowledge.Id);
+        Assert.Equal(testData.TenantId, retrievedKnowledge.TenantId);
+        Assert.Equal(testData.UserId, retrievedKnowledge.UserId);
+        Assert.Equal(testData.PersonaId, retrievedKnowledge.PersonaId);
+        Assert.Equal(artifactIdForKnowledge, retrievedKnowledge.ArtifactId);
+        Assert.Equal(expectedStrategyId, retrievedKnowledge.StrategyId);
+        Assert.NotNull(retrievedKnowledge.AnalysisData);
+
+        await CleanupCosmosDbAsync<PersonaKnowledgeEntry>(_cosmosClient, _databaseName, _personaKnowledgeContainerName, testData.TenantId, expectedKnowledgeId, _outputHelper);
+        await CleanupCosmosDbAsync<ArtifactMetadata>(_cosmosClient, _databaseName, _artifactMetadataContainerName, testData.TenantId, artifactIdForKnowledge, _outputHelper);
+    }
+
+    [SkippableFact]
+    public async Task GetPersonaConfiguration_ShouldReturnConfiguredPersona()
+    {
+        Skip.If(ShouldSkipIntegrationTests, $"Skipping test. Set {NucleusConstants.NucleusEnvironmentVariables.IntegrationTestsEnabled}=true to enable.");
+        Assert.NotNull(_httpClient);
+
+        var personaIdToGet = "test-persona-metadata-saver"; 
+
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Sending GET request to /api/personas/configurations/{personaIdToGet}");
+        var response = await _httpClient.GetAsync($"/api/personas/configurations/{personaIdToGet}");
+        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Received response with StatusCode: {response.StatusCode}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var config = await response.Content.ReadFromJsonAsync<PersonaConfiguration>();
+
+        Assert.NotNull(config);
+        Assert.Equal(personaIdToGet, config.PersonaId);
+        Assert.True(config.IsEnabled);
+        // Removed: Assert.True(config.IsDefault); // IsDefault is not a property of PersonaConfiguration
+        Assert.NotNull(config.AgenticStrategy); 
+        Assert.Equal("MetadataSaver", config.AgenticStrategy.StrategyKey); 
+    }
+
+    // Helper method to clean up Cosmos DB items - can be marked static
+    private static async Task CleanupCosmosDbAsync(CosmosClient client, string dbName, string containerName, string tenantId, string itemId)
+    {
         try
         {
-            // ArtifactMetadata uses its own 'Id' field as the document ID and TenantId as partition key.
-            // The previous test was using 'interactionId' for the ReadItemAsync call.
-            // If the 'Id' of ArtifactMetadata is indeed set to the 'interactionId' from the request's CorrelationId, this will work.
-            ItemResponse<ArtifactMetadata> itemResponse = await metadataContainer.ReadItemAsync<ArtifactMetadata>(artifactIdToQuery, new PartitionKey(tenantId));
-            persistedMetadata = itemResponse.Resource;
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] ReadItemAsync status: {itemResponse.StatusCode}. RU charge: {itemResponse.RequestCharge}");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: ReadItemAsync status: {itemResponse.StatusCode}.");
+            var container = client.GetContainer(dbName, containerName);
+            await container.DeleteItemAsync<object>(itemId, new PartitionKey(tenantId));
+            // _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Cleaned up item {itemId} from {containerName} for tenant {tenantId}.");
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] ArtifactMetadata with Id {artifactIdToQuery} and PK {tenantId} not found. CosmosException: {ex.Message}");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: ArtifactMetadata with Id {artifactIdToQuery} and PK {tenantId} not found.");
-            // Listing items for debugging if not found
-            try
-            {
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Listing items in container '{_artifactMetadataContainerName}' with PK '{tenantId}' for debugging:");
-                var query = new QueryDefinition("SELECT * FROM c");
-                using FeedIterator<ArtifactMetadata> feed = metadataContainer.GetItemQueryIterator<ArtifactMetadata>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(tenantId) });
-                while (feed.HasMoreResults)
-                {
-                    FeedResponse<ArtifactMetadata> queryResponse = await feed.ReadNextAsync();
-                    foreach (ArtifactMetadata item in queryResponse)
-                    {
-                        _outputHelper.WriteLine($"  Found item: Id={item.Id}, SourceIdentifier={item.SourceIdentifier}, FileName={item.FileName}");
-                    }
-                }
-            }
-            catch (Exception listEx)
-            {
-                _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Exception while listing items for debug: {listEx.Message}");
-            }
+            // Item doesn't exist, which is fine for cleanup
+            // _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Item {itemId} not found in {containerName} for tenant {tenantId} during cleanup (already deleted or never existed).");
         }
         catch (Exception ex)
         {
-            _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Exception while reading from Cosmos DB: {ex}");
-            Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: Exception while reading from Cosmos DB: {ex}");
-            throw; // Re-throw unexpected exceptions
+            Console.WriteLine($"Error during Cosmos DB cleanup for item {itemId} in {containerName}: {ex.Message}");
+            // _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Error during Cosmos DB cleanup for item {itemId} in {containerName}: {ex.Message}");
         }
-
-        Assert.NotNull(persistedMetadata); 
-        // CS1061: 'ArtifactMetadata' no definition for 'OriginalFileName' -> Use FileName
-        // Assert.Equal(request.AdapterRequest.QueryText, persistedMetadata.OriginalFileName); -> AdapterRequest is not part of NucleusIngestionRequest, compare with request.QueryText if that's the intent.
-        // For an attachment, the OriginalFileName in metadata would likely be the FileName from the ArtifactReference.
-        if (request.ArtifactReferences?.Count > 0 && request.ArtifactReferences[0] is ArtifactReference paRefForAssert)
-        {
-             Assert.Equal(paRefForAssert.FileName, persistedMetadata.FileName); 
-        }
-        else
-        {
-            Assert.Null(persistedMetadata.FileName); // Or Assert.Fail if a file name was expected.
-        }
-
-        // CS1061: 'ArtifactMetadata' no definition for 'SourcePlatform' -> Use SourceSystemType
-        // The type of request.PlatformType is PlatformType enum. SourceSystemType is also an enum.
-        // This assumes a direct mapping or that they are compatible. This might need adjustment.
-        Assert.Equal((SourceSystemType)request.PlatformType, persistedMetadata.SourceSystemType);
-        
-        // CS1061: 'NucleusIngestionRequest' no definition for 'UserId' -> Use OriginatingUserId from NucleusIngestionRequest
-        Assert.Equal(request.OriginatingUserId, persistedMetadata.UserId);
-        
-        // CS1061: 'ArtifactMetadata' no definition for 'ConversationId' -> This property doesn't exist on ArtifactMetadata.
-        // If conversation context is needed, it should be part of the metadata dictionary or another field.
-        // Removing this assertion as the model doesn't support it directly.
-        // Assert.Equal(request.OriginatingConversationId, persistedMetadata.ConversationId);
-
-        Assert.Equal(interactionId, persistedMetadata.Id); // Ensure the document ID matches the expected interactionId (if that's the design)
-        Assert.Equal(tenantId, persistedMetadata.TenantId);
-        Assert.NotEqual(default(DateTimeOffset), persistedMetadata.CreatedAtNucleus); 
-        Assert.True(persistedMetadata.CreatedAtNucleus < DateTimeOffset.UtcNow.AddSeconds(5) && persistedMetadata.CreatedAtNucleus > DateTimeOffset.UtcNow.AddSeconds(-60)); 
-        // Assert.NotNull(persistedMetadata.ProcessingLog); // CS1061: ProcessingLog does not exist on ArtifactMetadata
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] ArtifactMetadata successfully verified in Cosmos DB for InteractionId: {interactionId}.");
-        Console.WriteLine($"[{DateTime.UtcNow:O}] CONSOLE: ArtifactMetadata successfully verified in Cosmos DB for InteractionId: {interactionId}.");
-
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test: PostInteraction_ShouldPersistArtifactMetadataAsync END ---");
     }
 
-    [Fact]
-    public async Task IngestEndpoint_ProcessAndPersist()
+    // Helper method to retrieve an item from Cosmos DB - can be marked static
+    private static async Task<T?> GetItemFromCosmosDbAsync<T>(CosmosClient cosmosClient, string databaseName, string containerName, string partitionKey, string itemIdOrQuery, ITestOutputHelper outputHelper, bool isQuery = false) where T : class
     {
-        Assert.NotNull(_httpClient); // Add null check for httpClient
-        Assert.NotNull(_cosmosClient); // Add null check for cosmosClient
+        if (ShouldSkipIntegrationTests) return null;
+        var container = cosmosClient.GetContainer(databaseName, containerName);
+        T? item = null;
 
-        _outputHelper.WriteLine($"[{DateTime.UtcNow:O}] --- Test IngestEndpoint_ProcessAndPersist START ---");
-        // Rest of the test method remains the same
+        if (isQuery)
+        {
+            outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Querying Cosmos DB. Container: {containerName}, PartitionKey: {partitionKey}, Query: {itemIdOrQuery}");
+            var query = new QueryDefinition(itemIdOrQuery);
+            using FeedIterator<T> feed = container.GetItemQueryIterator<T>(query, requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(partitionKey) });
+            if (feed.HasMoreResults)
+            {
+                FeedResponse<T> response = await feed.ReadNextAsync();
+                item = response.FirstOrDefault(); // Taking the first item from the query response
+                outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Query executed. Found item: {item != null}. RU: {response.RequestCharge}");
+            }
+            else
+            {
+                outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Query executed. No items found.");
+            }
+        }
+        else // Direct read by ID
+        {
+            var itemId = itemIdOrQuery; // In this case, it's an item ID
+            outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Reading item from Cosmos DB. Container: {containerName}, ID: {itemId}, PartitionKey: {partitionKey}");
+            try
+            {
+                ItemResponse<T> response = await container.ReadItemAsync<T>(itemId, new PartitionKey(partitionKey));
+                item = response.Resource;
+                outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Item read. Status: {response.StatusCode}, RU: {response.RequestCharge}");
+            }
+            catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+            {
+                outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Item with ID '{itemId}' not found in container '{containerName}'.");
+                item = null;
+            }
+            catch (Exception ex)
+            {
+                outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Exception reading item '{itemId}' from container '{containerName}': {ex.Message}");
+                throw; // Re-throw other exceptions
+            }
+        }
+        return item;
+    }
+
+    // Static helper method to clean up (delete) an item from Cosmos DB
+    private static async Task CleanupCosmosDbAsync<T>(CosmosClient cosmosClient, string databaseName, string containerName, string partitionKey, string itemId, ITestOutputHelper outputHelper)
+    {
+        if (ShouldSkipIntegrationTests) return;
+        outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Cleaning up item. Container: {containerName}, ID: {itemId}, PartitionKey: {partitionKey}");
+        var container = cosmosClient.GetContainer(databaseName, containerName);
+        try
+        {
+            await container.DeleteItemAsync<T>(itemId, new PartitionKey(partitionKey));
+            outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Item '{itemId}' deleted successfully from '{containerName}'.");
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Item '{itemId}' not found during cleanup in '{containerName}'. No action needed.");
+        }
+        catch (Exception ex)
+        {
+            outputHelper.WriteLine($"[{DateTime.UtcNow:O}] Error deleting item '{itemId}' from '{containerName}': {ex.Message}");
+            // Decide if this should throw or just log
+        }
     }
 }

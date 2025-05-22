@@ -216,6 +216,24 @@ public static class NucleusConstants
         public const string BackgroundTasksClientName = "sbbackgroundtasks";
     }
 
+    /// <summary>
+    /// Constants defining environment variable names used for configuration, typically in launchSettings.json or system environment.
+    /// </summary>
+    public static class NucleusEnvironmentVariables // Renamed from EnvironmentVariables
+    {
+        /// <summary>
+        /// Environment variable to enable/disable all integration tests.
+        /// Expected values: "true" or "false".
+        /// </summary>
+        public const string IntegrationTestsEnabled = "INTEGRATION_TESTS_ENABLED";
+
+        /// <summary>
+        /// Environment variable to enable/disable Azure Service Bus specific integration tests.
+        /// Expected values: "true" or "false".
+        /// </summary>
+        public const string AzureServiceBusEnabled = "AZURE_SERVICEBUS_ENABLED";
+    }
+
     // Add other constant groups as needed (e.g., ServiceBus Queues, Cache Keys, etc.)
 }
 
