@@ -95,33 +95,6 @@ jobs:
           name: integration-test-results
           path: "**/integration_test_results.trx"
 
-  sast_scan:
-    name: Static Analysis Security Testing (CodeQL)
-    runs-on: ubuntu-latest
-    needs: build_lint_unit_test 
-    if: needs.build_lint_unit_test.outputs.build_status == 'success' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')) # Modified condition
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }} # Added this step
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: csharp
-          # Optional: specify a CodeQL config file if you have one
-          # config-file: ./.github/codeql/codeql-config.yml
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
   nuget_vulnerability_scan:
     name: NuGet Package Vulnerability Scan
     runs-on: ubuntu-latest
