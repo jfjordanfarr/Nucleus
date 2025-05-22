@@ -20,6 +20,7 @@ namespace Nucleus.Services.Api.IntegrationTests;
 /// Manages the lifecycle of the distributed application and provides a ServiceBusClient.
 /// </summary>
 [Trait("Category", "Integration-ServiceBus")]
+[Trait("Category", "Integration")]
 public class ServiceBusMessagingTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _outputHelper;

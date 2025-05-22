@@ -23,6 +23,7 @@ using Xunit.Sdk; // Required for Skip.If
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
+[Trait("Category", "Integration")]
 /// <summary>
 /// Integration tests for the Nucleus API service using Aspire Test Host.
 /// Implements IAsyncLifetime for proper setup and teardown of the Aspire DistributedApplication.

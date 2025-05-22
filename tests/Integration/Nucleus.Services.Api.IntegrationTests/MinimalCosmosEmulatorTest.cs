@@ -17,6 +17,7 @@ using Nucleus.Abstractions; // Required for NucleusConstants
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
+[Trait("Category", "Integration")]
 public class MinimalCosmosEmulatorTest : IAsyncLifetime
 {
     private readonly ITestOutputHelper _outputHelper;

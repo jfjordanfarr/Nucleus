@@ -21,6 +21,7 @@ using Xunit.Sdk; // For Skip
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
+[Trait("Category", "Integration")]
 /// <summary>
 /// Integration tests for the LocalAdapter focusing on persona scoping and data governance.
 /// These tests verify that the LocalAdapter correctly handles requests based on tenant and conversation IDs,
