@@ -107,6 +107,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Setup .NET SDK ${{ env.DOTNET_VERSION }} # Added this step
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
