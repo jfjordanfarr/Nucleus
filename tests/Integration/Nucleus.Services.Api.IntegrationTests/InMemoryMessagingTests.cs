@@ -15,11 +15,12 @@ using Xunit.Sdk; // Added for Skip.If
 
 namespace Nucleus.Services.Api.IntegrationTests;
 
-/// <summary>
-/// Integration tests targeting the IBackgroundTaskQueue using the InMemoryBackgroundTaskQueue implementation.
-/// Relies on the Development environment configuration in Program.cs.
-/// </summary>
+/// <summary>  
+/// Integration tests targeting the IBackgroundTaskQueue using the InMemoryBackgroundTaskQueue implementation.  
+/// Relies on the Development environment configuration in Program.cs.  
+/// </summary>  
 [Trait("Category", "Integration-InMemoryQueue")] // Categorize these tests
+[Trait("Category", "Integration")]
 public class InMemoryMessagingTests : IAsyncLifetime
 {
     private readonly ITestOutputHelper _outputHelper;
