@@ -83,7 +83,7 @@ jobs:
           GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY_FOR_TESTS }}
         run: >
           dotnet test ./tests/Integration/Nucleus.Services.Api.IntegrationTests/Nucleus.Services.Api.IntegrationTests.csproj
-          --filter "TestCategory=Integration"
+          --filter "Category=Integration"
           --logger "trx;LogFileName=integration_test_results.trx"
           --results-directory ${{ env.TEST_RESULTS_PATH }}
           --diag "${{ env.TEST_RESULTS_PATH }}/integration_test_diag.log"
