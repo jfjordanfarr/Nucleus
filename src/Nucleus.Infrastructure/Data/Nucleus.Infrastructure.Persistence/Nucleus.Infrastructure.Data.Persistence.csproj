@@ -24,4 +24,9 @@
     </Compile>
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Nucleus.Abstractions" />
+    <Using Include="Nucleus.Abstractions.Utils" />
+  </ItemGroup>
+
 </Project>

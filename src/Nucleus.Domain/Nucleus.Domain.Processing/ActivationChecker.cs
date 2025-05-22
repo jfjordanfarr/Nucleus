@@ -55,20 +55,20 @@ public class ActivationChecker : IActivationChecker
             if (firstConfig != null)
             {
                 _logger.LogInformation("Activation Check PASSED for ConversationId {ConversationId} due to '@Nucleus' mention. Activating Persona: {PersonaId}", 
-                    (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""), 
-                    (firstConfig.PersonaId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                    request.ConversationId.SanitizeLogInput(), 
+                    firstConfig.PersonaId.SanitizeLogInput());
                 return Task.FromResult(new ActivationResult(true, firstConfig.PersonaId, firstConfig));
             }
             else
             {
                 _logger.LogWarning("Activation Check PASSED for ConversationId {ConversationId} due to '@Nucleus' mention, but NO persona configurations were provided.", 
-                    (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                    request.ConversationId.SanitizeLogInput());
             }
         }
         else
         {
             _logger.LogDebug("Activation Check FAILED for ConversationId {ConversationId}. Mention '@Nucleus' not found.", 
-                (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                request.ConversationId.SanitizeLogInput());
         }
 
         // If no mention or no configurations, return non-activated result

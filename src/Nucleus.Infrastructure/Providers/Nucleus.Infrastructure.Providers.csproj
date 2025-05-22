@@ -14,9 +14,9 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.12.1" />
   </ItemGroup>
 
-  <!-- NETSDK1022: Remove explicit Compile item as SDK includes it by default -->
-  <!-- <ItemGroup>
-    <Compile Include="ConsoleArtifactProvider.cs" />
-  </ItemGroup> -->
+  <ItemGroup>
+    <Using Include="Nucleus.Abstractions" />
+    <Using Include="Nucleus.Abstractions.Utils" />
+  </ItemGroup>
 
 </Project>

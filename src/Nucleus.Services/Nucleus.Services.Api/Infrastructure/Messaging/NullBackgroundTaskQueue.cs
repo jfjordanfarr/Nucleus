@@ -31,7 +31,7 @@ public sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
     public ValueTask QueueBackgroundWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        _logger.LogDebug("Attempted to enqueue work item via NullBackgroundTaskQueue (Service Bus not configured). CorrelationId: {CorrelationId}", (request.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+        _logger.LogDebug("Attempted to enqueue work item via NullBackgroundTaskQueue (Service Bus not configured). CorrelationId: {CorrelationId}", request.CorrelationId.SanitizeLogInput());
         return ValueTask.CompletedTask;
     }
 
@@ -46,14 +46,14 @@ public sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
     /// <inheritdoc />
     public Task CompleteAsync(object messageContext, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", (messageContext?.ToString() ?? "N/A").Replace("\n", "").Replace("\r", ""));
+        _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", messageContext?.ToString().SanitizeLogInput());
         return Task.CompletedTask;
     }
 
     /// <inheritdoc />
     public Task AbandonAsync(object messageContext, Exception? exception = null, CancellationToken cancellationToken = default)
     {
-        _logger.LogWarning(exception, "Attempted to abandon work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", (messageContext?.ToString() ?? "N/A").Replace("\n", "").Replace("\r", ""));
+        _logger.LogWarning(exception, "Attempted to abandon work item via NullBackgroundTaskQueue for messageContext '{messageContext}'. No action taken.", messageContext?.ToString().SanitizeLogInput());
         return Task.CompletedTask;
     }
 
@@ -61,7 +61,7 @@ public sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
     public Task CompleteWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", (request.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", "")); // Use CorrelationId
+        _logger.LogDebug("Attempted to complete work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", request.CorrelationId.SanitizeLogInput()); // Use CorrelationId
         return Task.CompletedTask;
     }
 
@@ -69,7 +69,7 @@ public sealed class NullBackgroundTaskQueue : IBackgroundTaskQueue
     public Task AbandonWorkItemAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        _logger.LogWarning("Attempted to abandon work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", (request.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", "")); // Use CorrelationId
+        _logger.LogWarning("Attempted to abandon work item via NullBackgroundTaskQueue for CorrelationId '{CorrelationId}'. No action taken.", request.CorrelationId.SanitizeLogInput()); // Use CorrelationId
         return Task.CompletedTask;
     }
 }

@@ -62,31 +62,31 @@ public class OrchestrationService : IOrchestrationService
         {
             _logger.LogInformation(
                 "Processing interaction {InteractionId} from {PlatformType} user {UserId} in conversation {ConversationId}",
-                interactionId.Replace("\n", "").Replace("\r", ""), 
+                interactionId.SanitizeLogInput(), 
                 request.PlatformType, 
-                (request.UserId ?? "N/A").Replace("\n", "").Replace("\r", ""), 
-                (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                request.UserId.SanitizeLogInput(), 
+                request.ConversationId.SanitizeLogInput());
 
             // 1. Check for Persona Activation
-            _logger.LogDebug("Checking activation for interaction {InteractionId}", interactionId.Replace("\n", "").Replace("\r", ""));
+            _logger.LogDebug("Checking activation for interaction {InteractionId}", interactionId.SanitizeLogInput());
             var configurations = await _personaConfigurationProvider.GetAllConfigurationsAsync(cancellationToken);
             var activationResult = await _activationChecker.CheckActivationAsync(request, configurations, cancellationToken);
 
             if (!activationResult.ShouldActivate || string.IsNullOrEmpty(activationResult.PersonaId))
             {
                 _logger.LogInformation("Interaction {InteractionId} did not meet activation criteria or PersonaId is missing.",
-                    interactionId.Replace("\n", "").Replace("\r", ""));
+                    interactionId.SanitizeLogInput());
                 activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Ignored or PersonaId Missing");
                 return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.ActivationCheckFailed);
             }
 
             _logger.LogInformation("Interaction {InteractionId} activated persona {PersonaId}",
-                interactionId.Replace("\n", "").Replace("\r", ""), 
-                (activationResult.PersonaId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                interactionId.SanitizeLogInput(), 
+                activationResult.PersonaId.SanitizeLogInput());
             activity?.SetTag("nucleus.persona_id", activationResult.PersonaId);
 
             // 2. Queue for Background Processing
-            _logger.LogDebug("Queueing interaction {InteractionId} for background processing.", interactionId.Replace("\n", "").Replace("\r", ""));
+            _logger.LogDebug("Queueing interaction {InteractionId} for background processing.", interactionId.SanitizeLogInput());
 
             var ingestionRequest = new NucleusIngestionRequest(
                 PlatformType: request.PlatformType,
@@ -105,34 +105,33 @@ public class OrchestrationService : IOrchestrationService
 
             await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(ingestionRequest, cancellationToken);
 
-            var sanitizedInteractionId = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
-            var sanitizedPersonaId = activationResult.PersonaId?.ToString().Replace("\n", " ").Replace("\r", " ") ?? "<unknown_persona>";
-
-            _logger.LogInformation("Interaction {InteractionId} successfully queued for persona {PersonaId}.", sanitizedInteractionId, sanitizedPersonaId);
+            _logger.LogInformation("Interaction {InteractionId} successfully queued for persona {PersonaId}.", 
+                interactionId.SanitizeLogInput(), 
+                activationResult.PersonaId.SanitizeLogInput("<unknown_persona>"));
             activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Queued");
 
             var successResponse = new AdapterResponse(
                 Success: true,
-                ResponseMessage: $"Request for persona '{sanitizedPersonaId}' received and queued for processing. Interaction ID: {sanitizedInteractionId}"
+                ResponseMessage: $"Request for persona '{activationResult.PersonaId.SanitizeLogInput("<unknown_persona>")}' received and queued for processing. Interaction ID: {interactionId.SanitizeLogInput()}"
             );
             return Result<AdapterResponse, OrchestrationError>.Success(successResponse);
         }
         catch (ArgumentNullException ex)
         {
-            var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
-            var sanitizedParamName = ex.ParamName?.Replace("\n", " ").Replace("\r", " ") ?? "unknown";
-            var sanitizedInteractionId = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
-            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", sanitizedInteractionId, sanitizedErrorMessage, sanitizedParamName);
-            activity?.SetStatus(ActivityStatusCode.Error, $"ArgumentNull: {ex.ParamName}");
+            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", 
+                interactionId.SanitizeLogInput(), 
+                ex.Message.SanitizeLogInput(), 
+                ex.ParamName.SanitizeLogInput("unknown"));
+            activity?.SetStatus(ActivityStatusCode.Error, $"ArgumentNull: {ex.ParamName.SanitizeLogInput()}");
             if (activity != null) { activity.AddException(ex); }
             return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.InvalidRequest);
         }
         catch (Exception ex)
         {
-            var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
-            var sanitizedInteractionIdGeneralEx = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
-            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}: {ErrorMessage}", sanitizedInteractionIdGeneralEx, sanitizedErrorMessage);
-            activity?.SetStatus(ActivityStatusCode.Error, sanitizedErrorMessage);
+            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}: {ErrorMessage}", 
+                interactionId.SanitizeLogInput(), 
+                ex.Message.SanitizeLogInput());
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message.SanitizeLogInput());
             if (activity != null)
             {
                 activity.AddException(ex);

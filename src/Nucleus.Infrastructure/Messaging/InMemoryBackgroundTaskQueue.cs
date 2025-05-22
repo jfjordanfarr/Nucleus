@@ -31,7 +31,7 @@ namespace Nucleus.Infrastructure.Messaging
             cancellationToken.ThrowIfCancellationRequested();
 
             _workItems.Enqueue(request);
-            _logger.LogDebug("[InMemoryQueue] Queued work item with CorrelationId: {CorrelationId}", (request.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+            _logger.LogDebug("[InMemoryQueue] Queued work item with CorrelationId: {CorrelationId}", request.CorrelationId.SanitizeLogInput());
             return ValueTask.CompletedTask;
         }
 
@@ -42,7 +42,7 @@ namespace Nucleus.Infrastructure.Messaging
 
             if (_workItems.TryDequeue(out var workItem))
             {
-                _logger.LogDebug("[InMemoryQueue] Dequeued work item with CorrelationId: {CorrelationId}", (workItem.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                _logger.LogDebug("[InMemoryQueue] Dequeued work item with CorrelationId: {CorrelationId}", workItem.CorrelationId.SanitizeLogInput());
                 // For the in-memory queue, the workItem itself can serve as the MessageContext.
                 // If more complex state per dequeued message is needed (e.g., delivery count),
                 // a wrapper object could be used here and for the ConcurrentQueue's generic type.
@@ -61,7 +61,7 @@ namespace Nucleus.Infrastructure.Messaging
 
             if (messageContext is NucleusIngestionRequest workItem)
             {
-                _logger.LogDebug("[InMemoryQueue] Marking work item as complete with CorrelationId: {CorrelationId}", (workItem.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                _logger.LogDebug("[InMemoryQueue] Marking work item as complete with CorrelationId: {CorrelationId}", workItem.CorrelationId.SanitizeLogInput());
                 // In a simple concurrent queue, dequeuing effectively removes it.
                 // If we needed to track active messages, we'd remove it from an "active messages" collection here.
                 // For now, this is largely a NOP other than logging for the in-memory version.
@@ -69,8 +69,8 @@ namespace Nucleus.Infrastructure.Messaging
             else
             {
                 _logger.LogWarning("[InMemoryQueue] CompleteAsync called with unexpected messageContext type: {ContextType}. Expected {ExpectedType}.", 
-                    (messageContext.GetType().FullName ?? "N/A").Replace("\n", "").Replace("\r", ""), 
-                    (typeof(NucleusIngestionRequest).FullName ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                    messageContext.GetType().FullName.SanitizeLogInput(), 
+                    typeof(NucleusIngestionRequest).FullName.SanitizeLogInput());
                 // Consider throwing ArgumentException if strict type checking is crucial for robust error handling by the consumer.
                 // throw new ArgumentException($"Invalid messageContext type: {messageContext.GetType().FullName}. Expected {typeof(NucleusIngestionRequest).FullName}.", nameof(messageContext));
             }
@@ -90,14 +90,14 @@ namespace Nucleus.Infrastructure.Messaging
                 // 1. Max delivery/retry count (would need to store this, perhaps by wrapping NucleusIngestionRequest in another class in the queue, and using that as the MessageContext).
                 // 2. Moving to a dead-letter queue after N attempts (e.g., _deadLetterQueue.Enqueue((workItem, exception));).
                 // 3. Exponential backoff (would require delaying re-queueing, more complex for a simple in-memory queue).
-                _logger.LogWarning(exception, "[InMemoryQueue] Abandoning work item with CorrelationId: {CorrelationId}. Re-queueing.", (workItem.CorrelationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                _logger.LogWarning(exception, "[InMemoryQueue] Abandoning work item with CorrelationId: {CorrelationId}. Re-queueing.", workItem.CorrelationId.SanitizeLogInput());
                 _workItems.Enqueue(workItem); // Simple re-queue
             }
             else
             {
                 _logger.LogWarning("[InMemoryQueue] AbandonAsync called with unexpected messageContext type: {ContextType}. Expected {ExpectedType}. Work item not re-queued.", 
-                    (messageContext.GetType().FullName ?? "N/A").Replace("\n", "").Replace("\r", ""), 
-                    (typeof(NucleusIngestionRequest).FullName ?? "N/A").Replace("\n", "").Replace("\r", ""));
+                    messageContext.GetType().FullName.SanitizeLogInput(), 
+                    typeof(NucleusIngestionRequest).FullName.SanitizeLogInput());
                 // Consider throwing ArgumentException for similar reasons as in CompleteAsync.
                 // throw new ArgumentException($"Invalid messageContext type: {messageContext.GetType().FullName}. Expected {typeof(NucleusIngestionRequest).FullName}.", nameof(messageContext));
             }

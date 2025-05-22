@@ -26,4 +26,9 @@
     <ProjectReference Include="..\..\..\Nucleus.Abstractions\Nucleus.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Nucleus.Abstractions" />
+    <Using Include="Nucleus.Abstractions.Utils" />
+  </ItemGroup>
+
 </Project>
