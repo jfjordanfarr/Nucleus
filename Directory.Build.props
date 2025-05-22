@@ -1,0 +1,27 @@
+<Project>
+  <!-- This file is used to set common properties for all projects in the solution. -->
+  <!-- Versioning: https://learn.microsoft.com/en-us/dotnet/core/project-sdk/msbuild-props#version -->
+  <!-- For this project, we will use SemVer. The version is primarily managed by Git tags. -->
+  <!-- This VersionPrefix is a base and can be overridden by individual projects or during CI/CD if needed. -->
+  <!-- The actual release version will be determined by the Git tag (e.g., v0.1.0) during the release workflow. -->
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- <VersionSuffix>preview.$([System.DateTime]::UtcNow.ToString(yyyyMMddHHmm))</VersionSuffix> --> <!-- Example for nightly builds, not used for tagged releases -->
+    <Authors>Jordan Sterling Farr, AI Contributors</Authors>
+    <Company>Nucleus Open Source Project</Company>
+    <Copyright>Copyright (c) Jordan Sterling Farr. All rights reserved.</Copyright>
+    <PackageProjectUrl>https://github.com/jfjordanfarr/Nucleus</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/jfjordanfarr/Nucleus.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression> 
+    <PackageIcon>icon.png</PackageIcon> <!-- TODO: Add an icon.png to the solution root or a shared location -->
+    <PackageReadmeFile>README.md</PackageReadmeFile> <!-- Assumes README.md is at the root for NuGet packaging -->
+  </PropertyGroup>
+
+  <!-- Example: Add icon.png and README.md to NuGet package if they exist -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Condition="Exists('$(MSBuildThisFileDirectory)README.md')"/>
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" Condition="Exists('$(MSBuildThisFileDirectory)icon.png')"/>
+  </ItemGroup>
+
+</Project>

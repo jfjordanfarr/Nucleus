@@ -8,14 +8,15 @@ on:
 env:
   DOTNET_VERSION: '9.0.x'
   SOLUTION_FILE_PATH: ./Nucleus.sln
-  API_PROJECT_PATH: src/Nucleus.Services/Api/Nucleus.Services.Api.csproj 
+  API_PROJECT_PATH: src/Nucleus.Services/Api/Nucleus.Services.Api.csproj
   DOCKERFILE_PATH: src/Nucleus.Services/Api/Dockerfile
-  IMAGE_NAME: ${{ github.repository_owner }}/nucleus-api
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/nucleus-api # Simplified
 
 jobs:
   build_and_publish_release:
-    name: Build, Publish Docker Image & Create GitHub Release
+    name: Build, Test, Publish Docker Image & Create GitHub Release
     runs-on: ubuntu-latest
+    environment: ci_tests # Added to make secrets available to this job, especially for tests
     permissions:
       contents: write
       packages: write
@@ -37,14 +38,14 @@ jobs:
 
       - name: Build Solution (Release Configuration)
         run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration Release --no-restore
-      
+
       - name: Run All Tests (Final Sanity Check)
         env:
           INTEGRATION_TESTS_ENABLED: "true"
           NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE: "true"
-          # GOOGLE_AI_API_KEY_FOR_TESTS: ${{ secrets.GOOGLE_AI_API_KEY_FOR_TESTS }}
+          # GOOGLE_AI_API_KEY_FOR_TESTS is now available from the 'ci_tests' environment secrets
         run: dotnet test ${{ env.SOLUTION_FILE_PATH }} --configuration Release --no-build --logger "trx;LogFileName=release_test_results.trx"
-      
+
       - name: Upload Release Test Results
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,16 +64,17 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }} # Use simplified env var
           tags: |
-            type=semver,pattern={{version}} 
+            type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }} # Add latest if not a pre-release
             # type=sha # Optionally tag with commit SHA
 
       - name: Build and Push Docker image (Nucleus API)
         uses: docker/build-push-action@v5
         with:
-          context: . 
+          context: .
           file: ${{ env.DOCKERFILE_PATH }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -80,7 +82,7 @@ jobs:
           build-args: |
             PUBLISH_CONFIGURATION=Release
             TRIMMED=true
-            TRIM_MODE=full 
+            TRIM_MODE=full
             READY_TO_RUN=true
             # NATIVE_AOT=false # Set to true if/when you use Native AOT
             # RUNTIME_IDENTIFIER=linux-x64 # Or linux-musl-x64 for Alpine
