@@ -101,12 +101,15 @@ public class OrchestrationService : IOrchestrationService
 
             await _backgroundTaskQueue.QueueBackgroundWorkItemAsync(ingestionRequest, cancellationToken);
 
-            _logger.LogInformation("Interaction {InteractionId} successfully queued for persona {PersonaId}.", interactionId, activationResult.PersonaId);
+            var sanitizedInteractionId = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
+            var sanitizedPersonaId = activationResult.PersonaId?.ToString().Replace("\n", " ").Replace("\r", " ") ?? "<unknown_persona>";
+
+            _logger.LogInformation("Interaction {InteractionId} successfully queued for persona {PersonaId}.", sanitizedInteractionId, sanitizedPersonaId);
             activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Queued");
 
             var successResponse = new AdapterResponse(
                 Success: true,
-                ResponseMessage: $"Request for persona '{activationResult.PersonaId}' received and queued for processing. Interaction ID: {interactionId}"
+                ResponseMessage: $"Request for persona '{sanitizedPersonaId}' received and queued for processing. Interaction ID: {sanitizedInteractionId}"
             );
             return Result<AdapterResponse, OrchestrationError>.Success(successResponse);
         }
@@ -114,7 +117,8 @@ public class OrchestrationService : IOrchestrationService
         {
             var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
             var sanitizedParamName = ex.ParamName?.Replace("\n", " ").Replace("\r", " ") ?? "unknown";
-            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", interactionId, sanitizedErrorMessage, sanitizedParamName);
+            var sanitizedInteractionId = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
+            _logger.LogError(ex, "ArgumentNull error during orchestration for interaction {InteractionId}: {ErrorMessage} (Parameter: {ParameterName})", sanitizedInteractionId, sanitizedErrorMessage, sanitizedParamName);
             activity?.SetStatus(ActivityStatusCode.Error, $"ArgumentNull: {ex.ParamName}");
             if (activity != null) { activity.AddException(ex); }
             return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.InvalidRequest);
@@ -122,7 +126,8 @@ public class OrchestrationService : IOrchestrationService
         catch (Exception ex)
         {
             var sanitizedErrorMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
-            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}: {ErrorMessage}", interactionId, sanitizedErrorMessage);
+            var sanitizedInteractionIdGeneralEx = interactionId.ToString().Replace("\n", " ").Replace("\r", " ");
+            _logger.LogError(ex, "Unhandled error during orchestration for interaction {InteractionId}: {ErrorMessage}", sanitizedInteractionIdGeneralEx, sanitizedErrorMessage);
             activity?.SetStatus(ActivityStatusCode.Error, sanitizedErrorMessage);
             if (activity != null)
             {
