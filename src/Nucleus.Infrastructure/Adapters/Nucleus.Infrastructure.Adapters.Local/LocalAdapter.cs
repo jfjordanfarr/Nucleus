@@ -130,12 +130,12 @@ namespace Nucleus.Infrastructure.Adapters.Local
             // Future OTel instrumentation can pick up these structured console logs.
             _logger.LogInformation(
                 "LocalAdapter: Interaction audit log. InteractionId={InteractionId}, TimestampUtc={TimestampUtc}, TenantId={TenantId}, PersonaId={PersonaId}, UserId={UserId}, ConversationId={ConversationId}, PlatformType={PlatformType}, InteractionType={InteractionType}",
-                request.MessageId ?? "N/A",      // Serves as the unique ID for this interaction event
+                (request.MessageId ?? "N/A").Replace("\n", "").Replace("\r", ""),      // Serves as the unique ID for this interaction event
                 request.TimestampUtc,            // Time of the original request
-                request.TenantId ?? "N/A",
-                request.PersonaId ?? "N/A",
-                request.UserId ?? "N/A",
-                request.ConversationId ?? "N/A",
+                (request.TenantId ?? "N/A").Replace("\n", "").Replace("\r", ""),
+                (request.PersonaId ?? "N/A").Replace("\n", "").Replace("\r", ""),
+                (request.UserId ?? "N/A").Replace("\n", "").Replace("\r", ""),
+                (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""),
                 request.PlatformType,
                 request.InteractionType);        // Type of interaction (e.g., Message, Command)
 

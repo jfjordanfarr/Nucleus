@@ -154,8 +154,9 @@ public class InteractionController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unexpected error processing interaction for ConversationId: {ConversationId}", request.ConversationId);
-            return StatusCode(StatusCodes.Status500InternalServerError, new AdapterResponse(false, "An unexpected internal error occurred.", ex.Message));
+            var sanitizedExMessage = ex.Message.Replace("\n", " ").Replace("\r", " ");
+            _logger.LogError(ex, "Unexpected error processing interaction for ConversationId: {ConversationId}: {ErrorMessage}", sanitizedConversationId, sanitizedExMessage);
+            return StatusCode(StatusCodes.Status500InternalServerError, new AdapterResponse(false, "An unexpected internal error occurred.", sanitizedExMessage));
         }
     }
 }

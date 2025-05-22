@@ -62,35 +62,39 @@ public class OrchestrationService : IOrchestrationService
         {
             _logger.LogInformation(
                 "Processing interaction {InteractionId} from {PlatformType} user {UserId} in conversation {ConversationId}",
-                interactionId, request.PlatformType, request.UserId, request.ConversationId);
+                interactionId.Replace("\n", "").Replace("\r", ""), 
+                request.PlatformType, 
+                (request.UserId ?? "N/A").Replace("\n", "").Replace("\r", ""), 
+                (request.ConversationId ?? "N/A").Replace("\n", "").Replace("\r", ""));
 
             // 1. Check for Persona Activation
-            _logger.LogDebug("Checking activation for interaction {InteractionId}", interactionId);
+            _logger.LogDebug("Checking activation for interaction {InteractionId}", interactionId.Replace("\n", "").Replace("\r", ""));
             var configurations = await _personaConfigurationProvider.GetAllConfigurationsAsync(cancellationToken);
             var activationResult = await _activationChecker.CheckActivationAsync(request, configurations, cancellationToken);
 
             if (!activationResult.ShouldActivate || string.IsNullOrEmpty(activationResult.PersonaId))
             {
                 _logger.LogInformation("Interaction {InteractionId} did not meet activation criteria or PersonaId is missing.",
-                    interactionId);
+                    interactionId.Replace("\n", "").Replace("\r", ""));
                 activity?.SetStatus(ActivityStatusCode.Ok, "Interaction Ignored or PersonaId Missing");
                 return Result<AdapterResponse, OrchestrationError>.Failure(OrchestrationError.ActivationCheckFailed);
             }
 
             _logger.LogInformation("Interaction {InteractionId} activated persona {PersonaId}",
-                interactionId, activationResult.PersonaId);
+                interactionId.Replace("\n", "").Replace("\r", ""), 
+                (activationResult.PersonaId ?? "N/A").Replace("\n", "").Replace("\r", ""));
             activity?.SetTag("nucleus.persona_id", activationResult.PersonaId);
 
             // 2. Queue for Background Processing
-            _logger.LogDebug("Queueing interaction {InteractionId} for background processing.", interactionId);
+            _logger.LogDebug("Queueing interaction {InteractionId} for background processing.", interactionId.Replace("\n", "").Replace("\r", ""));
 
             var ingestionRequest = new NucleusIngestionRequest(
                 PlatformType: request.PlatformType,
-                OriginatingUserId: request.UserId,
-                OriginatingConversationId: request.ConversationId,
+                OriginatingUserId: request.UserId ?? "N/A",
+                OriginatingConversationId: request.ConversationId ?? "N/A",
                 OriginatingReplyToMessageId: request.ReplyToMessageId,
                 OriginatingMessageId: request.MessageId,
-                ResolvedPersonaId: activationResult.PersonaId, // Now guaranteed to be non-null
+                ResolvedPersonaId: activationResult.PersonaId ?? "N/A", // PersonaId is checked for null/empty above, but defensive here
                 TimestampUtc: DateTimeOffset.UtcNow,
                 QueryText: request.QueryText,
                 ArtifactReferences: request.ArtifactReferences,
