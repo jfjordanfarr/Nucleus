@@ -60,21 +60,21 @@ public class InteractionController : ControllerBase
         if (request == null) // This check is somewhat redundant if ASP.NET Core model binding handles it, but good for explicit logging.
         {
             _logger.LogWarning("Received null request body.");
-            return BadRequest(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
+            return new BadRequestObjectResult(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
         }
 
         // Explicitly check PlatformType as it's not well-covered by simple annotations for enum defaults.
         if (request.PlatformType == PlatformType.Unknown)
         {
             _logger.LogWarning("Received request with Unknown PlatformType.");
-            return BadRequest(new AdapterResponse(false, "PlatformType cannot be Unknown.", ErrorMessage: "PlatformType cannot be Unknown."));
+            return new BadRequestObjectResult(new AdapterResponse(false, "PlatformType cannot be Unknown.", ErrorMessage: "PlatformType cannot be Unknown."));
         }
 
         // Combined validation for QueryText and ArtifactReferences
         if (string.IsNullOrEmpty(request.QueryText) && (request.ArtifactReferences == null || !request.ArtifactReferences.Any()))
         {
             _logger.LogWarning("Received request with null or empty QueryText and no ArtifactReferences.");
-            return BadRequest(new AdapterResponse(false, "QueryText cannot be null or empty if no ArtifactReferences are provided.", ErrorMessage: "QueryText cannot be null or empty if no ArtifactReferences are provided."));
+            return new BadRequestObjectResult(new AdapterResponse(false, "QueryText cannot be null or empty if no ArtifactReferences are provided.", ErrorMessage: "QueryText cannot be null or empty if no ArtifactReferences are provided."));
         }
 
         // Check ModelState after custom checks for PlatformType and QueryText/ArtifactReferences
@@ -82,7 +82,8 @@ public class InteractionController : ControllerBase
         {
             _logger.LogWarning("Invalid model state for AdapterRequest: {ModelStateErrors}", 
                 JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage), _jsonSerializerOptions).SanitizeLogInput());
-            return BadRequest(new AdapterResponse(false, "Invalid request data.", ErrorMessage: string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
+            // Explicitly return BadRequestObjectResult
+            return new BadRequestObjectResult(new AdapterResponse(false, "Invalid request data.", ErrorMessage: string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
         }
 
         // The null checks for ConversationId and UserId are now handled by ModelState.IsValid
@@ -122,7 +123,7 @@ public class InteractionController : ControllerBase
                 switch (errorType)
                 {
                     case OrchestrationError.InvalidRequest:
-                        return BadRequest(new AdapterResponse(false, "The request was invalid.", ErrorMessage: errorType.ToString()));
+                        return new BadRequestObjectResult(new AdapterResponse(false, "The request was invalid.", ErrorMessage: errorType.ToString()));
                     case OrchestrationError.ActivationCheckFailed:
                         // This case is handled by the OrchestrationService returning a Success=true AdapterResponse
                         // with a specific message. If it were to return an error, this would be the place.
@@ -163,7 +164,7 @@ public class InteractionController : ControllerBase
                 request.ConversationId.SanitizeLogInput("unknown-conversation"), 
                 sanitizedArgExMessage, 
                 (argEx as ArgumentNullException)?.ParamName.SanitizeLogInput() ?? "N/A");
-            return BadRequest(new AdapterResponse(false, "Invalid request data.", sanitizedArgExMessage));
+            return new BadRequestObjectResult(new AdapterResponse(false, "Invalid request data.", sanitizedArgExMessage));
         }
         catch (Exception ex) // Catch-all for other unexpected errors
         {
