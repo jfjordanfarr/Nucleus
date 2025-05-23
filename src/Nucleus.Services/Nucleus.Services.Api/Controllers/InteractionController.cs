@@ -52,16 +52,12 @@ public class InteractionController : ControllerBase
     /// <param name="cancellationToken">A token to cancel the asynchronous operation.</param>
     /// <returns>An IActionResult indicating the result of the processing.</returns>
     [HttpPost("query")]
-    public async Task<IActionResult> Post([FromBody] AdapterRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Post([FromBody, System.ComponentModel.DataAnnotations.Required] AdapterRequest request, CancellationToken cancellationToken)
     {
         // ModelState.IsValid will now check for null/empty ConversationId and UserId due to annotations on AdapterRequest.
         // It also implicitly checks if 'request' itself is null and returns a 400 if so, 
         // but we can keep an explicit null check for clarity or custom logging if desired.
-        if (request == null) // This check is somewhat redundant if ASP.NET Core model binding handles it, but good for explicit logging.
-        {
-            _logger.LogWarning("Received null request body.");
-            return new BadRequestObjectResult(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
-        }
+        // ASP.NET Core model binding will handle null or invalid request objects and return a 400 Bad Request response.
 
         // Explicitly check PlatformType as it's not well-covered by simple annotations for enum defaults.
         if (request.PlatformType == PlatformType.Unknown)
