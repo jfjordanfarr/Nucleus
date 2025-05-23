@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Xunit;
 using Nucleus.Abstractions.Adapters.Local; // Added using directive
 using Microsoft.AspNetCore.Http; // Added for StatusCodes
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation; // Required for ObjectValidator
 
 namespace Nucleus.Services.Api.Tests.Controllers;
 
@@ -29,7 +30,21 @@ public class InteractionControllerTests
         _mockLogger = new Mock<ILogger<InteractionController>>();
         _mockOrchestrationService = new Mock<IOrchestrationService>();
         _mockLocalAdapterClient = new Mock<ILocalAdapterClient>(); // Added
-        _controller = new InteractionController(_mockLogger.Object, _mockOrchestrationService.Object, _mockLocalAdapterClient.Object); // Updated constructor call
+        _controller = new InteractionController(_mockLogger.Object, _mockOrchestrationService.Object, _mockLocalAdapterClient.Object)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext()
+            }
+        };
+
+        // REMOVED: Mock IObjectModelValidator setup
+        // var objectValidator = new Mock<IObjectModelValidator>();
+        // objectValidator.Setup(o => o.Validate(It.IsAny<ActionContext>(),
+        //                                       It.IsAny<ValidationStateDictionary>(),
+        //                                       It.IsAny<string>(),
+        //                                       It.IsAny<object>()));
+        // _controller.ObjectValidator = objectValidator.Object;
     }
 
     private static AdapterRequest CreateValidAdapterRequest() => new(
@@ -290,16 +305,67 @@ public class InteractionControllerTests
     [InlineData("", "test-user", "hello")]
     [InlineData("test-conversation", null, "hello")]
     [InlineData("test-conversation", "", "hello")]
-    [InlineData("test-conversation", "test-user", null)]
-    [InlineData("test-conversation", "test-user", "")]
+    // [InlineData("test-conversation", "test-user", null)] // This case is handled by a different check now
+    // [InlineData("test-conversation", "test-user", "")]   // This case is handled by a different check now
     public async Task Post_WithInvalidAdapterRequestProperties_ReturnsBadRequest(string? conversationId, string? userId, string? queryText)
     {
         // Arrange
         var request = new AdapterRequest(
             PlatformType: Abstractions.Models.PlatformType.Test,
-            ConversationId: conversationId!,
-            UserId: userId!,
-            QueryText: queryText!,
+            ConversationId: conversationId!, // Null forgiving operator is fine here for test setup
+            UserId: userId!,                 // Null forgiving operator is fine here for test setup
+            QueryText: queryText!,           // Null forgiving operator is fine here for test setup
+            MessageId: Guid.NewGuid().ToString()
+        );
+
+        // Manually add ModelState errors to simulate failed validation for these specific properties
+        if (string.IsNullOrEmpty(conversationId))
+        {
+            _controller.ModelState.AddModelError(nameof(AdapterRequest.ConversationId), "ConversationId cannot be null or empty.");
+        }
+        if (string.IsNullOrEmpty(userId))
+        {
+            _controller.ModelState.AddModelError(nameof(AdapterRequest.UserId), "UserId cannot be null or empty.");
+        }
+        // The QueryText null/empty check is now combined with ArtifactReferences check in the controller,
+        // so we don't add a ModelState error for it here if it's the *only* thing wrong,
+        // as that specific path returns a BadRequestObjectResult(AdapterResponse) not ValidationProblemDetails.
+        // This test focuses on ModelState errors from data annotations.
+
+        // REMOVED: _controller.TryValidateModel(request);
+
+        // Act
+        var actionResult = await _controller.Post(request, CancellationToken.None);
+
+        // Assert
+        var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        // The controller now returns ValidationProblemDetails when ModelState is invalid.
+        var validationProblemDetails = Assert.IsType<ValidationProblemDetails>(badRequestResult.Value);
+        Assert.Equal("Invalid request data.", validationProblemDetails.Title);
+        Assert.True(validationProblemDetails.Errors.Any());
+
+        if (string.IsNullOrEmpty(conversationId))
+        {
+            Assert.Contains(validationProblemDetails.Errors, e => e.Key == nameof(AdapterRequest.ConversationId));
+        }
+        if (string.IsNullOrEmpty(userId))
+        {
+            Assert.Contains(validationProblemDetails.Errors, e => e.Key == nameof(AdapterRequest.UserId));
+        }
+
+        _mockOrchestrationService.Verify(s => s.ProcessInteractionAsync(It.IsAny<AdapterRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Post_WithEmptyQueryTextAndNoArtifacts_ReturnsBadRequestWithAdapterResponse()
+    {
+        // Arrange
+        var request = new AdapterRequest(
+            PlatformType: Abstractions.Models.PlatformType.Test,
+            ConversationId: "test-conversation",
+            UserId: "test-user",
+            QueryText: "", // Empty QueryText
+            ArtifactReferences: null, // No artifacts
             MessageId: Guid.NewGuid().ToString()
         );
 
@@ -308,12 +374,10 @@ public class InteractionControllerTests
 
         // Assert
         var badRequestResult = Assert.IsType<BadRequestObjectResult>(actionResult);
+        // This specific validation path in the controller returns an AdapterResponse directly.
         var responseValue = Assert.IsType<AdapterResponse>(badRequestResult.Value);
         Assert.False(responseValue.Success);
-        // Specific error message depends on which validation fails first in the controller.
-        // We are just ensuring it's a BadRequest with a non-successful AdapterResponse.
-        Assert.NotNull(responseValue.ResponseMessage);
-        Assert.NotNull(responseValue.ErrorMessage);
+        Assert.Equal("QueryText cannot be null or empty if no ArtifactReferences are provided.", responseValue.ResponseMessage);
         _mockOrchestrationService.Verify(s => s.ProcessInteractionAsync(It.IsAny<AdapterRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

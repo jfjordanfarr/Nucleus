@@ -82,8 +82,14 @@ public class InteractionController : ControllerBase
         {
             _logger.LogWarning("Invalid model state for AdapterRequest: {ModelStateErrors}", 
                 JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage), _jsonSerializerOptions).SanitizeLogInput());
-            // Explicitly return BadRequestObjectResult
-            return new BadRequestObjectResult(new AdapterResponse(false, "Invalid request data.", ErrorMessage: string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
+            // Return BadRequestObjectResult with the ModelStateDictionary itself or a ValidationProblemDetails constructed from it.
+            // This is more aligned with how [ApiController] typically handles model validation errors.
+            return new BadRequestObjectResult(new ValidationProblemDetails(ModelState)
+            {
+                Title = "Invalid request data.",
+                Detail = "One or more validation errors occurred."
+                // Instance can be set to HttpContext.Request.Path if needed for more detail
+            });
         }
 
         // The null checks for ConversationId and UserId are now handled by ModelState.IsValid
