@@ -1,7 +1,7 @@
 ---
 title: "Copilot Session State"
 description: "Current operational status and context for the Copilot agent."
-version: 4.100
+version: 4.101
 date: 2025-05-23
 ---
 
@@ -44,26 +44,33 @@ The primary goal is to resolve all CodeQL scan warnings and unit test failures i
     18. **COMPLETED:** Discussed the nature of the `TryValidateModel` fix and alternatives.
     19. **COMPLETED:** Modified `InteractionController.cs` to return `BadRequestObjectResult(new ValidationProblemDetails(ModelState))` when `ModelState` is invalid.
     20. **COMPLETED:** Resolved regression in `InteractionControllerTests.cs` by correctly managing `ModelState` in tests (manual population) and adjusting assertions. Added a new test `Post_WithEmptyQueryTextAndNoArtifacts_ReturnsBadRequestWithAdapterResponse` for a specific validation path.
-    21. **NEW:** Regression introduced by manual edit in `InteractionController.cs` causing `NullReferenceException`.
-    22. **PENDING:** Fix `NullReferenceException` in `InteractionController.cs`.
+    21. **COMPLETED:** Fixed `NullReferenceException` in `InteractionController.cs` by adding an explicit null check for the `request` parameter, ensuring `Post_WithNullRequestBody_ReturnsBadRequest` unit test passes.
+    22. **NEW:** Address 5 new high-severity CodeQL alerts reported after the latest push.
+        *   User-controlled bypass of sensitive method (4 instances in `InteractionController.cs`, one sink in `LocalAdapter.cs`)
+        *   Log entries created from user input (1 instance in `LocalAdapter.cs`)
     23. **PENDING:** User review and approval of all changes.
     24. **PENDING:** User re-run CodeQL scan and tests in CI to confirm all fixes.
 
 *   **Detailed Sub-Tasks (Current Focus):**
-    *   Read `InteractionController.cs` to identify the cause of the `NullReferenceException` at line 63.
-    *   Implement a null check for the `request` parameter before accessing its members.
-    *   Verify the fix by running unit tests.
+    *   **Address CodeQL Alerts:**
+        *   **`InteractionController.cs` ("User-controlled bypass"):** Reorder validation checks in the `Post` method. The `ModelState.IsValid` check should come earlier, after the `request == null` check but before other custom logic accessing request members.
+        *   **`LocalAdapter.cs` ("Log entries created from user input"):** Apply `SanitizeLogInput()` to `UserId` and `ConversationId` in the logging statement within `PersistInteractionAsync`.
+    *   Run unit tests to ensure no regressions after fixes.
 
 ## 4. Session History & Key Decisions
 
-*   **Previous Turn Summary:** User ran `dotnet test` and confirmed all tests were passing. User then made a manual edit to `InteractionController.cs` which introduced a `NullReferenceException`.
+*   **Previous Turn Summary:** Fixed `NullReferenceException` in `InteractionController.cs`. All unit tests were passing locally.
 *   **Key Decisions Made:**
-    *   Manually manipulating `ModelState` in the unit tests for `InteractionControllerTests.cs` was the correct approach to reliably test the controller's logic branches that depend on `ModelState.IsValid`.
-    *   Separated tests for `ModelState` validation (resulting in `ValidationProblemDetails`) and other specific input validations (resulting in `AdapterResponse` within `BadRequestObjectResult`).
+    *   Explicit null check for `request` in `InteractionController.Post` is necessary even with `[Required]` on the parameter for robustness and to prevent `NullReferenceException` before `ModelState` validation can be fully processed in all scenarios.
 *   **Search/Analysis Results:**
-    *   Test output shows 1 failing test: `Post_WithNullRequestBody_ReturnsBadRequest` due to `System.NullReferenceException` in `InteractionController.cs:line 63`.
+    *   User provided 5 new CodeQL high-severity alerts.
+        *   Alert 1: User-controlled bypass (Source: `InteractionController.cs:55`, Sink: `LocalAdapter.cs:118`)
+        *   Alert 2: Log entries created from user input (Source: `InteractionController.cs:55`, Sink: `LocalAdapter.cs:140`)
+        *   Alert 3: User-controlled bypass (Source: `InteractionController.cs:55`, Sink: `InteractionController.cs:61`)
+        *   Alert 4: User-controlled bypass (Source: `InteractionController.cs:55`, Sink: `InteractionController.cs:77`)
+        *   Alert 5: User-controlled bypass (Source: `InteractionController.cs:55`, Sink: `InteractionController.cs:84`)
 *   **Pending User Feedback/Actions:**
-    *   Awaiting fix for the current regression.
+    *   Awaiting fixes for the new CodeQL alerts.
 
 ## 5. Current Contextual Information
 

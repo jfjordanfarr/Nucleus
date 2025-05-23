@@ -54,65 +54,42 @@ public class InteractionController : ControllerBase
     [HttpPost("query")]
     public async Task<IActionResult> Post([FromBody, System.ComponentModel.DataAnnotations.Required] AdapterRequest request, CancellationToken cancellationToken)
     {
-        // ASP.NET Core model binding will set ModelState to invalid if the request body is null 
-        // when [Required] is present on the parameter. However, the 'request' object itself will be null.
-        // An explicit null check here ensures we don't try to access members of a null 'request' object
-        // before the ModelState.IsValid check, which would lead to a NullReferenceException.
         if (request == null)
         {
-            // This case should ideally be caught by model binding making ModelState invalid.
-            // However, if it somehow proceeds with request being null, this handles it.
-            // Or, if the [Required] attribute was missing, this would be critical.
             _logger.LogWarning("Received a null request body.");
-            // Even though ModelState would be invalid, we return a specific message for a null body.
             return new BadRequestObjectResult(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
         }
 
-        // ModelState.IsValid will now check for null/empty ConversationId and UserId due to annotations on AdapterRequest.
-        // It also implicitly checks if 'request' itself is null and returns a 400 if so, 
-        // but we can keep an explicit null check for clarity or custom logging if desired.
-        // ASP.NET Core model binding will handle null or invalid request objects and return a 400 Bad Request response.
+        // Check ModelState immediately after the null check.
+        // This ensures that basic model validation (including [Required] fields) is handled
+        // before any custom logic that accesses request members.
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid model state for AdapterRequest: {ModelStateErrors}", 
+                JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage), _jsonSerializerOptions).SanitizeLogInput());
+            return new BadRequestObjectResult(new ValidationProblemDetails(ModelState)
+            {
+                Title = "Invalid request data.",
+                Detail = "One or more validation errors occurred."
+            });
+        }
+
+        // Now that ModelState is valid, we know request.ConversationId and request.UserId are present.
+        // Proceed with other custom validations.
 
         // Explicitly check PlatformType as it's not well-covered by simple annotations for enum defaults.
         if (request.PlatformType == PlatformType.Unknown)
         {
-            _logger.LogWarning("Received request with Unknown PlatformType.");
+            _logger.LogWarning("Received request with Unknown PlatformType for ConversationId: {ConversationId}", request.ConversationId.SanitizeLogInput());
             return new BadRequestObjectResult(new AdapterResponse(false, "PlatformType cannot be Unknown.", ErrorMessage: "PlatformType cannot be Unknown."));
         }
 
         // Combined validation for QueryText and ArtifactReferences
         if (string.IsNullOrEmpty(request.QueryText) && (request.ArtifactReferences == null || !request.ArtifactReferences.Any()))
         {
-            _logger.LogWarning("Received request with null or empty QueryText and no ArtifactReferences.");
+            _logger.LogWarning("Received request with null or empty QueryText and no ArtifactReferences for ConversationId: {ConversationId}", request.ConversationId.SanitizeLogInput());
             return new BadRequestObjectResult(new AdapterResponse(false, "QueryText cannot be null or empty if no ArtifactReferences are provided.", ErrorMessage: "QueryText cannot be null or empty if no ArtifactReferences are provided."));
         }
-
-        // Check ModelState after custom checks for PlatformType and QueryText/ArtifactReferences
-        if (!ModelState.IsValid)
-        {
-            _logger.LogWarning("Invalid model state for AdapterRequest: {ModelStateErrors}", 
-                JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage), _jsonSerializerOptions).SanitizeLogInput());
-            // Return BadRequestObjectResult with the ModelStateDictionary itself or a ValidationProblemDetails constructed from it.
-            // This is more aligned with how [ApiController] typically handles model validation errors.
-            return new BadRequestObjectResult(new ValidationProblemDetails(ModelState)
-            {
-                Title = "Invalid request data.",
-                Detail = "One or more validation errors occurred."
-                // Instance can be set to HttpContext.Request.Path if needed for more detail
-            });
-        }
-
-        // The null checks for ConversationId and UserId are now handled by ModelState.IsValid
-        // if (string.IsNullOrEmpty(request.ConversationId))
-        // {
-        //     _logger.LogWarning("Received request with null or empty ConversationId.");
-        //     return BadRequest(new AdapterResponse(false, "ConversationId cannot be null or empty.", ErrorMessage: "ConversationId cannot be null or empty."));
-        // }
-        // if (string.IsNullOrEmpty(request.UserId))
-        // {
-        //     _logger.LogWarning("Received request with null or empty UserId.");
-        //     return BadRequest(new AdapterResponse(false, "UserId cannot be null or empty.", ErrorMessage: "UserId cannot be null or empty."));
-        // }
 
         await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
 
