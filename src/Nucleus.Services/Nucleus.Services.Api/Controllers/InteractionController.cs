@@ -94,20 +94,50 @@ public class InteractionController : ControllerBase
             {
                 _logger.LogInformation("Orchestration successful for ConversationId: {ConversationId}. Response: {ResponseMessage}", 
                     request.ConversationId.SanitizeLogInput("unknown-conversation"), result.SuccessValue?.ResponseMessage.SanitizeLogInput("<empty_response>"));
-                // Assuming a successful orchestration (e.g., queued) returns an AdapterResponse indicating this.
-                // If SuccessValue itself is the direct response to send to the client:
                 return Ok(result.SuccessValue);
             }
             else
             {
-                // Log the specific error details from OrchestrationError
-                var errorType = result.ErrorValue; // OrchestrationError is an enum
+                var errorType = result.ErrorValue;
                 _logger.LogError("Orchestration failed for ConversationId: {ConversationId}. Error: {ErrorType}",
                     request.ConversationId.SanitizeLogInput("unknown-conversation"), 
                     errorType.ToString().SanitizeLogInput());
 
-                // Return a generic error response to the client for security
-                return StatusCode(StatusCodes.Status500InternalServerError, new AdapterResponse(false, "An unexpected error occurred.", ErrorMessage: "An unexpected error occurred processing your request."));
+                switch (errorType)
+                {
+                    case OrchestrationError.InvalidRequest:
+                        return BadRequest(new AdapterResponse(false, "The request was invalid.", ErrorMessage: errorType.ToString()));
+                    case OrchestrationError.ActivationCheckFailed:
+                        // This case is handled by the OrchestrationService returning a Success=true AdapterResponse
+                        // with a specific message. If it were to return an error, this would be the place.
+                        // For now, assume the test expectation of OkObjectResult with specific content is met by OrchestrationService.
+                        // If OrchestrationService changes to return an error for this, this case needs adjustment.
+                        // Based on current tests, OrchestrationService returns Success=true for ActivationCheckFailed.
+                        // This path in the controller implies result.IsSuccess was false, which contradicts current test setup for ActivationCheckFailed.
+                        // For robustness, if it *did* come here as an error:
+                        return Ok(new AdapterResponse(true, "Interaction did not meet activation criteria and was ignored.", ErrorMessage: errorType.ToString()));
+                    case OrchestrationError.NotFound:
+                        return NotFound(new AdapterResponse(false, "Resource not found.", ErrorMessage: errorType.ToString()));
+                    case OrchestrationError.OperationCancelled:
+                        return StatusCode(StatusCodes.Status499ClientClosedRequest, new AdapterResponse(false, "Operation was cancelled.", ErrorMessage: errorType.ToString()));
+                    case OrchestrationError.PersonaResolutionFailed:
+                    case OrchestrationError.ArtifactProcessingFailed:
+                    case OrchestrationError.RuntimeExecutionFailed:
+                    case OrchestrationError.UnknownError: // Explicitly handle UnknownError
+                        return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                        {
+                            Title = "Orchestration Error",
+                            Status = StatusCodes.Status500InternalServerError,
+                            Detail = $"Orchestration failed with error: {errorType}"
+                        });
+                    default: // For any other unhandled OrchestrationError
+                        return StatusCode(StatusCodes.Status500InternalServerError, new ProblemDetails
+                        {
+                            Title = "Unexpected Orchestration Error",
+                            Status = StatusCodes.Status500InternalServerError,
+                            Detail = "An unexpected orchestration error occurred."
+                        });
+                }
             }
         }
         catch (ArgumentException argEx) // Catches ArgumentNullException as well

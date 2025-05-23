@@ -9,6 +9,7 @@ on:
 env:
   DOTNET_VERSION: '9.0.x'
   SOLUTION_FILE_PATH: ./Nucleus.sln
+  TEST_RESULTS_PATH: ${{ github.workspace }}/TestResults
 
 jobs:
   build_lint_unit_test:
@@ -31,6 +32,9 @@ jobs:
       - name: Build Solution
         run: dotnet build ${{ env.SOLUTION_FILE_PATH }} --configuration Release --no-restore
 
+      - name: Create Test Results Directory # New step
+        run: mkdir -p ${{ env.TEST_RESULTS_PATH }}
+
       - name: Run Unit Tests
         run: >
           dotnet test ${{ env.SOLUTION_FILE_PATH }} 
@@ -38,6 +42,7 @@ jobs:
           --no-build 
           --filter "Category!=Integration"
           --logger "trx;LogFileName=unit_test_results.trx"
+          --results-directory ${{ env.TEST_RESULTS_PATH }} # Add results-directory for consistency
           --diag "${{ env.TEST_RESULTS_PATH }}/unit_test_diag.log"
       
       - name: Upload Unit Test Results
@@ -64,6 +69,7 @@ jobs:
       INTEGRATION_TESTS_ENABLED: "false" # This is the key variable read by NucleusConstants
       NUCLEUS_TEST_LOGGING_FORMAT_SIMPLE: "true"
       # GOOGLE_AI_API_KEY_FOR_TESTS: ${{ secrets.GOOGLE_AI_API_KEY_FOR_TESTS }}
+      # TEST_RESULTS_PATH is inherited from the top-level env block
       
     steps:
       - name: Checkout code

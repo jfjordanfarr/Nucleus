@@ -22,17 +22,16 @@ public static class ServiceCollectionExtensions
     /// <returns>The <see cref="IServiceCollection" /> so that additional calls can be chained.</returns>
     public static IServiceCollection AddMessagingServices(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
     {
-        // Get a logger for this registration process
-        var serviceProvider = services.BuildServiceProvider(); // Temporary SP to get logger
-        // Corrected logger type to a non-static type relevant to the assembly/purpose
-        var logger = serviceProvider.GetService<ILogger<InMemoryBackgroundTaskQueue>>(); 
+        // Ensure logging services are registered  
+        services.AddLogging(loggingBuilder => 
+        {  
+            loggingBuilder.AddConsole();  
+            loggingBuilder.AddConfiguration(configuration.GetSection("Logging"));  
+        });  
 
-        if (logger == null) 
-        {
-            // Fallback if ILogger<InMemoryBackgroundTaskQueue> is not yet registered or if you prefer a static logger factory here
-            using var loggerFactory = LoggerFactory.Create(lb => lb.AddConsole().AddConfiguration(configuration.GetSection("Logging")));
-            logger = loggerFactory.CreateLogger<InMemoryBackgroundTaskQueue>();
-        }
+        // Resolve the logger directly from the service collection  
+        var loggerFactory = services.BuildServiceProvider().GetRequiredService<ILoggerFactory>();  
+        var logger = loggerFactory.CreateLogger<InMemoryBackgroundTaskQueue>();  // Or a more generic logger like CreateLogger("Nucleus.Infrastructure.Messaging")
 
         logger.LogInformation("Registering Messaging Services...");
 
