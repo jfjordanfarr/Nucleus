@@ -11,7 +11,7 @@ using Nucleus.Infrastructure.Adapters.Local;
 using Nucleus.Infrastructure.Data.Persistence; // For AddPersistenceServices
 using Nucleus.Domain.Processing;             // For AddProcessingServices
 using Nucleus.Infrastructure.Providers;      // Corrected: Was Nucleus.Infrastructure
-using Nucleus.Infrastructure.Messaging;      // For IBackgroundTaskQueue, IMessageQueuePublisher<>, AzureServiceBusPublisher, NullMessageQueuePublisher, ServiceBusBackgroundTaskQueue, InMemoryBackgroundTaskQueue
+using Nucleus.Infrastructure.Messaging;      // For IBackgroundTaskQueue, IMessageQueuePublisher<>, AzureServiceBusPublisher, NullMessageQueuePublisher, ServiceBusBackgroundTaskQueue, InMemoryBackgroundTaskQueue, AddMessagingServices
 using System.Threading.Tasks;
 using Nucleus.Services.Api; // For AddNucleusServices, MapNucleusEndpoints
 
@@ -79,9 +79,12 @@ namespace Nucleus.Services.Api
             _logger.LogInformation("Registered Processing Services.");
 
             // Add Infrastructure services (Adapters, general Providers not covered by specific adapters)
-            // This is where IMessageQueuePublisher and IBackgroundTaskQueue should be registered based on environment.
-            builder.Services.AddInfrastructureProviderServices(builder.Configuration); // Removed builder.Environment.IsDevelopment()
-            _logger.LogInformation("Registered Infrastructure Services (including environment-specific messaging).");
+            builder.Services.AddInfrastructureProviderServices(builder.Configuration);
+            _logger.LogInformation("Registered Infrastructure Provider Services.");
+
+            // Add Messaging services (IBackgroundTaskQueue, IMessageQueuePublisher)
+            builder.Services.AddMessagingServices(builder.Configuration, builder.Environment.IsDevelopment());
+            _logger.LogInformation("Registered Messaging Services.");
 
             // Add Local Adapter Services (registers LocalFileArtifactProvider, etc.)
             // This is called separately as it's a specific, pluggable adapter.

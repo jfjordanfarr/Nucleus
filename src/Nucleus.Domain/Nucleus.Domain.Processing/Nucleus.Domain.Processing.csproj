@@ -33,6 +33,9 @@
     <InternalsVisibleTo Include="Nucleus.Domain.Tests" />
   </ItemGroup>
 
-  <!-- Folder Includes are generally unnecessary in SDK-style projects -->
+  <ItemGroup>
+    <Using Include="Nucleus.Abstractions" />
+    <Using Include="Nucleus.Abstractions.Utils" />
+  </ItemGroup>
 
 </Project>

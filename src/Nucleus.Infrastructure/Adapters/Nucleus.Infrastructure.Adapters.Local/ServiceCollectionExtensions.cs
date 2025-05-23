@@ -40,6 +40,8 @@ namespace Nucleus.Infrastructure.Adapters.Local
 
             // Register the LocalFileArtifactProvider for the LocalAdapter
             services.AddSingleton<IArtifactProvider, LocalFileArtifactProvider>();
+            // Also register the concrete type so it can be resolved directly
+            services.AddSingleton<LocalFileArtifactProvider>();
 
             return services;
         }

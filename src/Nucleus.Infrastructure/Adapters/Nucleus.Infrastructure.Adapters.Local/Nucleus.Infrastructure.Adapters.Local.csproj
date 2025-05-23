@@ -15,4 +15,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Nucleus.Abstractions" />
+    <Using Include="Nucleus.Abstractions.Utils" />
+  </ItemGroup>
+
 </Project>
