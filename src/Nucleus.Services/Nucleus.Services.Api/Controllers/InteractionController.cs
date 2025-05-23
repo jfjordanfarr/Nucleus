@@ -54,6 +54,20 @@ public class InteractionController : ControllerBase
     [HttpPost("query")]
     public async Task<IActionResult> Post([FromBody, System.ComponentModel.DataAnnotations.Required] AdapterRequest request, CancellationToken cancellationToken)
     {
+        // ASP.NET Core model binding will set ModelState to invalid if the request body is null 
+        // when [Required] is present on the parameter. However, the 'request' object itself will be null.
+        // An explicit null check here ensures we don't try to access members of a null 'request' object
+        // before the ModelState.IsValid check, which would lead to a NullReferenceException.
+        if (request == null)
+        {
+            // This case should ideally be caught by model binding making ModelState invalid.
+            // However, if it somehow proceeds with request being null, this handles it.
+            // Or, if the [Required] attribute was missing, this would be critical.
+            _logger.LogWarning("Received a null request body.");
+            // Even though ModelState would be invalid, we return a specific message for a null body.
+            return new BadRequestObjectResult(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
+        }
+
         // ModelState.IsValid will now check for null/empty ConversationId and UserId due to annotations on AdapterRequest.
         // It also implicitly checks if 'request' itself is null and returns a 400 if so, 
         // but we can keep an explicit null check for clarity or custom logging if desired.
