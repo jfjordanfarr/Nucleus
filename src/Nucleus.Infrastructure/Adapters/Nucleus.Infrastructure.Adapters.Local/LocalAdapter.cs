@@ -49,11 +49,11 @@ namespace Nucleus.Infrastructure.Adapters.Local
 
             _logger.LogInformation(
                 "LocalAdapter: Submitting interaction. InteractionId={InteractionId}, TenantId={TenantId}, PersonaId={PersonaId}, UserId={UserId}, ConversationId={ConversationId}, PlatformType={PlatformType}",
-                request.MessageId.SanitizeLogInput("N/A"),
-                request.TenantId.SanitizeLogInput("N/A"),
-                request.PersonaId.SanitizeLogInput("N/A"), 
-                request.UserId.SanitizeLogInput("N/A"),
-                request.ConversationId.SanitizeLogInput("N/A"),
+                request.MessageId.SanitizeLogInput(),
+                request.TenantId.SanitizeLogInput(),
+                request.PersonaId.SanitizeLogInput(), 
+                request.UserId.SanitizeLogInput(),
+                request.ConversationId.SanitizeLogInput(),
                 request.PlatformType);
 
             try
@@ -63,14 +63,14 @@ namespace Nucleus.Infrastructure.Adapters.Local
                 if (orchestrationResult.IsSuccess)
                 {
                     _logger.LogInformation("Interaction {InteractionId} successfully processed by orchestration service. Response: {ResponseMessage}",
-                        request.MessageId.SanitizeLogInput("N/A"),
+                        request.MessageId.SanitizeLogInput(),
                         orchestrationResult.SuccessValue.ResponseMessage.SanitizeLogInput());
                     return orchestrationResult.SuccessValue;
                 }
                 else // IsFailure
                 {
                     _logger.LogWarning("Orchestration service indicated failure for interaction {InteractionId}: Error: {Error}",
-                        request.MessageId.SanitizeLogInput("N/A"),
+                        request.MessageId.SanitizeLogInput(),
                         orchestrationResult.ErrorValue.ToString().SanitizeLogInput());
 
                     // Map OrchestrationError to an AdapterResponse
@@ -98,7 +98,7 @@ namespace Nucleus.Infrastructure.Adapters.Local
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unhandled exception during LocalAdapter.SubmitInteractionAsync for interaction {InteractionId}.", request.MessageId.SanitizeLogInput("N/A"));
+                _logger.LogError(ex, "Unhandled exception during LocalAdapter.SubmitInteractionAsync for interaction {InteractionId}.", request.MessageId.SanitizeLogInput());
                 return new AdapterResponse(
                     Success: false,
                     ResponseMessage: "An unexpected error occurred while submitting the interaction.",
@@ -130,12 +130,12 @@ namespace Nucleus.Infrastructure.Adapters.Local
             // Future OTel instrumentation can pick up these structured console logs.
             _logger.LogInformation(
                 "LocalAdapter: Interaction audit log. InteractionId={InteractionId}, TimestampUtc={TimestampUtc}, TenantId={TenantId}, PersonaId={PersonaId}, UserId={UserId}, ConversationId={ConversationId}, PlatformType={PlatformType}, InteractionType={InteractionType}",
-                request.MessageId.SanitizeLogInput("N/A"),      // Serves as the unique ID for this interaction event
+                request.MessageId.SanitizeLogInput(),      // Serves as the unique ID for this interaction event
                 request.TimestampUtc,            // Time of the original request
-                request.TenantId.SanitizeLogInput("N/A"),
-                request.PersonaId.SanitizeLogInput("N/A"),
-                request.UserId.SanitizeLogInput("N/A"),
-                request.ConversationId.SanitizeLogInput("N/A"),
+                request.TenantId.SanitizeLogInput(),
+                request.PersonaId.SanitizeLogInput(),
+                request.UserId.SanitizeLogInput(),
+                request.ConversationId.SanitizeLogInput(),
                 request.PlatformType,
                 request.InteractionType);        // Type of interaction (e.g., Message, Command)
 

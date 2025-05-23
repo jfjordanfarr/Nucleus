@@ -2,7 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations; // Required for Data Annotations
 
 namespace Nucleus.Abstractions.Models.ApiContracts;
 
@@ -31,10 +31,22 @@ namespace Nucleus.Abstractions.Models.ApiContracts;
 /// <param name="PersonaId">Optional: The ID of the persona to be used for this request.</param>
 /// <param name="TimestampUtc">Optional: The UTC timestamp when the original event occurred.</param>
 public record AdapterRequest(
+    // PlatformType will be validated in the controller, as [EnumDataType] with [Required]
+    // still allows the default enum value (0, which is Unknown) if not explicitly provided.
+    // A specific check for PlatformType != PlatformType.Unknown is clearer.
     PlatformType PlatformType,
+
+    [Required(ErrorMessage = "ConversationId cannot be null or empty.")]
+    [MinLength(1, ErrorMessage = "ConversationId cannot be null or empty.")]
     string ConversationId,
+
+    [Required(ErrorMessage = "UserId cannot be null or empty.")]
+    [MinLength(1, ErrorMessage = "UserId cannot be null or empty.")]
     string UserId,
-    string QueryText,
+
+    // QueryText and ArtifactReferences have combined validation logic handled in the controller.
+    string QueryText, 
+
     string? MessageId = null,
     string? ReplyToMessageId = null,
     List<ArtifactReference>? ArtifactReferences = null,

@@ -54,32 +54,48 @@ public class InteractionController : ControllerBase
     [HttpPost("query")]
     public async Task<IActionResult> Post([FromBody] AdapterRequest request, CancellationToken cancellationToken)
     {
-        if (request == null)
+        // ModelState.IsValid will now check for null/empty ConversationId and UserId due to annotations on AdapterRequest.
+        // It also implicitly checks if 'request' itself is null and returns a 400 if so, 
+        // but we can keep an explicit null check for clarity or custom logging if desired.
+        if (request == null) // This check is somewhat redundant if ASP.NET Core model binding handles it, but good for explicit logging.
         {
             _logger.LogWarning("Received null request body.");
             return BadRequest(new AdapterResponse(false, "Request body cannot be null.", ErrorMessage: "Request body cannot be null."));
         }
 
+        // Explicitly check PlatformType as it's not well-covered by simple annotations for enum defaults.
         if (request.PlatformType == PlatformType.Unknown)
         {
             _logger.LogWarning("Received request with Unknown PlatformType.");
             return BadRequest(new AdapterResponse(false, "PlatformType cannot be Unknown.", ErrorMessage: "PlatformType cannot be Unknown."));
         }
-        if (string.IsNullOrEmpty(request.ConversationId))
-        {
-            _logger.LogWarning("Received request with null or empty ConversationId.");
-            return BadRequest(new AdapterResponse(false, "ConversationId cannot be null or empty.", ErrorMessage: "ConversationId cannot be null or empty."));
-        }
-        if (string.IsNullOrEmpty(request.UserId))
-        {
-            _logger.LogWarning("Received request with null or empty UserId.");
-            return BadRequest(new AdapterResponse(false, "UserId cannot be null or empty.", ErrorMessage: "UserId cannot be null or empty."));
-        }
+
+        // Combined validation for QueryText and ArtifactReferences
         if (string.IsNullOrEmpty(request.QueryText) && (request.ArtifactReferences == null || !request.ArtifactReferences.Any()))
         {
             _logger.LogWarning("Received request with null or empty QueryText and no ArtifactReferences.");
             return BadRequest(new AdapterResponse(false, "QueryText cannot be null or empty if no ArtifactReferences are provided.", ErrorMessage: "QueryText cannot be null or empty if no ArtifactReferences are provided."));
         }
+
+        // Check ModelState after custom checks for PlatformType and QueryText/ArtifactReferences
+        if (!ModelState.IsValid)
+        {
+            _logger.LogWarning("Invalid model state for AdapterRequest: {ModelStateErrors}", 
+                JsonSerializer.Serialize(ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage), _jsonSerializerOptions).SanitizeLogInput());
+            return BadRequest(new AdapterResponse(false, "Invalid request data.", ErrorMessage: string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))));
+        }
+
+        // The null checks for ConversationId and UserId are now handled by ModelState.IsValid
+        // if (string.IsNullOrEmpty(request.ConversationId))
+        // {
+        //     _logger.LogWarning("Received request with null or empty ConversationId.");
+        //     return BadRequest(new AdapterResponse(false, "ConversationId cannot be null or empty.", ErrorMessage: "ConversationId cannot be null or empty."));
+        // }
+        // if (string.IsNullOrEmpty(request.UserId))
+        // {
+        //     _logger.LogWarning("Received request with null or empty UserId.");
+        //     return BadRequest(new AdapterResponse(false, "UserId cannot be null or empty.", ErrorMessage: "UserId cannot be null or empty."));
+        // }
 
         await _localAdapterClient.PersistInteractionAsync(request, cancellationToken);
 
