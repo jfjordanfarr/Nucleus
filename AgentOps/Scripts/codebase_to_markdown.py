@@ -139,9 +139,9 @@ def main():
                         help="Directory names to exclude (exact match). Example: bin obj")
     parser.add_argument("-ep", "--exclude-patterns", nargs='*', 
                         default=[
-                            'Docs/Architecture/Personas/Educator/Pedagogical_And_Tautological_Trees_Of_Knowledge/*',
-                            'Docs/Architecture/Processing/Davaviz/Examples/*',
-                            'Docs/HelpfulMarkdownFiles/Library-References/*'
+                            '**/Pedagogical_And_Tautological_Trees_Of_Knowledge/*',
+                            '**/Examples/*',
+                            '**/Library-References/*'
                             ],
                         help="Glob patterns for paths to exclude (relative to source). Example: '**/temp/*' '*.log'")
     parser.add_argument("-f", "--force", action="store_true", help="Overwrite output file if it exists.")
