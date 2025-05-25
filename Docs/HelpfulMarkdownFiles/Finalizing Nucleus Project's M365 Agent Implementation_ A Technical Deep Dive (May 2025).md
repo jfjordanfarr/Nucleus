@@ -218,11 +218,11 @@ Securing the "last mile" of message delivery from public channels like Microsoft
   \*   \*\*Architectural Diagram (Conceptual):\*\*
 
       \`\`\`  
-      \+---+     \+---+     \+---+     \+---+     \+---+
++---+     +---+     +---+     +---+     +---+
 
-| Microsoft Teams | \--\> | Azure Bot Service | \--\> | Public Internet | \--\> | Azure Application Gateway| \--\> | Private Endpoint on | \--\> | M365 Agent in VNet |  
+| Microsoft Teams | --> | Azure Bot Service | --> | Public Internet | --> | Azure Application Gateway| --> | Private Endpoint on | --> | M365 Agent in VNet |  
 | (Public Cloud) | | (Channel Connector) | | (HTTPS to App GW/APIM Pub IP) | | (WAF enabled) / Azure APIM | | Customer VNet | | (e.g., ACA/App Svc) |  
-\+---+ \+---+ \+---+ \+---+ \+---+  
++---+ +---+ +---+ +---+ +---+
 (Public IP Address)  
 \`\`\`
 

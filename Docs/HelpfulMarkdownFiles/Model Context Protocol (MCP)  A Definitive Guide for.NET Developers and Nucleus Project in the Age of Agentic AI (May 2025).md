@@ -175,8 +175,9 @@ With the robust backing from Microsoft and the availability of dedicated tooling
 The cornerstone for.NET developers working with MCP is the official C\# SDK, distributed via the ModelContextProtocol NuGet package.21 Developed by Microsoft in collaboration with Anthropic, this SDK is open-source and represents the standard toolset for building MCP clients and servers in C\#.28 It often builds upon or supersedes earlier community efforts like mcpdotnet, incorporating best practices and deep integration with the.NET ecosystem.28
 
 To install the SDK, developers can use the.NET CLI:  
-dotnet add package ModelContextProtocol \--prerelease  
-(Note: \--prerelease may be needed depending on the current versioning status).21  
+To install the SDK, developers can use the.NET CLI:
+```shell
+dotnet add package ModelContextProtocol --prerelease
 The SDK provides core functionalities for:
 
 * Building MCP clients capable of connecting to and consuming tools from MCP servers.  
