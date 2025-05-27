@@ -1,517 +1,419 @@
-# Foundations: Model Context Protocol (MCP) and Microsoft 365 Agents SDK for Nucleus Developers
+# Nucleus Project: Advanced Architecture, Implementation, and Operations Guide
 
-**Version:** 1.1
+**Version:** 1.0 (Standalone)
 **Date:** May 26, 2025
 
-**Purpose:** This guide serves as the foundational learning resource for developers contributing to Project Nucleus, focusing on the Model Context Protocol (MCP) and the Microsoft 365 Agents SDK. It aims to provide a comprehensive understanding of these core technologies, which are pivotal to Nucleus's architecture. **This document incorporates insights from the latest Microsoft Build 2025 announcements and official SDK documentation (May 2025).**
+**Purpose:** This guide provides advanced architectural and implementation details for Project Nucleus, building upon the foundational knowledge of MCP and the Microsoft 365 Agents SDK. It is intended for architects and senior developers involved in building, deploying, and managing the distributed Nucleus system.
 
 ---
 
-### **Part 1: Model Context Protocol (MCP) Deep Dive**
+### **Chapter 1: Core Nucleus Agent Architecture**
 
-This part provides a thorough introduction to the Model Context Protocol, its architecture, benefits, and fundamental implementation details relevant to .NET developers.
+This chapter delves into the advanced architectural considerations for Nucleus M365 Persona Agents, including strategies for managing multiple personas, orchestrating complex interactions, and advanced state management.
 
-#### **1.1 Introduction: The Rise of Model Context Protocol (MCP)**
+#### **1.1 Implementing Multi-Persona Strategies within a Single Nucleus Agent vs. Multi-Agent Architectures**
 
-By May 2025, the Model Context Protocol (MCP) has rapidly transitioned from a promising initiative to the de facto standard for enabling Large Language Models (LLMs) to interact with external tools and data sources. This ascent was significantly accelerated by pivotal announcements from major technology industry leaders around May 19th and 20th, 2025 (notably Microsoft Build and Google I/O), underscoring a collective move towards standardized agentic AI frameworks. For developers engaged in building sophisticated agentic AI applications, particularly within the .NET ecosystem, a comprehensive understanding of MCP is no longer optional but essential.
+The Microsoft 365 Agents SDK is engineered to enable the construction of an "agent container" complete with state management, storage, and comprehensive activity/event management features \. This foundational characteristic suggests that a singular agent application can indeed encapsulate multiple logical personas or distinct skills. The SDK itself is built upon the Azure Bot Service \. The Azure Bot Service, in turn, has a well-established history of supporting "skills" within the Bot Framework v4, where a skill is essentially a bot capable of performing a set of tasks for another bot, with a "root bot" acting as a consumer of one or more such skills \. This pattern holds relevance as the M365 Agents SDK explicitly allows for the implementation of skills \.
 
-The swift industry coalescence around MCP is indicative of a maturing AI ecosystem. Previously, integrating AI models with a diverse array of tools often involved bespoke, one-off solutions, leading to a combinatorial explosion of effort—commonly referred to as the "M x N integration problem," where M models and N tools necessitated M\*N unique integrations. MCP's introduction and widespread adoption represent a paradigm shift towards interoperability, aiming to simplify this to an M+N problem. This standardization is not merely a technical convenience; it is a foundational enabler for building more complex, reliable, and scalable AI systems. Consequently, for an open-source initiative like Nucleus OmniRAG, aligning with an industry-backed standard like MCP ensures future compatibility, grants access to a rapidly expanding ecosystem of MCP-compliant tools and servers (evidenced by resources like the "Top 124 MCP Servers & Clients" guide and the upcoming public, community-managed MCP server registry), and attracts a broader community of developers already familiar with the protocol.
+A significant design principle of the M365 Agents SDK is its unopinionated stance regarding the AI technologies employed, affording developers the latitude to implement diverse agentic patterns \. This inherent flexibility is conducive to building complex, multi-faceted agents. Furthermore, documentation illustrates scenarios where a "main agent," developed using the Agents SDK, can orchestrate and leverage other agents, including those potentially built with different tools like Copilot Studio \. **The M365 Agents SDK also supports implementing "Skills," which are essentially other agents. This is detailed in the "Choose the right agent solution" documentation (Source: OCR p8), allowing an M365 Agent to potentially call another M365 Agent acting as a skill. This could be relevant for complex persona interactions if not using MCP for all inter-agent communication.**
 
-#### **1.2 Understanding Model Context Protocol (MCP)**
+However, a critical consideration is Microsoft Entra Agent ID. Current understanding suggests an Entra Agent ID is assigned at the agent application level. If a single agent houses numerous personas with varied permission requirements, its singular Entra Agent ID might necessitate a superset of all permissions, which could contravene the principle of least privilege for operations specific to individual personas. Microsoft's overarching vision encompasses multi-agent systems where agents constructed with Copilot Studio, Azure Agent Service, or the M365 Agents SDK can collaborate effectively as a cohesive team, lending further support to a distributed architectural model \.
 
-##### **1.2.1 What is MCP? Core Concepts and Origins**
+**Recommendation:** Project Nucleus should adopt a **hybrid multi-persona strategy**.
+*   Develop a core Nucleus M365 Agent for common functionalities and well-defined, closely related personas.
+*   For highly specialized, resource-intensive, or permission-sensitive personas, create separate, specialized M365 Agents.
+*   This balances development agility with security granularity (each specialized agent can have a narrowly scoped Entra Agent ID) and manageable complexity. Internal routing within the core agent and inter-agent communication (possibly adapting patterns from Bot Framework skills or leveraging emerging multi-agent orchestration capabilities) would be key.
 
-Model Context Protocol (MCP) is an open standard, initiated by Anthropic in late 2024, designed to standardize the communication pathways between AI applications (referred to as "hosts") and external tools, data sources, and systems (exposed via "servers"). Its fundamental purpose is to provide a universal, consistent mechanism for AI models, particularly LLMs, to access external context and invoke external functionalities. This allows AI systems to move beyond their pre-trained knowledge and interact with real-time, dynamic information and capabilities.
+#### **1.2 Advanced Orchestration, Asynchronous Processing, and Proactive Messaging**
 
-Anthropic aptly describes MCP as being "like a USB-C port for AI applications". This analogy highlights its role as a universal connector: just as USB-C allows various devices to connect using a single standard, MCP aims to enable any compliant AI model to "plug into" any compliant tool or data source without requiring custom-built adapters for each pairing. This vision is central to simplifying the development of context-aware and action-capable AI.
+##### **1.2.1 Orchestration and Asynchronous Processing with M365 Agents SDK**
 
-##### **1.2.2 The "Why": Need for a Standardized Protocol**
+The M365 Agents SDK is engineered to support agents that not only engage in conversational turns but also "react to events, and those events can be a conversational or operate in the background action to trigger autonomously" \. This capability for autonomous background actions is particularly pertinent for Nucleus. The SDK employs a "turn-based conversational model," and a core feature is the management of multi-turn conversations and the associated storage of context \.
 
-The primary driver for MCP's development was the escalating complexity and inefficiency of integrating AI models with a growing number of external tools and data sources. Without a common standard, developers faced the "M x N integration problem". This approach is not only resource-intensive but also leads to fragmented, brittle systems that are difficult to scale and evolve.
+For Nucleus tasks characterized by true asynchronicity and extended execution times (e.g., complex report generation, in-depth data analysis), a robust architectural pattern involves:
+1.  **Initial Agent Interaction:** The M365 Agent gathers necessary parameters and captures a `ConversationReference` from the initial interaction \.
+2.  **Offload to Background Worker:** The actual long-running workload is then best delegated to a background service. This could be an Azure Function, an Azure WebJob, or an `IHostedService` operating within the agent's Azure App Service environment \. Attempting to manage very long operations solely within extended conversational turns is unlikely to be scalable or reliable, given that conversational turns are generally expected to be relatively short-lived, and HTTP requests to the bot's messaging endpoint are subject to timeouts \.
+3.  **Proactive Notification:** Upon completion of the task, this background service would trigger a proactive notification back to the user or channel using the `ChannelAdapter.ContinueConversationAsync` method (or its M365 Agents SDK equivalent) and the stored `ConversationReference` \.
 
-Previous approaches, such as bespoke API integrations for each tool or early, less standardized forms of function calling, suffered from this lack of interoperability. While function calling, as popularized by models like OpenAI's GPT series, was a step forward, it often still required model-specific or tool-specific adaptation and did not offer a universal discovery or interaction mechanism across different tool providers or AI model vendors. MCP was conceived to address these limitations by providing a common language and a defined set of interaction patterns.
+This decoupling of the long-running task execution into a dedicated background worker enhances resilience and scalability. Reliable triggering of these background tasks from the agent can be achieved using mechanisms like Azure Service Bus or other message queuing systems \. Agents can also be architected to subscribe to various system events (e.g., notifications from Microsoft Graph webhooks or Azure Event Grid) and initiate workflows independently, subsequently using proactive messaging to notify users or other systems \.
 
-##### **1.2.3 Key Benefits of MCP**
+##### **1.2.2 Dependency Injection (DI) for Proactive Messaging in Background Services**
 
-The adoption of MCP offers several significant advantages for the development and deployment of agentic AI applications:
+For a background service (e.g., Azure Function, `IHostedService`) to send proactive messages using the M365 Agents SDK, correct DI setup for the adapter components (e.g., `CloudAdapter` or a more M365-specific `IAgentHttpAdapter` implementation) and an `IAccessTokenProvider` for authentication is crucial \.
 
-*   **Improved AI Performance and Relevance:** By enabling AI models to seamlessly access relevant, real-time, and specific contextual information from diverse sources, MCP allows them to generate responses that are more accurate, nuanced, and useful. For instance, an AI coding assistant with MCP access to a project's specific codebase and documentation can produce more functional code with fewer errors.
-*   **Interoperability Across Systems:** As an open standard, MCP is not tied to any single AI vendor or data platform. This fosters a rich ecosystem where tools and models from different providers can interoperate seamlessly. An MCP-compliant data source can serve context to any MCP-enabled AI client, and vice-versa, future-proofing integrations and allowing developers to switch models or platforms without overhauling their entire context pipeline.
-*   **Development Efficiency and Reusability:** MCP allows developers to build integrations against a single, standard protocol. This means integration logic can be developed once and reused across multiple projects and AI models. Furthermore, the growing availability of pre-built MCP servers for popular services (e.g., GitHub, Slack, databases) and the upcoming **public, community-managed MCP server registry** significantly reduces the need for custom integration code, accelerating development cycles.
-*   **Modularity and Scalability:** The protocol encourages a modular architecture by decoupling AI models from the data sources and tools they use. This separation allows each component—the AI application, the MCP client, the MCP server, and the external tool—to be developed, scaled, and upgraded independently. Adding a new data source simply involves deploying a new MCP server for it, without altering the core AI application logic. This modularity is also key to building composable AI agents, where different capabilities (exposed via MCP servers) can be combined like building blocks to create sophisticated workflows.
+*   **CRITICAL REFINEMENT (Based on M365 Agents SDK Samples & Docs):**
+    *   The standard way an agent's adapter authenticates to the Bot Connector service (for channel communications, including proactive replies) is via the **`Connections:ServiceConnection` settings in `appsettings.json`**. These settings typically include `AuthType: "ClientSecret"`, along with the `ClientId` (Azure Bot registration App ID) and `ClientSecret` (Azure Bot registration secret). This is evident in SDK samples like `copilotstudio-skill/dotnet/appsettings.json` and `empty-agent/dotnet/appsettings.json`. **The `Microsoft.Agents.Authentication.Msal` package is often used in this context.**
+    *   The previously synthesized idea of a `ManagedIdentityTokenProvider` for the *adapter itself* to use Managed Identity for Bot Connector calls is an **advanced scenario not directly demonstrated in the basic SDK setup samples for the primary adapter-to-Bot Connector authentication**. The samples consistently show ClientId/Secret for this `ServiceConnection`.
+    *   **Clarification for Background Services Sending Proactive Messages:**
+        1.  **Using ClientId/Secret (Standard Sample Approach):** If the background service can securely access the primary agent's `appsettings.json` (e.g., if it's an `IHostedService` within the same application), it might be able to obtain a pre-configured adapter instance that uses the ClientId/Secret from `Connections:ServiceConnection`. This co-locates the secret dependency with the background service if it's part of the same deployment unit.
+        2.  **Using Managed Identity (Custom/Advanced Setup):** For a background service to send proactive messages *and avoid secrets for Bot Connector authentication*, it would need a more custom setup. This involves dynamically instantiating and configuring an adapter (e.g., a `CloudAdapter` instance or similar compatible with `ContinueConversationAsync`). This adapter must be configured with an `IAccessTokenProvider` that is backed by `DefaultAzureCredential` (or a specific Managed Identity credential). This allows the adapter to acquire tokens for the Bot Connector service using the background service's Managed Identity. This is a more advanced pattern than the out-of-the-box SDK samples for the primary agent's adapter.
+    *   **Emphasis:** The adapter used for proactive messaging needs *some* form of valid credentials to authenticate to the Bot Connector Service. The M365 Agents SDK samples primarily demonstrate configuration-based ClientId/Secret for the adapter-to-service authentication. Using Managed Identity for *this specific adapter-to-Bot Connector purpose* in a background service is an *advanced, custom pattern* that requires careful custom configuration of the adapter and its token provider, differing from the sample agent's typical configuration.
 
-The architecture of MCP inherently promotes a clear "separation of concerns." The AI model can focus on higher-level reasoning, while MCP servers encapsulate the specific details of interacting with particular tools or data sources. MCP's explicit distinction between "Resources" (application-controlled data sources) and "Tools" (model-controlled actions) is particularly salient for applications employing Retrieval Augmented Generation (RAG) patterns. "Resources" allow the application to proactively furnish the LLM with relevant contextual data, which is the cornerstone of RAG.
+*   **Recommended DI Strategy (for the Managed Identity approach in a background service):**
+    *   Register `DefaultAzureCredential` (or a specific `ManagedIdentityCredential`) as the `IAccessTokenProvider` in the background service's DI container.
+    *   Register the appropriate Bot/Agent Adapter (e.g., `CloudAdapter` or a custom-configured M365-era adapter compatible with proactive messaging) and its dependencies like `IConfiguration` (for Bot ID) and `ILogger`.
+*   **Message Sending Logic:** The background service uses the injected adapter's `ContinueConversationAsync` method. This method requires the `botAppId` of the M365 Agent Persona on whose behalf the message is being sent, and the stored `ConversationReference`. The adapter, using the configured `IAccessTokenProvider` (and thus Managed Identity), handles authentication to the Bot Connector Service \.
 
-#### **1.3 Deep Dive: MCP Architecture and Technical Specifications**
+#### **1.3 Refactoring Nucleus Core Components for the M365 Agents SDK**
 
-Understanding the architecture and technical underpinnings of MCP is crucial for .NET developers.
+The M365 Agents SDK equips developers with tools to construct "custom engine agents," implying the ability to integrate Nucleus's existing, potentially sophisticated AI stack \. The SDK is model- and orchestrator-agnostic \. Agents developed with the SDK listen for and react to events originating from various channels (e.g., M365 Copilot, Teams) typically using an `OnActivity` handler \.
 
-##### **1.3.1 The MCP Client-Server Architecture**
+*   **Refactoring Strategy:** The primary approach involves modularizing Nucleus core logic into distinct services or libraries. These can then be invoked from within the M365 Agent's `OnActivity` handlers or similar event processing structures. The M365 Agent itself should predominantly function as the "adapter" to the M365 ecosystem, while delegating complex business logic and AI processing to these refactored Nucleus services \.
+*   **State Management Adaptation:** If Nucleus core components currently employ proprietary state handling mechanisms, significant adaptation will be required to align with the M365 Agents SDK's state management paradigms, which are rooted in Azure Bot Service patterns and use `IStorage` (e.g., `MemoryStorage` for local development, or Azure Blob/Cosmos DB storage extensions for production) \. M365 Agents are inherently stateless at the application layer, depending on SDK-provided mechanisms for state persistence \.
 
-MCP operates on a client-server model, which involves several distinct components working in concert:
+#### **1.4 Advanced State Management Techniques in Nucleus Agents**
 
-*   **Hosts (AI Applications):** These are the applications that the end-user interacts with. Examples include AI assistants like Claude Desktop, Integrated Development Environments (IDEs) such as Visual Studio Code with AI extensions, or custom agentic systems like Nucleus. The Host is responsible for managing one or more MCP Clients and often handles user interface, overall workflow orchestration, and the integration of the LLM's reasoning capabilities. It also plays a crucial role in security, managing permissions and user consent for accessing tools and resources.
-*   **MCP Clients:** Residing within the Host application, an MCP Client acts as an intermediary that manages a dedicated, one-to-one connection with a specific MCP Server. Its responsibilities include initiating the connection, discovering the capabilities (Tools, Resources, Prompts) offered by the server, formatting and forwarding requests from the Host (or the LLM via the Host) to the server, and receiving and processing responses or errors from the server.
-*   **MCP Servers:** These are external programs or lightweight services that act as wrappers or bridges to specific external functionalities. They expose Tools, Resources, and Prompts to MCP Clients via a standardized API defined by the MCP specification. An MCP Server translates generic MCP requests into the specific commands or API calls required by the underlying external system (e.g., querying a database, calling a SaaS API, reading from a local file system). It also handles authentication with the external service, data transformation, and error handling.
-*   **External Service/Data Source:** This is the actual backend system, application, API, database, or file system that provides the data or performs the actions requested through the MCP Server.
+The M365 Agents SDK furnishes a storage layer and state management abstractions, building upon established Azure Bot Service principles \. Effective state management is paramount for enabling sophisticated multi-turn conversations \. The SDK introduces the `Microsoft.Agents.Storage.IStorage` abstraction, offering `MemoryStorage` for local development purposes and providing extensibility for more robust solutions like Azure Blob Storage and Cosmos DB in production \. State is typically scoped at different levels: conversation state, user state, and private conversation state. **Crucially, agents created with the M365 Agents SDK are stateless by default. Developers must specifically configure state (or memory), choose where to store or persist that state (e.g., by registering an `IStorage` implementation like `MemoryStorage` or a Cosmos DB-backed one), and ensure it is retrieved and saved appropriately across turns. The `Microsoft.Agents.Hosting.AspNetCore` package provides helper methods like `AddAgentApplicationOptions()` and `AddAgent()` for this setup (Source: OCR p11, `empty-agent/dotnet/Program.cs`). While .NET specific packages for Blob/Cosmos `IStorage` are anticipated, JavaScript packages like `@microsoft/agents-hosting-storage-blob` and `@microsoft/agents-hosting-storage-cosmos` exist (Source: OCR p55), indicating similar patterns.**
+*   **Hierarchical/Modular State:** For Nucleus agents that may embody multiple internal personas or engage in complex dialogs, adopting a hierarchical or modular state management approach within the SDK's provided state scopes (such as `ConversationState` and `UserState`) will be indispensable. This could involve defining distinct state objects tailored to each persona or skill, alongside a main orchestrator state that tracks the currently active persona.
+*   **Isolation:** When accommodating multiple logical personas within a single agent instance, Nucleus must implement safeguards to ensure that state information pertinent to one persona is not inadvertently accessed or modified by another. This is especially critical if these personas handle data with different sensitivity levels. Such isolation necessitates careful design of state property accessors and potentially the implementation of custom middleware within the agent's turn processing pipeline \.
 
-##### **1.3.2 Communication Flow**
+### **Chapter 2: Holistic Configuration Management for M365 Agents**
 
-The interaction between MCP Clients and Servers follows a well-defined lifecycle and communication flow:
+Effective configuration management is crucial for M365 Agents, especially in multi-tenant ISV contexts. This involves managing static, deployment-time settings and dynamic, behavioral configurations.
 
-1.  **Initialization & Handshake:** When a Host application starts, it may instantiate MCP Clients. The MCP Client initiates a connection with its corresponding MCP Server. During this phase, client and server exchange information about their supported protocol versions and capabilities.
-2.  **Discovery:** Once connected, the MCP Client can request a list of capabilities (Tools, Resources, and Prompts) that the MCP Server offers. The server responds with a machine-readable description, often an "action schema" or manifest.
-3.  **Invocation:** When the AI model decides to use a specific Tool or access a Resource, the MCP Client sends a standardized request (typically a JSON structure) to the MCP Server. The Server receives, validates, translates, and executes.
-4.  **Result:** After the external service processes the request, the MCP Server formats the outcome into a standardized MCP response and sends it back to the MCP Client.
-5.  **Chaining:** MCP supports multi-step tasks by allowing an AI to execute multiple tool calls sequentially or in parallel, potentially orchestrating interactions across several different MCP Servers. The AI Host maintains overall context.
+#### **2.1 Foundations of M365 Agent Configuration**
 
-##### **1.3.3 Core Primitives: Tools, Resources, Prompts**
+##### **2.1.1 Distinguishing Static (Deployment-Time) vs. Dynamic (Behavioral) Configurations**
 
-MCP defines three fundamental types of capabilities, or "primitives," that a server can expose:
+*   **Static Configurations:** Core operational settings, service endpoints, and fixed parameters established at deployment, generally read-only at runtime (e.g., default retry policies, fixed thresholds, non-frequent feature flags) \.
+*   **Dynamic Behavioral Configurations:** LLM prompts, operational parameters (e.g., sensitivity thresholds, model selection criteria), or business rules designed to adapt based on feedback or runtime factors. Require secure read/write capabilities \.
 
-*   **Tools (Model-controlled):** These are functions or actions that the LLM can decide to invoke to perform specific operations or gather information (e.g., calling a weather API, sending an email, querying a database). This is analogous to "function calling."
-*   **Resources (Application-controlled):** These represent data sources that an LLM can access to obtain contextual information. Accessing Resources is generally considered a read-only operation with no side effects (e.g., specific project files, user profile information).
-*   **Prompts (User-controlled):** These are pre-defined templates or instructions that guide the LLM in how to use certain Tools or Resources in an optimal or specific way (e.g., "Summarize this document using the 'technical brief' style").
+##### **2.1.2 Core Azure Services for Static Configurations**
 
-This tripartite structure offers a sophisticated framework for agent interaction that surpasses simple function calling.
+*   **Azure App Configuration:** Centralized management of application settings and feature flags. Best practices include using labels for environments, content types for structured data, and considering snapshots for versioning. Supports dynamic refresh of configurations without application restart \ .
+*   **Azure Key Vault:** Secure storage for secrets (API keys, connection strings). Key Vault references within Azure App Configuration are recommended, where App Configuration stores a URI to the secret in Key Vault, enhancing security \ .
+*   **.NET Integration Patterns:** Utilize the Options pattern (`IOptions<T>`, `IOptionsSnapshot<T>`, `IOptionsMonitor<T>`) to bind configuration sections to strongly-typed C\# objects, promoting type safety and cleaner consumption via Dependency Injection \ . `IOptionsMonitor<T>` is particularly suited for agents needing to pick up static configuration changes without restarting.
+*   **Agent-Specific Configuration Structure:** The `appsettings.json` structure observed in M365 Agents SDK samples (e.g., for `AgentApplication` options, `Connections`, `ConnectionsMap`, `AIServices`) should serve as the primary example for agent-specific static configuration. Azure App Configuration and Azure Key Vault would then be used to populate these expected configuration structures in a secure and manageable way for deployed environments.
+    *   **Common `AgentApplication` settings** found in `appsettings.json` can include `StartTypingTimer`, `RemoveRecipientMention`, and `NormalizeMentions` (Source: `empty-agent/dotnet/appsettings.json`).
+    *   The **`Connections` and `ConnectionsMap` sections** are vital for configuring how the agent connects to the Bot Service (Source: `empty-agent/dotnet/appsettings.json`, `copilotstudio-skill/dotnet/appsettings.json`).
+    *   A **`UserAuthorization` section** (seen in the `auto-signin` sample) can configure OAuth connection names.
 
-##### **1.3.4 Communication Protocols & Transport Mechanisms**
+#### **2.2 Architecting Dynamic Behavioral Configuration Management**
 
-MCP relies on established, open standards for its communication layer:
+Azure Cosmos DB is recommended for storing dynamic agent configurations like adaptive LLM prompts.
 
-*   **JSON-RPC 2.0:** The foundational messaging protocol for MCP is JSON-RPC 2.0. This is a lightweight remote procedure call protocol that uses JSON for data encoding.
-    *   **Request Structure:** Typically includes `jsonrpc` (version), `method` (name of method), `params` (parameters), and `id` (unique client identifier).
-    *   **Response Structure:** Includes `jsonrpc`, the same `id` as the request, and either `result` (successful outcome) or `error` (error details).
-*   **Transport Mechanisms:** MCP supports multiple transport mechanisms:
-    *   **stdio (Standard Input/Output):** Primarily used when the MCP Client and Server are on the same machine (e.g., IDE communicating with a local tool server).
-    *   **HTTP with SSE (Server-Sent Events):** Suited for client-remote MCP Server communication. The server uses SSE to push messages over a persistent HTTP connection. Client-to-server requests often use HTTP POST. While WebSockets have been mentioned, the core specification primarily emphasizes stdio and HTTP/SSE.
+##### **2.2.1 Leveraging Azure Cosmos DB for Storing Agent-Updatable Configurations**
 
-#### **1.4 MCP for the .NET Developer: Implementation Fundamentals**
+Cosmos DB's global distribution, low-latency access, scalability, and schema flexibility make it well-suited for dynamic agent configurations \ . **The M365 Agents SDK explicitly supports Azure Cosmos DB as a storage option for agent state (e.g., via the `@microsoft/agents-hosting-storage-cosmos` JavaScript package, with .NET equivalents expected or buildable based on the `IStorage` interface), which reinforces its suitability for also storing dynamic behavioral configurations that might influence agent state or processing.**
 
-With robust backing and dedicated tooling, .NET developers are well-equipped for MCP.
+*   **Schema Design:** Include fields like `id`, `tenantId` (as partition key), `agentId` (optional), `configType`, `configName`, `version`, `isActive` (optional), `value` (string or complex JSON), `metadata` (optional), `lastUpdatedBy`, and `timestamp` (\_ts) \ . Consider a `schemaVersion` field for the document structure itself \.
+*   **Tenant Isolation Models (ISV):**
+    *   **Partition Key per Tenant:** Often most cost-effective for high tenant density. Each document includes a `tenantId` as the logical partition key in a shared container. Application logic must enforce tenant data separation \.
+    *   **Database Account per Tenant:** Strongest physical isolation, higher cost and management.
+    *   **Recommendation:** Start with partition-key-per-tenant; offer dedicated accounts for premium tenants.
 
-##### **1.4.1 The Official MCP C\# SDK: ModelContextProtocol NuGet Package**
+##### **2.2.2 Secure Read/Write Patterns for Agents**
 
-The cornerstone for .NET developers is the official C\# SDK, distributed via the `ModelContextProtocol` NuGet package. Developed by Microsoft in collaboration with Anthropic, this open-source SDK is the standard toolset for building **both MCP clients (which an M365 Agent could utilize to consume external tools) and MCP servers (which would typically be separate backend Nucleus services exposing specific capabilities)** in C\#. It often builds upon or supersedes earlier community efforts, incorporating best practices and deep integration with the .NET ecosystem.
+*   **Agent Identity:** M365 Agent (hosted on Azure) uses Managed Identity to authenticate to Azure resources (Cosmos DB, App Config, Key Vault) \.
+*   **Interaction with Cosmos DB (MCP Tool Abstraction Recommended for Nucleus):**
+    1.  A custom `Nucleus_PersonaBehaviourConfig_McpServer` (MCP Tool) encapsulates Cosmos DB logic.
+    2.  The M365 Agent (as an MCP client using `MCPClientManager`) calls this tool using OAuth 2.1 for secure connection \.
+    3.  Critically, `tenantId` from the M365 Agent context is securely propagated to the MCP tool (e.g., as a custom claim in the OAuth token or a validated parameter). The MCP tool uses this `tenantId` for all Cosmos DB operations.
+    4.  The MCP tool uses its own Managed Identity for Cosmos DB access.
 
-To install using the .NET CLI: `dotnet add package ModelContextProtocol --prerelease`. **(Note: Always check for the latest stable or recommended version).**
+#### **2.3 Security and Access Control for Agent Self-Configuration (Multi-Tenant ISV Focus)**
 
-The SDK provides core functionalities for building clients, servers, and AI helper libraries that facilitate MCP integration with LLMs, often via abstractions from `Microsoft.Extensions.AI`.
+A layered authorization model is essential:
+1.  **Microsoft Entra ID App Roles (ISV Application):** Define custom app roles (e.g., `Agent.Config.Read.Self`, `Agent.Config.Write.Self`) on the ISV's single multi-tenant app registration. Customer admins grant these to the ISV app's service principal in their tenant \.
+2.  **Azure RBAC (Agent/MCP Tool Managed Identity):** The Managed Identity of the agent's backend (or the `PersonaBehaviourConfigMCP` tool) needs Azure RBAC roles for App Config ("App Configuration Data Reader"), Key Vault ("Key Vault Secrets User"), and Cosmos DB ("Cosmos DB Built-in Data Contributor" or custom) \.
+3.  **Azure Cosmos DB Data Plane RBAC + Application Logic (Tenant Scope):** Create custom Cosmos DB roles (e.g., `TenantConfigReader`). Assign agent's/MCP tool's Managed Identity these roles. **Crucially, the application logic (in agent or MCP tool) *must* use the `tenantId` (from M365 context) as the partition key in all Cosmos DB operations to enforce tenant scope.** Cosmos DB data plane RBAC alone does not typically restrict operations based on partition key values matching token claims dynamically \.
+4.  **Mitigating Dynamic Prompt Modification Risks:** Implement input validation, strict schemas, human-in-the-loop approval for significant prompt changes, segregation of duties, contextual awareness in prompts, output filtering, and never embed secrets in prompts. Adhere to OWASP LLM Top 10 principles, particularly regarding prompt injection and sensitive information disclosure \.
 
-##### **1.4.2 Setting up MCP Clients in .NET (Basics)**
+#### **2.4 Operationalizing Dynamic Configuration Updates**
 
-Creating an MCP client typically involves `McpClientFactory.CreateAsync`. This factory requires transport options, such as `StdioClientTransportOptions` or an HTTP-based transport using SSE.
+*   **Versioning in Cosmos DB:** Each config document includes `version` and `isActive` fields. Updates create new versions; activation involves toggling `isActive`. Use transactional batch operations for atomic updates of related items within the same logical partition \.
+*   **Approval Workflows:** For significant changes, use Azure Logic Apps/Power Automate with Adaptive Cards in Microsoft Teams. Changes are saved as "PendingApproval" in Cosmos DB; workflow handles approval and activation \.
+*   **Auditing and Monitoring:**
+    *   **Azure Cosmos DB Change Feed:** Processed by Azure Functions to send audit logs (change details, tenant, agent, principal, timestamp) to Azure Monitor (Application Insights/Log Analytics) or Microsoft Sentinel \. Control plane logs for Cosmos DB itself are also important \.
+    *   **Agent-Side Logging:** Log configuration reads/updates and errors to Application Insights.
+    *   **Monitoring/Alerting:** Set up alerts in Azure Monitor based on audit logs.
 
-Once an `IMcpClient` instance is connected:
-*   **Tool Discovery:** `await client.ListToolsAsync()` returns `McpClientTool` objects with metadata.
-*   **Tool Invocation:** `await client.CallToolAsync("tool_name", argumentsDictionary, cancellationToken)` executes a tool.
-*   **Integration with Microsoft.Extensions.AI:** `McpClientTool` instances often inherit from or can be adapted to `AIFunction`, a type recognized by `IChatClient` from `Microsoft.Extensions.AI`, allowing seamless integration with LLM function calling.
+#### **2.5 Holistic Configuration Strategy (Layering and Refresh)**
 
-##### **1.4.3 Building MCP Servers in C\# (Basics)**
+*   **Layering:** Local Defaults (`appsettings.json`) -> Environment Variables (Hosting) -> Azure App Configuration (+ Key Vault Refs for secrets) -> Azure Cosmos DB (Dynamic Behavioral, via `Nucleus_PersonaBehaviourConfig_McpServer`).
+*   **Dynamic Refresh:**
+    *   **App Config:** Use `IOptionsMonitor<T>` with the .NET provider for App Config (polling or sentinel key) \.
+    *   **Cosmos DB:** Agent reads on-demand, with caching (e.g., `IMemoryCache` with expiry), or advanced event-driven refresh (e.g., Change Feed -> SignalR -> Agent).
 
-The C\# SDK simplifies MCP server creation, typically leveraging `Microsoft.Extensions.Hosting`.
-*   **Server Setup:** Use `Host.CreateApplicationBuilder()` and register MCP services with `builder.Services.AddMcpServer()` (or a similar extension method provided by the SDK).
-*   **Transport Configuration:** Specify transport, e.g., `.WithStdioServerTransport()` or SSE transport for remote servers.
-*   **Defining Primitives using Attributes:**
-    *   **Tools:** Classes with tool methods marked `[McpServerToolType]`. Methods decorated `[McpTool]` (or similar, e.g., `[ToolMethod]`) providing name and description. Parameters can have `[McpParameterDescription]` (or `[ToolParameter]`). Tool methods can use dependency injection. Server can auto-discover using `.WithToolsFromAssembly()` or similar.
-    *   **Resources & Prompts:** Similar attribute-based mechanisms (`[McpResource]`, `[McpPrompt]`) are available.
+Concrete pattern for loading complex `PersonaConfiguration` including nested JSON with Key Vault resolution using `IOptions<T>`:
+1.  Define POCOs (`PersonaConfigurationPoco`, `LlmSettingsPoco`).
+2.  Azure App Configuration stores non-sensitive values and Key Vault references for sensitive fields (e.g., `{"@Microsoft.KeyVault(SecretUri=...)}"`) \.
+3.  .NET Aspire AppHost defines resources for App Config and Key Vault, passing connection info to the agent service \.
+4.  Agent's `Program.cs` uses `AddAzureAppConfiguration` with `.ConfigureKeyVault(kv => kv.SetCredential(new DefaultAzureCredential()))` to enable Managed Identity access and Key Vault reference resolution \.
+5.  `builder.Services.Configure<PersonaConfigurationPoco>(builder.Configuration.GetSection("PersonaConfigRootKey"))` binds the configuration.
 
-##### **1.4.4 Comparison: MCP Tooling vs. Traditional OpenAI Function Calling in .NET**
+#### **2.6 Complex Configuration Management Considerations**
 
-While OpenAI's function calling was pioneering, MCP offers a more comprehensive and standardized solution.
+*   **Schema Versioning and Evolution:** For `PersonaConfiguration` and other complex objects, plan for schema changes. Use versioning in App Config (snapshots, labels) or Cosmos DB (document versioning). Implement tolerant deserialization or custom `IConfigureOptions<T>` for migrations \.
+*   **Dynamic Configuration Refresh Impact:** Identify which agent components can handle dynamic reconfiguration via `IOptionsMonitor<T>`. Ensure robust re-initialization or behavior adaptation for sensitive changes like API keys \.
 
-| Aspect                      | Model Context Protocol (MCP)                                                                          | OpenAI Function Calling (Traditional)                                                              |
-| :-------------------------- | :---------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-| **Standardization**         | Open, industry-wide standard; promotes interoperability across models and tool providers.      | Primarily tied to OpenAI models; less standardized across the industry.                         |
-| **Tool Discovery**          | Built-in dynamic discovery of server capabilities (tools, resources, prompts) via schemas.    | Functions must be pre-defined and passed to the model with each call.                           |
-| **Multi-Tool Orchestration** | Designed to support complex workflows involving multiple tools and servers.                   | Orchestration of multi-step function chains often requires custom client-side logic.           |
-| **Primitives**              | Richer model: Tools (actions), Resources (data), Prompts (guidance).                          | Primarily focused on "functions" (actions).                                                     |
-| **Complexity**              | Higher initial setup for servers, but simplifies M x N integration problem.                   | Simpler for single-tool, single-model scenarios.                                           |
-| **Ecosystem**               | Rapidly growing ecosystem of servers and clients from diverse vendors.                          | Primarily tools and libraries focused on OpenAI models.                                         |
-| **.NET Support**            | Official Microsoft C\# SDK, strong integration with .NET ecosystem (Aspire, SK, `Microsoft.Extensions.AI`).              | Well-supported by community libraries for .NET.                                                 |
+### **Chapter 3: Integrating External AI Models and Backend Services**
 
-The official Microsoft C\# SDK for MCP, integrated with `Microsoft.Extensions.AI`, streamlines development by aligning MCP with familiar .NET AI patterns.
+This chapter details strategies for integrating diverse AI models and how M365 Agents will leverage backend Nucleus MCP Tools.
 
-#### **1.5 Securing MCP-Powered Agentic Applications**
+#### **3.1 Advanced Integration of Non-Azure Large Language Models**
 
-As AI agents become more autonomous, security is paramount.
+##### **3.1.1 Bridging M365 Agents SDK with External LLMs (Gemini, OpenRouter.AI)**
 
-##### **1.5.1 Microsoft's Security Framework for MCP in Windows**
+The M365 Agents SDK's LLM agnosticism is key \.
+*   **Semantic Kernel:** Can act as an orchestrator within the M365 Agent, abstracting LLM differences (Gemini, OpenRouter.AI) and supporting tool calling \ . **The `weather-agent/dotnet` SDK sample is a strong example of this pattern, where Semantic Kernel (`Kernel` instance and `ChatCompletionAgent`) is used directly within the `AgentApplication`-derived class (e.g., `MyAgent.cs`) to interact with an LLM and its plugins.**
+*   **`Microsoft.Extensions.AI.IChatClient`:** Primary .NET abstraction. Custom wrappers for Gemini (using official Google SDK) or OpenRouter (HTTP calls) can implement `IChatClient` \ . The library also includes `FunctionInvokingChatClient` for tool invocation \ .
+*   **SDK Documentation Emphasis:** "A key feature of the Agents SDK is that you can make your choice of AI services and orchestrator and integrate these into your agent using their SDKs. Choose from Azure AI Foundry, Semantic Kernel, LangChain and more." (Source: OCR p13 - Add AI services and orchestration to your agent).
 
-Microsoft has outlined a comprehensive security framework for MCP's integration into Windows 11:
-*   **Key Principles:** User control (MCP server access off by default, requires explicit consent), full auditability and transparency of agent actions, and the principle of least privilege (declarative capabilities and isolation for MCP servers).
-*   **Proxy-Mediated Communication:** Interactions may be routed through a trusted Windows proxy for policy enforcement and auditing.
-*   **Tool-Level Authorization:** Users may need to explicitly approve client-tool pairings, potentially with per-resource granularity.
-*   **Central Server Registry with Security Criteria:** The Windows MCP Registry will only list servers meeting defined baseline security criteria.
-*   **Server Security Requirements:** Mandatory code signing, static (non-changeable at runtime) tool definitions, security testing of exposed interfaces, mandatory package identity, and declaration of required privileges. This framework aims to address threats like credential leakage, tool poisoning, Cross-Prompt Injection Attacks (XPIA), and command injection.
+##### **3.1.2 Tool Calling and Streaming: Compatibility and Nuances**
 
-##### **1.5.2 Server-Side Security Best Practices for .NET MCP Servers**
+*   **Schema Compatibility:** LLM providers have differing JSON schemas for tools/functions (e.g., Google Gemini \ versus OpenAI/OpenRouter \). Abstraction layers like Semantic Kernel and `IChatClient` attempt normalization, but provider-specific limitations (e.g., Gemini OpenAPI spec issues \ , OpenRouter model-specific behaviors for argument-less functions or history handling \ ) can persist. The `actions.json` pattern from Teams AI library for declaring tools is a relevant concept \.
+*   **Robust Streaming:** LLM support for streaming varies, especially with tool calls. OpenRouter.AI supports streaming for many models and uses keep-alive comments \. Client-side handling (Semantic Kernel or `IChatClient` implementation) must accommodate these.
+*   **Abstraction vs. Specificity (Tool Calling):** Abstraction layers simplify but might not support unique/advanced tool features of a specific LLM (e.g., Gemini's `propertyOrdering` \ or `ANY` mode for function calling \). Evaluate trade-offs.
+*   **Prompt Engineering for Tool Use:** Tool descriptions and system prompts must be clear and potentially adapted for different LLMs \. The verbosity and structure of tool schemas also impact token consumption and LLM comprehension \.
 
-When developing custom MCP servers in .NET:
-*   **Input Validation:** Rigorously validate all parameters received by tool methods.
-*   **Proper Error Handling:** Implement robust error handling without leaking sensitive internal details.
-*   **Secure Logging:** Log relevant activities, ensuring sensitive data is not logged in plain text.
-*   **Authentication and Authorization for Sensitive Tools:** Implement additional authN/authZ layers beyond protocol-level security.
-*   **Principle of Least Privilege for Server Processes:** The MCP server process should operate with minimum necessary permissions.
-*   **Dependency Management:** Regularly scan and update server dependencies.
-*   **Secure Configuration Management:** Store secrets like API keys securely (e.g., Azure Key Vault, .NET secret management tools).
+#### **3.2 Secure Credential Management for Third-Party LLM API Keys**
 
-##### **1.5.3 Authentication and Authorization: Leveraging Entra ID with MCP**
+Microsoft Entra Agent ID (manifesting as a Managed Identity for the agent's Azure-hosted compute) is used to securely access Azure Key Vault. Key Vault stores the API keys for third-party LLMs (e.g., Google Gemini, OpenRouter.AI) \.
+*   **Pattern:** The M365 Agent backend (e.g., hosted on Azure App Service) uses its Managed Identity to retrieve these LLM API keys from Azure Key Vault at runtime. API keys should never be hardcoded or stored directly in application configuration files \.
 
-A significant development is the new Identity and Authorization Specification for MCP, allowing MCP-connected applications to use robust identity providers like Microsoft Entra ID.
-*   **Azure API Management (APIM) as an OAuth 2.0 Gateway:** For remote MCP servers, Azure APIM can act as a secure OAuth 2.0 gateway, fronting the MCP server and integrating with Microsoft Entra ID for authentication and authorization. The flow involves APIM redirecting to Entra ID, user authentication, token issuance, and APIM validating tokens before forwarding requests.
-*   **Azure MCP Server:** The official Azure MCP Server has built-in support for Entra ID authentication via the Azure Identity library.
+#### **3.3 Leveraging Model Context Protocol (MCP) for Backend Nucleus Capabilities**
 
-The standardization of identity and authorization paves the way for "identity-aware" AI agents operating securely within enterprise ecosystems.
+##### **3.3.1 Defining and Exposing Backend Nucleus Capabilities as MCP Tools**
 
-#### **1.6 The Future of MCP and Agentic AI**
+Backend Nucleus functionalities (e.g., data access via `ArtifactMetadataContainer` or `KnowledgeContainers` in Cosmos DB, file processing, RAG) are exposed as MCP tools \.
+*   **Tool Definition:** An MCP tool definition requires:
+    1.  `name`: A unique, machine-readable identifier.
+    2.  `description`: Clear, concise natural language description of purpose, capabilities, and use cases (critical for LLM understanding).
+    3.  `inputSchema` (or `parameters`): Structured definition (typically JSON Schema) of input parameters, their types, descriptions, and if required/optional \.
+*   **Exposing via MCP Server:** Backend Nucleus services act as MCP servers.
+    *   Semantic Kernel can expose existing `KernelFunction`s as MCP tools \.
+    *   Azure Functions can define tools using attributes like `[McpServerToolType]` and `[McpTool]`, with metadata exposed via `builder.EnableMcpToolMetaData()` \.
 
-The rapid adoption and strong industry backing of MCP suggest a trajectory towards increasingly sophisticated AI agents.
+##### **3.3.2 LLM-driven Invocation of MCP Tools by M365 Agent**
 
-##### **1.6.1 Expected Evolution of the MCP Standard and Ecosystem**
+The M365 Agent's integrated LLM can discover and invoke these MCP tools \.
+1.  **Tool Presentation to LLM:** The M365 Agent's runtime (or an orchestrator like Semantic Kernel) provides the LLM with available MCP tools (names, descriptions, schemas). Semantic Kernel can convert MCP tools into `KernelFunction` objects for its plugins \. The `OpenAIPromptExecutionSettings` might require `FunctionChoiceBehavior.Auto` \.
+2.  **LLM Tool Invocation Request:** The LLM, based on user intent, generates a request to call a function (the MCP tool) with arguments.
+3.  **Translation to MCP Call:** The M365 Agents SDK, or an integrated orchestrator like Semantic Kernel, recognizes the LLM's intent, translates it into an MCP-compliant request, and sends this to the Nucleus MCP server. This includes securely propagating `tenantId` (from M365 context) to the MCP tool, ideally via an authentication token with a `tenantId` claim \.
+4.  **Return Response to LLM:** The MCP server processes the request (scoped by `tenantId`) and returns the result. The M365 Agent/Semantic Kernel formats this and feeds it back to the LLM for generating the final user response \.
+*   **Semantic Richness of Tool Definitions:** Essential for LLM autonomy. High-quality names, descriptions, and parameter definitions are paramount \.
+*   **Complex Orchestration/Chaining of MCP Tools:** The agent's LLM or orchestrator (e.g., Semantic Kernel planner) handles decomposing user requests, managing state between calls, and error handling for multi-step MCP tool chains \.
 
-*   **Growth in Servers and Clients:** The number and variety are projected to grow exponentially, facilitated by the **public, community-managed MCP server registry.**
-*   **Protocol Enhancements (vNext):** Future versions may address more complex requirements like sophisticated multi-tool chaining, finer-grained security, standardized eventing, or more expressive schemas.
-*   **Advanced Capabilities:** Possibilities include "hardware brokers" for IoT devices and "formal verification" of tool actions for reliability and trust.
+### **Chapter 4: Multi-Tenant ISV Design and Governance for Nucleus**
 
-##### **1.6.2 Preparing for a Future Dominated by Interoperable AI Agents**
+This chapter covers strategies for ISV publishing, identity management with Entra Agent ID in customer tenants, and ensuring data isolation for a multi-tenant Nucleus deployment.
 
-For developers and organizations:
-*   **Embracing Standards:** Actively learn and adopt open standards like MCP.
-*   **Focus on Modularity and Security:** Design AI systems and tools with these as core principles.
-*   **Exposing Capabilities via MCP:** Consider how internal data and services can be securely exposed via MCP servers.
-*   **Developing Higher-Order Reasoning:** Invest in advanced AI reasoning, planning, and learning capabilities within agent Hosts.
-The "public, community-managed MCP server registry" is poised to become vital, analogous to package managers but for AI capabilities.
-
-### **Part 2: Microsoft 365 Agents SDK Deep Dive**
-
-This part provides an in-depth analysis of the Microsoft 365 Agents SDK, its capabilities, and how it differs from the preceding Bot Framework.
+#### **4.1 Distribution Models for Nucleus: ISV and Open-Source Publishing via Agent Store**
 
-#### **2.1 Understanding the Microsoft 365 Agents SDK**
+*   **Agent Store:** The primary distribution channel for ISVs like Nucleus, enabling discovery within Microsoft 365 Copilot Chat. It supports agents for both M365 Copilot licensed and unlicensed customers \. Published agents (whether low-code via Copilot Studio or pro-code via M365 Agents Toolkit) must adhere to validation guidelines covering functionality, reliability, security, and Responsible AI \.
+*   **Open-Source Coexistence:** An open-source distribution model for the Nucleus agent *code* (e.g., via GitHub releases) can coexist with publishing a discoverable M365 Agent via the Agent Store. The Agent Store acts as the "shopfront" and integration point into the M365 Copilot ecosystem.
 
-The Microsoft 365 Agents SDK is an integrated development environment specifically engineered for creating sophisticated AI agents. It provides developers with the tools and libraries necessary to build agents that can be deployed across a multitude of channels, including Microsoft 365 Copilot, Microsoft Teams, and custom web applications, while managing the required communication.
+#### **4.2 Microsoft Entra ID App Registration Strategy & Entra Agent ID in Customer Tenants**
 
-##### **2.1.1 Purpose and Vision**
-
-Microsoft's vision for the M365 Agents SDK is to provide a flexible and powerful platform for developers to build "custom engine agents". These agents offer full control over orchestration, AI models, and data integrations, enabling businesses to create advanced, tailored workflows. The SDK is designed to empower developers to create agents capable of performing complex tasks, reasoning over data, and collaborating with other agents and systems. A core principle is developer choice; it is intentionally "agnostic regarding the AI you choose", allowing integration of agents from any provider or technology stack.
-
-##### **2.1.2 Core Features and Capabilities**
-
-*   **Rapid Agent Containerization:** Allows for the quick construction of an "agent container" complete with state management, storage capabilities, and the ability to manage activities and events, deployable across channels like M365 Copilot or Teams.
-*   **AI and Technology Stack Agnosticism:** Supports implementation using any AI services, models, or orchestration tools (e.g., Azure AI Foundry, OpenAI Agents, Semantic Kernel, LangChain).
-*   **Client-Specific Customization:** Agents can be tailored to align with specific behaviors and capabilities of different client channels.
-*   **Multi-Channel Deployment:** Agents built with the SDK can be surfaced across M365 Copilot, Teams, web applications, and third-party platforms.
-*   **Integration with Orchestration Frameworks:** Seamlessly integrates with popular orchestration frameworks like Semantic Kernel and LangChain.
-*   **Enterprise-Grade Development:** Positioned as a comprehensive framework for building enterprise-grade agents, facilitating integration of components from Azure AI Foundry SDK, Semantic Kernel, and other vendors.
+*   **Recommended Pattern (ISV): Single Multi-Tenant App Registration with App Roles.** For most SaaS applications, a single multi-tenant app registration in the ISV's home Entra ID tenant is advised \ . Distinct functionalities for different Persona Agents are managed by defining app roles (e.g., `EduFlow.ReadWrite`, `Helpdesk.Use`) within this registration \ . "Allowed member types" for these app roles would typically be "Applications" if other M365 Agents (Service Principals) or backend services need to call them, or "Users/Groups" if direct user consent/assignment is involved for certain permissions. Customer administrators grant consent to the ISV application's service principal in their tenant, which then allows the ISV application to act with the granted roles \ .
+    *   **Clarification on Identities:**
+        *   The **`${{AAD_APP_CLIENT_ID}}`** placeholder in agent manifest files (`teams-manifest.json`, `m365copilot-manifest.json`) refers to the **Azure AD App Registration ID of the Azure Bot resource** itself. This is the identity the Bot Service uses to communicate with the agent.
+        *   In `appsettings.json`, the **`Connections:ServiceConnection:Settings:ClientId`** is typically this same Azure Bot's App Registration ID.
+        *   A **single multi-tenant ISV app registration** for the broader Nucleus *platform* (e.g., for backend MCP tools requiring unified Microsoft Graph access, or for M365 Agents to authenticate to those MCP tools using OAuth) is a distinct identity. This platform app registration would have its own App ID and would be consented to by customers for platform-level capabilities. This separation is crucial: individual M365 Persona Agents have their Bot App IDs for channel communication, while the overarching Nucleus platform might use a different App ID for its backend services and cross-cutting concerns.
+*   **Entra Agent ID in Customer Tenants:** When an M365 Agent (published by an ISV like Nucleus) is installed in a customer tenant, an Entra Agent ID (representing the agent's identity in that specific tenant) is provisioned. This allows the agent to operate securely within the customer's M365 environment, respecting their policies. The exact mechanisms for how this Entra Agent ID relates to the ISV's app registration and the permissions granted require careful attention to Microsoft's evolving guidance \ .
 
-##### **2.1.3 Architectural Overview: The SDK and Azure Bot Service**
-
-The Microsoft 365 Agents SDK is an evolution and abstraction layer built upon Microsoft's existing bot infrastructure. The SDK **utilizes the Azure Bot Service** for channel management and provides **scaffolding to handle the required communication.** The Azure Bot Service defines a REST API and an activity protocol for interactions; the M365 Agents SDK builds upon this REST API, providing a higher-level abstraction that simplifies development by handling much of the underlying Bot Service REST API and activity protocol complexities. Core concepts from the Bot Framework, such as "activities" (representing interactions) and "turns" (units of work), persist but are framed within a richer agent context. Manual deployment to Azure and registration with Azure Bot Service remains a viable option.
+#### **4.3 Data Isolation and Security in Multi-Tenant Nucleus**
 
-##### **2.1.4 Development Environment and Tooling**
+Ensuring data isolation and security in a multi-tenant environment is critical, especially when using shared resources like Azure Cosmos DB.
 
-*   **Supported Languages:** C\# (using the .NET 8.0 SDK), JavaScript (using Node.js version 18 and above), and Python (versions 3.9 to 3.11, **with General Availability planned for June 2025**).
-*   **Microsoft 365 Agents Toolkit:** An evolution of the Teams Toolkit, available for Visual Studio and VS Code. It provides project templates (e.g., "Echo Agent," "Weather Agent"), debugging capabilities (local testing in "Microsoft 365 Agents Playground," direct debugging in Teams or M365 Copilot), and streamlined deployment workflows to Azure. The toolkit and SDK achieved General Availability (GA) at Microsoft Build 2025.
-*   **Getting Started:** Developers typically clone official Agents GitHub repositories containing SDK source libraries and samples.
+##### **4.3.1 Data Isolation Strategies**
 
-#### **2.2 The Transition: From Bot Framework to the Microsoft 365 Agents SDK**
+*   **Logical Isolation with Shared Resources:** Use of shared Azure resources (e.g., Cosmos DB) with logical isolation enforced at the application level. Each tenant's data is segregated using techniques like partition keys (`tenantId`) and careful access control \.
+*   **Dedicated Resources for High-Security Tenants:** Option to provision dedicated resources (e.g., separate Cosmos DB accounts) for tenants with stringent security requirements. This provides physical data separation at a higher cost \.
+*   **Dynamic Data Masking and Encryption:** Implement dynamic data masking and encryption to protect sensitive information within shared databases. Only authorized users or services should have the ability to decrypt and view sensitive data \.
 
-The M365 Agents SDK marks a paradigm shift from traditional Bot Framework to a more powerful, AI-driven, agent-centric approach.
+##### **4.3.2 Security Best Practices**
 
-##### **2.2.1 Fundamental Differences and the New Agent-Centric Paradigm**
+*   **Least Privilege Access:** Always adhere to the principle of least privilege when assigning permissions to agents, services, and users. Regularly review and audit permissions to ensure compliance \.
+*   **Network Security:** Utilize Azure Virtual Networks, Network Security Groups, and Azure Firewall to control and restrict network access to Azure resources. Consider using private endpoints for critical services like Cosmos DB and Key Vault \.
+*   **Monitoring and Auditing:** Implement comprehensive monitoring and auditing of all access and configuration changes. Use Azure Monitor, Azure Security Center, and Azure Sentinel to gain insights and detect potential security incidents \.
+*   **Regular Security Assessments:** Conduct regular security assessments and penetration testing to identify and remediate vulnerabilities in the Nucleus deployment \.
 
-The M365 Agents SDK is the "evolution of the Azure Bot Framework SDK". While Bot Framework focused on "conversational AI around topics, dialogs, and messages," the M365 Agents SDK is for "modern agent development", characterized by:
-*   Generative AI (GAI) Driven Functionality.
-*   Enterprise Knowledge Grounding.
-*   Orchestration of Actions.
-The term "agents" suggests more proactive, intelligent entities capable of complex reasoning and autonomous task execution compared to "bots". **The SDK is designed to be un-opinionated about the AI you use. You can implement agentic patterns without being locked into a tech stack.**
+### **Chapter 5: Deployment, Networking, and Operations**
 
-##### **2.2.2 Deprecated Bot Framework Components and Key Migration Insights for .NET**
+This chapter focuses on deploying the distributed Nucleus system using .NET Aspire, establishing secure Azure network architectures, and managing operations.
 
-**This section has been significantly updated based on the M365 Agents SDK Overview and Migration Guidance documentation.**
-
-Several Bot Framework features are not being brought forward or are no longer directly relevant in the new agent paradigm. It is crucial for developers migrating from Bot Framework to understand these changes.
-
-**Unsupported and Deprecated Bot Framework Functionalities (explicitly listed from SDK documentation):**
-*   Adaptive Dialogs
-*   AdaptiveExpressions
-*   Composer Artifacts (Bot Framework Composer)
-*   Previous Generation AI Tooling (LUIS, QnA Maker, and associated SDK components like `Microsoft.Bot.Builder.AI.Luis` and `Microsoft.Bot.Builder.AI.QnA`)
-*   Language Understanding (`Microsoft.Bot.Builder.Parsers.LU`)
-*   Language Generation (LG) tooling and `Microsoft.Bot.Builder.LanguageGeneration`
-*   TemplateManager
-*   ASP.Net WebAPI (the older `Microsoft.Bot.Builder.Integration.AspNet.WebApi` integration)
-*   Application Insights (as previously integrated with `Microsoft.Bot.Builder.Integration.ApplicationInsights.Core`)
-*   Streaming Connections (`Microsoft.Bot.Streaming`)
-*   QueueStorage (as a transcript logger `Microsoft.Bot.Builder.Azure.Queues`)
-*   Inspection (middleware for inspecting activity and state)
-*   `BotFrameworkAdapter` (the primary adapter in older Bot Framework versions)
-*   Deprecated Activities (e.g., `ActivityTypes.InvokeResponse`, `ActivityTypes.InstallationUpdate` with `action = "add-bot"`, `ActivityTypes.ContactRelationUpdate`, `ActivityTypes.Typing`)
-*   Generators (Yeoman generators for Bot Framework)
-*   CLI (`bf` command-line interface)
-
-**Key .NET SDK Code Changes (Migration from Bot Framework SDK to M365 Agents SDK):**
-
-*   **Token Authentication (Startup):**
-    *   Authentication setup **must be configured in the host application** (e.g., ASP.NET Core web app).
-    *   Manual `AppCredentials` creation (e.g., `new MicrosoftAppCredentials(appId, appPassword)`) **no longer exists**.
-    *   This is replaced by the `IAccessTokenProvider` interface and implementations like `Microsoft.Agents.Authentication.Msal` (or equivalent from `Microsoft.Bot.Connector.Authentication` if still applicable for certain channel service interactions) for more robust and secure token handling.
-    *   `ConfigurationBotFrameworkAuthentication` (from `Microsoft.Bot.Builder.Integration.Configuration`) is replaced by `RestChannelServiceClientFactory` (from `Microsoft.Agents.BotFramework`) or direct usage of `ChannelServiceClient` with appropriate authentication.
-*   **Serialization:**
-    *   The Bot Framework SDK primarily used **Newtonsoft.Json** for serialization.
-    *   The M365 Agents SDK transitions to using **`System.Text.Json`** for improved performance and consistency with modern .NET.
-*   **Adapter:**
-    *   `BotFrameworkAdapter`: This core adapter from the Bot Framework SDK **is replaced and removed from the M365 Agents SDK**.
-    *   While `CloudAdapter` was its successor in later versions of the Bot Framework SDK, the M365 Agents SDK typically uses an implementation of `IAgentHttpAdapter` (e.g., `Microsoft.Agents.Hosting.AspNetCore.AgentHttpAdapter`) when mapping the agent endpoint (e.g., `app.MapPost("/api/messages", ...)`). The `CloudAdapter` might still be relevant for direct interactions with the Bot Connector service if not using the full agent hosting model.
-*   **Interface/Type Name Changes:**
-    *   `Microsoft.Bot.Connector.IAttachments.GetAttachmentInfo` is renamed to `GetAttachmentInfoAsync`.
-    *   `Microsoft.Bot.Builder.Integration.AspNet.Core.IBotFrameworkHttpAdapter` is conceptually replaced by `Microsoft.Agents.Hosting.AspNetCore.IAgentHttpAdapter` within the agent hosting model. The older `Microsoft.Bot.Builder.IBotHttpAdapter` might still exist for lower-level channel interactions.
-    *   `Microsoft.Bot.Builder.BotAdapter` is renamed to `Microsoft.Bot.Builder.ChannelAdapter`.
-    *   `Microsoft.Bot.Builder.CloudAdapterBase` is renamed to `Microsoft.Bot.Builder.ChannelServiceAdapterBase`.
-*   **State Management:**
-    *   Accessing connector client: `TurnState.Get<IConnectorClient>()` becomes `turnContext.Services.Get<IConnectorClient>()` (or `turnState.Services.Get<IConnectorClient>()`).
-    *   Accessing user token client: `TurnState.Get<IUserTokenClient>()` becomes `turnContext.Services.Get<IUserTokenClient>()` (or `turnState.Services.Get<IUserTokenClient>()`).
-    *   The general `TurnState` property bag concept from Bot Framework is evolved. While `ITurnState` is the type of the `turnState` parameter in activity handlers, direct manipulation might involve `turnState.StackState`.
-    *   Adding to turn state: `turnState.Add<T>(key, value)` (Bot Framework) is conceptually replaced by `turnState.StackState.Set<T>(key, value)` or direct use of `ITurnContext.TurnState` for simpler scenarios.
-*   **Application Classes:**
-    *   `Microsoft.Bot.Builder.Application<TState>` (Bot Framework) is replaced by `Microsoft.Agents.AgentApplication`.
-    *   `Microsoft.Bot.Builder.ApplicationOptions<TState>` (Bot Framework) is replaced by `Microsoft.Agents.AgentApplicationOptions`.
-*   **Namespaces:** Significant changes require updating `using` statements:
-    *   `using Microsoft.Bot.Builder;` generally becomes `using Microsoft.Agents.BotBuilder;` (for core agent types) or remains `using Microsoft.Bot.Builder;` (for foundational types like `ITurnContext`, `IStorage`).
-    *   `using Microsoft.Bot.Schema;` is replaced by `using Microsoft.Agents.Core.Models;` (for agent-specific models) and potentially `using Microsoft.Bot.Schema;` (for activity types and basic schema elements if still directly used). `Microsoft.Agents.Core.Serialization;` might also be relevant.
-    *   `using Microsoft.Bot.Builder.Integration.AspNet.Core;` is replaced by `using Microsoft.Agents.Hosting.AspNetCore;`
-
-These changes reflect a move towards a more modern, ASP.NET Core-aligned, and extensible architecture in the M365 Agents SDK.
-
-#### **2.3 Developing with the M365 Agents SDK for .NET: Fundamentals**
-
-##### **2.3.1 Agent Development Lifecycle with M365 Agents Toolkit (.NET)**
-
-*   **Project Scaffolding:** In Visual Studio, select "Microsoft 365 Agents" project type. Templates like "Weather Agent" (with Semantic Kernel, Azure AI Foundry/OpenAI integration) or "Empty Agent" are available.
-*   **Core Agent Implementation (C\#):**
-    *   **`Program.cs` Structure (based on SDK Samples):**
-        ```csharp
-        // using Microsoft.Agents.BotBuilder; // For AgentApplication, AgentApplicationOptions
-        // using Microsoft.Agents.Hosting.AspNetCore; // For AddAgent, AddAgentApplicationOptions, IAgentHttpAdapter
-        // using Microsoft.Bot.Builder; // For IStorage, MemoryStorage, ITurnContext
-        // using Microsoft.Bot.Schema; // For ActivityTypes
-        // using Microsoft.Extensions.DependencyInjection; // For AddSingleton, AddHttpClient
-        // using Microsoft.Extensions.Logging; // For AddConsole
-
-        // WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
-
-        // builder.Services.AddHttpClient(); // Common practice for making HTTP calls
-        // builder.Logging.AddConsole();    // Common practice for logging
-
-        // // Add agent application options from configuration (e.g., appsettings.json)
-        // builder.AddAgentApplicationOptions(); 
-
-        // // Register the agent type
-        // builder.AddAgent<MyAgent>(); 
-
-        // // Register storage (MemoryStorage for development, persistent storage for production)
-        // builder.Services.AddSingleton<IStorage, MemoryStorage>();
-
-        // WebApplication app = builder.Build();
-
-        // // Map the agent messaging endpoint
-        // app.MapPost("/api/messages", async (HttpRequest request, HttpResponse response, IAgentHttpAdapter adapter, IAgent agent, CancellationToken cancellationToken) =>
-        // {
-        //     await adapter.ProcessAsync(request, response, agent, cancellationToken);
-        // });
-
-        // // Configure listening URL (optional, often from launchSettings.json or config)
-        // // app.Urls.Add($"http://localhost:3978"); 
-
-        // app.Run();
-        ```
-        *(Source: Samples - `empty-agent/dotnet/Program.cs`, `copilotstudio-skill/dotnet/Program.cs`)*
-    *   **Agent Class (`MyAgent.cs`) Structure (based on SDK Samples):**
-        ```csharp
-        // using Microsoft.Agents.BotBuilder; // For AgentApplication, AgentApplicationOptions
-        // using Microsoft.Bot.Builder; // For ITurnContext, ITurnState, MessageFactory
-        // using Microsoft.Bot.Schema; // For ActivityTypes, Activity
-        // using System.Threading; // For CancellationToken
-        // using System.Threading.Tasks; // For Task
-
-        // public class MyAgent : AgentApplication
-        // {
-        //     public MyAgent(AgentApplicationOptions options) : base(options)
-        //     {
-        //         // Define activity handlers
-        //         OnActivity(ActivityTypes.Message, async (ITurnContext turnContext, ITurnState turnState, CancellationToken cancellationToken) =>
-        //         {
-        //             // Echo back the received message
-        //             await turnContext.SendActivityAsync(MessageFactory.Text($"Echo: {turnContext.Activity.Text}"), cancellationToken);
-        //         });
+#### **5.1 Leveraging .NET Aspire for Developing and Deploying Nucleus**
 
-        //         OnActivity(ActivityTypes.ConversationUpdate, async (ITurnContext turnContext, ITurnState turnState, CancellationToken cancellationToken) =>
-        //         {
-        //             if (turnContext.Activity.MembersAdded != null)
-        //             {
-        //                 foreach (var member in turnContext.Activity.MembersAdded)
-        //                 {
-        //                     if (member.Id != turnContext.Activity.Recipient.Id)
-        //                     {
-        //                         await turnContext.SendActivityAsync(MessageFactory.Text($"Hello, {member.Name}! Welcome to the agent."), cancellationToken);
-        //                     }
-        //                 }
-        //             }
-        //         });
-        //     }
-        // }
-        ```
-        *(Source: Samples - `empty-agent/dotnet/MyAgent.cs`, SDK Documentation OCR p4, p12, p37)*
-*   **Testing and Debugging:** The M365 Agents Toolkit provides the "Microsoft 365 Agents Playground" for local testing. Direct debugging in Microsoft Teams or M365 Copilot is also supported.
-*   **Deployment:** Manual deployment to Azure involves Azure Bot Service app registration (App ID matching Azure Bot Service record) and publishing agent code (e.g., to Azure Web App) [18, referring to its section 2.1; 31]. The messaging endpoint in Azure Bot Service config must point to the deployed agent's API (e.g., `https://{yourwebsite}/api/messages`). For Teams/M365 Copilot deployment, a manifest .zip package (with `manifest.json`, icons) is side-loaded, referencing the Bot ID.
+.NET Aspire is an opinionated, cloud-ready stack for building observable, production-ready, distributed .NET applications, simplifying local development and Azure deployment \.
+*   **Local Development (AppHost):** The `Nucleus.AppHost` project orchestrates local instances of M365 Agent applications, backend MCP Tool/Server applications, and emulated services (e.g., Cosmos DB emulator as a container, Redis, or local RabbitMQ/NATS for queues if Service Bus emulator is tricky). It manages configurations and inter-service communication by injecting environment variables or connection strings \.
+*   **Azure Deployment (`azd`):**
+    *   .NET Aspire (in publish mode) generates a deployment manifest (`manifest.json`). The Azure Developer CLI (`azd`) uses this manifest and associated Bicep templates (either generated by Aspire or custom-authored) to provision and deploy the entire distributed Nucleus system to Azure \.
+    *   This typically involves provisioning multiple Azure Container Apps (ACA) for M365 Agents and MCP Tools, along with Azure Cosmos DB, Azure Service Bus, Azure Key Vault, and Azure App Configuration.
+    *   **Service Discovery in ACA:** ACA provides built-in DNS-based service discovery for services within the same ACA environment. Aspire/`azd` injects connection strings and service URLs as environment variables into containers based on `WithReference()` calls in the AppHost \.
+    *   **Secure Inter-Service Authentication (ACA):** Use Managed Identities. .NET Aspire version 9.2 and later default to assigning each ACA its own dedicated managed identity and facilitate defining least-privilege Azure role assignments in C\# within AppHost, which `azd` translates to Bicep \. Services authenticate by acquiring/validating OAuth 2.0 tokens.
+    *   **Configuration, Health Checks, Telemetry (ACA):** Integration with Azure App Configuration and Key Vault uses Managed Identities. The `AddServiceDefaults()` extension in Aspire projects configures standard ASP.NET Core health check endpoints (probed by ACA) and OpenTelemetry support (for logs, metrics, traces), which can export to Azure Monitor Application Insights \.
+*   **Manifest as Source of Truth:** The accuracy of AppHost C\# definitions is critical as they dictate the deployment manifest and thus cloud behavior. Any local development assumptions not captured in AppHost definitions can lead to misconfigurations \.
+*   **Managed Identities & RBAC Complexity:** Meticulously plan and verify Azure role assignments for each service's Managed Identity to all Azure resources it accesses. Misconfigured roles are a common source of "access denied" errors \.
 
-##### **2.3.2 Advanced State Management: ITurnState, StackState, and IStorage**
+#### **5.2 Definitive Network Isolation Architectures for VNet-Hosted M365 Agents**
 
-Managing conversational context is crucial. The M365 Agents SDK provides mechanisms for state and storage. **Agents created with the Agents SDK are stateless by default.** State is supported as an optional parameter when the agent is built and includes concepts like Private State, User State, and Conversation State. State requires a configured storage mechanism. The SDK supports Memory storage (for development), Azure Blob storage, Azure Cosmos DB, or custom storage implementations.
-*   **IStorage:** For basic scenarios/testing, `MemoryStorage` can be registered: `builder.Services.AddSingleton<IStorage, MemoryStorage>();`. Production uses persistent stores (e.g., Azure Blob Storage, Cosmos DB) by implementing `IStorage`.
-*   **AgentState:** The SDK includes an `AgentState` class, typically constructed with an `IStorage` implementation and a `stateName` string [23, referring to its section 5.2; 32]. It persists state properties and caches state within turns. **The `AgentApplicationOptions` can be configured with `Storage` and `ConversationState`, `UserState`, `TempState` properties.**
-*   **ITurnState and StackState:** Migration guidance indicates a shift.
-    *   The `turnState` parameter (type `ITurnState`) is passed to `OnActivity` handlers.
-    *   Bot Framework's `TurnState` property bag is conceptually replaced by `StackState`. The `ITurnState` interface provides access to `ConversationState`, `UserState`, and `TempState` (which includes `Input`, `Output`, `History`).
-    *   Accessing services (e.g., via `turnContext.Services.Get<T>()`).
-    *   `StackState.Add()` is replaced by `StackState.Set()` for managing values within turn-specific state. **More commonly, state is accessed via `turnState.ConversationState.Get<T>()` or `turnState.UserState.Set<T>()`.**
+This addresses securing VNet-hosted M365 Agents that require connectivity to public channels (like Microsoft Teams) and potentially external LLMs.
+*   **Securing VNet-Hosted M365 Agents with Public Channel Connectivity (Application Gateway/APIM Recommended):**
+    *   **Pattern:** Microsoft Teams → Azure Bot Service → Public IP of Azure Application Gateway (with WAF) or Azure API Management → Application Gateway/APIM (in VNet) → Private Endpoint on Customer VNet → M365 Agent compute (e.g., ACA/App Service with internal-only ingress) \. This architecture is recommended because channels like Teams cannot directly connect into a private customer VNet without an intermediary \.
+    *   **Agent Endpoint Security (VERY IMPORTANT):** The agent's messaging endpoint (e.g., `/api/messages`) **must be secured**. The `full-authentication/dotnet` SDK sample provides a crucial example in its `AspNetExtensions.cs` file with the `AddAgentAspNetAuthentication()` method. This extension:
+        *   Configures JWT Bearer authentication.
+        *   Validates tokens from Azure Bot Service (e.g., issuer `https://api.botframework.com`).
+        *   Can validate standard Entra ID tokens (for other scenarios like direct agent-to-agent calls or skills).
+        *   Uses `OpenIdConnectConfigurationRetriever` and `ConfigurationManager` for fetching/caching OpenID metadata to validate signing keys.
+        *   Allows configuration of `Audiences`, `TenantId`, `ValidIssuers`, and `IsGov` cloud settings.
+        *   The `MapPost(...).RequireAuthorization()` pattern in the `full-authentication` sample's `Program.cs` demonstrates applying this security to the agent's endpoint. This is the standard approach for how an Application Gateway or APIM should forward requests to a secured agent endpoint.
+    *   **Azure Bot Service Private Link/Private Endpoint Capabilities for ALL Channel Traffic:** As of May 2025, Azure Bot Service **does not offer** robust Private Link capabilities that enable it to directly and privately connect to an agent's VNet-isolated endpoint for *all incoming channel traffic* from public channels like Teams or M365 Copilot, thereby eliminating the need for any public IP exposure on the agent's compute or its fronting proxy. Private Endpoints for Bot Service sub-resources (`Bot`, `Token`) serve other purposes like outbound bot communication or internal VNet Direct Line clients \.
+    *   **Direct Line App Service Extension (DL-ASE) Applicability:** DL-ASE is *not* for Teams/Copilot public channel ingress but for private Direct Line clients within the VNet. Microsoft guidance (from September 2023) advises using the Azure Service Tag method for network isolation and limiting DL-ASE use \.
+*   **Azure Firewall for Egress Control:**
+    *   All VNet outbound traffic (from M365 Agents, MCP Tools, Background Workers) should be routed through a central Azure Firewall instance using User-Defined Routes (UDRs).
+    *   **Required Azure Dependencies (Service Tags):** Use Service Tags in Azure Firewall rules for `AzureBotService`, `AzureActiveDirectory`, `AzureKeyVault`, `AzureStorage`, `AzureAppConfiguration`, `AzureCosmosDB`, `AzureMonitor` \.
+    *   **External LLM Endpoints (FQDNs):** Explicitly allow API endpoints for non-Azure LLMs:
+        *   Google Gemini API: `generativelanguage.googleapis.com` \.
+        *   OpenRouter.AI API: `openrouter.ai` (API calls usually to `https://openrouter.ai/api/v1/...`) \.
+    *   Prioritize Azure Firewall Application Rules for FQDNs due to potentially dynamic IPs.
+*   **"Weakest Link" in Private Endpoint Strategy:** Communication from Teams to Azure Bot Service, and Bot Service to the public ingress (App GW/APIM), inherently traverses public network segments (secured by TLS, WAF). True "end-to-end private" refers to securing the agent's hosting and backend dependencies \.
 
-#### **2.4 Security and Governance for M365 Agents**
+### **Chapter 6: Governance and Compliance for Nucleus Agents**
 
-As AI agents become more autonomous, security and governance are paramount.
+This chapter addresses Responsible AI (RAI) considerations and requirements for submitting Nucleus M365 Agents to marketplaces.
 
-##### **2.4.1 Identity and Access Management with Microsoft Entra Agent ID**
+#### **6.1 Responsible AI (RAI) for Custom Engine Agents (including non-Azure LLMs)**
 
-The public preview of **Microsoft Entra Agent ID** is a fundamental shift.
-*   **Centralized Agent Identity:** Agents created with Azure AI Foundry and Microsoft Copilot Studio are automatically assigned unique, first-class identities in Microsoft Entra ID. Support for M365 Agents SDK-built agents (via M365 Copilot) and third-party solutions is planned. **The `teams-manifest.json` and `m365copilot-manifest.json` files in SDK samples often use a placeholder like `${{AAD_APP_CLIENT_ID}}` for `bots.botId` (in Teams manifest) or `webApplicationInfo.id` (in M365 Copilot manifest). This `AAD_APP_CLIENT_ID` refers to the Application (client) ID of the Azure AD App Registration for the bot itself, which aligns with the concept of the Entra Agent ID.**
-*   **Visibility and Control:** Administrators can view and manage these agent identities (new "Agent ID (Preview)" application type) in the Microsoft Entra admin center.
-*   **Least Privilege and Just-In-Time (JIT) Access:** Entra Agent ID promotes a least-privileged access model, with agents requesting JIT, scoped tokens for only the resources they need.
-*   **Simplified Enterprise Onboarding:** Treats agents as standard Entra ID identities, streamlining security reviews and leveraging existing tools for discovery, approval, auditing, and lifecycle management.
+*   **Developer Responsibility:** For custom engine agents like Nucleus M365 Agents, particularly those using non-Azure LLMs, the developer bears significant responsibility for ensuring compliance, RAI practices, and security measures \. Microsoft advocates a layered approach to mitigating LLM harms (model, safety system, metaprompt/grounding, UX) \.
+*   **Data Handling, Privacy, Security:** Strict adherence to data privacy regulations (e.g., GDPR) is essential, especially when agents process enterprise data \. Secure external LLM integration includes Key Vault for API keys, TLS, and input/output validation. Microsoft Purview can assist with data governance \.
+*   **RAI Practices:** Proactively implement mechanisms to detect, mitigate, and manage AI-related risks (harmful content, bias, misinformation). This involves careful prompt engineering, content filters, potential human-in-the-loop processes, and transparency \.
 
-##### **2.4.2 Data Security and Compliance using Microsoft Purview**
+#### **6.2 Implications for Microsoft 365 Agent Store / Commercial Marketplace Submission**
 
-Microsoft Purview's data security and compliance capabilities are extended to the AI agent landscape.
-*   **Extended Controls:** Purview controls can be applied to custom AI apps via a new Purview SDK, and natively for agents in Azure AI Foundry and Copilot Studio.
-*   **Governance for AI Agents:** Enforce data classification, sensitivity labeling, data loss prevention (DLP), and other compliance policies on data AI agents access, process, and generate.
+*   **Stricter Scrutiny for Non-Azure LLMs:** Agents using non-Azure LLMs will likely face detailed scrutiny regarding their implemented RAI measures, data security, and compliance.
+*   **Adherence to Marketplace Policies:** All offers must comply with Microsoft Commercial Marketplace certification policies (technical validation, security compliance, privacy policies, terms of use) \.
+*   **AI-Powered Application Guidelines:** Guidelines (e.g., from Teams Store, likely similar for M365 Agent Store) emphasize clear AI description, user reporting for harmful content, and high-quality agent responses \.
+*   **"Trust Boundary" Challenge:** With non-Azure LLMs, the core reasoning engine operates outside Microsoft's direct RAI oversight. The ISV (Nucleus) becomes responsible for vouching for the RAI safety of these components, requiring comprehensive documentation and evidence of due diligence.
+*   **Consistent Standards:** Microsoft will likely expect custom engine agents to meet RAI *outcomes* equivalent to those achieved with Azure OpenAI, regardless of the underlying LLM. Proactive alignment with Microsoft's RAI framework principles is advisable.
 
-##### **2.4.3 Implementing Zero Trust for the Agentic Workforce**
+### **Overall Conclusion and Strategic Recommendations for Project Nucleus**
 
-Microsoft extends its **Zero Trust security model** ("never trust, always verify," "assume breach," "use least privileged access") to the "agentic workforce".
-*   **Identity as the New Perimeter:** Entra Agent ID plays a pivotal role.
-*   **Holistic Security Integration:** Involves embedding identity (Entra), security (Microsoft Defender), and governance (Purview) into agent-building platforms and operational lifecycles.
+This advanced guide has detailed strategies for core agent architecture, holistic configuration management, multi-LLM integration, multi-tenant ISV design, backend MCP tool utilization, .NET Aspire for deployment, definitive network isolation, and RAI/governance.
 
-### **Part 3: The Unified Ecosystem - Key Announcements and Synergies**
+**Key Strategic Recommendations (Consolidated):**
 
-This part consolidates key industry announcements, primarily from Microsoft Build 2025, and discusses the synergistic relationship between MCP, the M365 Agents SDK, and other Microsoft AI technologies.
+1.  **Proactive Messaging DI:** Finalize DI setup for `ChannelAdapter`/`IAccessTokenProvider` (with `DefaultAzureCredential`) in background services (Azure Functions, `IHostedService`) for secure, Managed Identity-based proactive messaging by M365 Agents.
+2.  **Configuration Schema Management & Dynamic Refresh:** Implement versioning for dynamic `PersonaConfiguration` in Cosmos DB (accessed via `Nucleus_PersonaBehaviourConfig_McpServer`). Design M365 Agent components using `IOptionsMonitor<T>` for dynamic refresh of static configurations from Azure App Configuration.
+3.  **Non-Azure LLM Tooling Rigor:** For each non-Azure LLM (Gemini, OpenRouter models), conduct thorough testing of tool calling and streaming capabilities through the chosen abstraction layer (Semantic Kernel, `IChatClient`). Develop LLM-specific tool descriptions or prompt augmentations if necessary for reliable tool use by M365 Agents.
+4.  **Entra ID App Role Design (ISV):** Adopt the single multi-tenant "Nucleus Platform" Entra app registration model. Meticulously design app roles to correspond to distinct Nucleus M365 Persona Agent functionalities, ensuring they align with the principle of least privilege when customer administrators grant consent.
+5.  **Exploit New Cosmos DB Features:** Strategically implement Global Secondary Indexes, filtered vector search (with `tenantId` scope), and investigate RU pooling for the `ArtifactMetadataContainer` and `KnowledgeContainers` to optimize performance, search relevance, and cost in the multi-tenant backend accessed by `Nucleus_KnowledgeStore_McpServer`.
+6.  **MCP Tool Definition Quality:** Invest significant effort in crafting clear, unambiguous, and semantically rich MCP tool definitions (name, description, input schema) for all backend Nucleus capabilities to maximize LLM accuracy in tool selection and invocation by M365 Agents.
+7.  **.NET Aspire Manifest Validation:** Establish a practice of reviewing the Aspire-generated deployment manifest (`manifest.json`) and the derived Bicep templates before `azd up` to ensure they accurately reflect the intended Azure resource configuration and inter-service dependencies for the distributed Nucleus system.
+8.  **Network Egress Control for LLMs:** For external LLM FQDNs, prioritize Azure Firewall Application Rules. Continuously monitor and update rules based on provider guidance due to potentially dynamic IPs.
+9.  **RAI Documentation for Non-Azure LLMs:** Proactively develop comprehensive documentation detailing the RAI diligence, safety measures, content filtering, and compliance adherence for any non-Azure LLM used by Nucleus M365 Persona Agents or backend MCP Tools. This will be crucial for Microsoft 365 Agent Store submission and enterprise adoption.
+10. **Entra Agent ID Monitoring:** Closely monitor the evolution of Microsoft Entra Agent ID and its integration with M365 Copilot agents and third-party tools, assessing its impact on the ISV agent identity and permission model for Nucleus M365 Persona Agents.
 
-#### **3.1 Pivotal Announcements (Microsoft Build 2025 & Context)**
-
-May 2025, particularly around Microsoft Build (May 19-21), marked a watershed moment for MCP and the M365 agent ecosystem. **Ensure all General Availability (GA) dates and preview statuses mentioned reflect the latest information from primary sources like the OCR'd SDK documentation (e.g., Python SDK for M365 Agents is planned for GA in June 2025 - Source: OCR p9).**
-
-##### **3.1.1 MCP Becomes Foundational (Microsoft Build 2025)**
-
-*   **Windows 11 Native MCP Support:** MCP embraced as a foundational layer for secure agentic computing in Windows 11, providing a standardized framework for AI agents to connect with native Windows capabilities. Features include an MCP Registry and security principles like user control, auditability, and least privilege.
-*   **Broad MCP Adoption Across Microsoft's AI Stack:** Extensive support declared across GitHub, Copilot Studio (MCP connections for enterprise knowledge systems reached General Availability), Dynamics 365, Azure, Azure AI Foundry, Semantic Kernel, and Foundry Agents. An Azure MCP Server enables interaction with Azure resources.
-*   **New MCP Identity & Authorization Specification:** In collaboration with Anthropic and the MCP Steering Committee, Microsoft introduced an updated specification allowing MCP-connected applications to securely connect to servers using Microsoft Entra ID or other trusted logins.
-*   **Public, Community-Managed MCP Server Registry:** Microsoft announced contributions towards a service for discovering and managing MCP server entries.
-*   **Microsoft & GitHub Join MCP Steering Committee:** Solidifying commitment to shape MCP's future.
-
-##### **3.1.2 Google I/O 2025 MCP Support**
-
-Google also signaled its support for MCP at its I/O 2025 conference, announcing integration into the Gemini API and SDK to facilitate the use of open-source tools with Google's AI models.
-
-##### **3.1.3 Agent Store & New Microsoft-Built Agents (Microsoft Build 2025)**
-
-*   **General Availability (GA) of the Agent Store** within Microsoft 365 Copilot Chat. This centralized marketplace allows users to find, pin, and utilize agents from Microsoft, partners, and their own company.
-*   New prebuilt agents (GA in June 2025): **Employee Self-Service Agent** and **Skills Agent**.
-
-##### **3.1.4 Copilot Studio Advancements (Microsoft Build 2025)**
-
-Microsoft Copilot Studio received several enhancements:
-*   **Multi-Agent Orchestration (Private Preview):** Enables agents built with various Microsoft tools (M365 agent builder, Azure AI Agents Service, Microsoft Fabric) to collaborate on complex tasks.
-*   **Computer Use in Copilot Studio Agents:** Agents can interact with desktop applications and websites.
-*   **Bring Your Own Model (BYOM) and Model Fine-Tuning:** Copilot Studio supports BYOM and **Microsoft 365 Copilot Tuning** (a low-code capability for training models with company data). Integration with Azure AI Foundry models also provides access to over 1,900 models.
-*   **New Publishing Channels:** Agents can be published to **SharePoint** and (starting July 2025) to **WhatsApp**.
-*   **Additional Maker Controls for Knowledge (Public Preview):** New controls for shaping agent responses and reasoning, including uploading multiple related files into a file collection as a single knowledge source.
-
-##### **3.1.5 Microsoft Entra Agent ID Deep Dive (Microsoft Build 2025)**
-
-As covered in Section 2.4.1, the public preview of Microsoft Entra Agent ID was announced, providing unique, manageable identities for agents in Entra ID.
-
-##### **3.1.6 M365 Agents Toolkit & SDK: General Availability (Microsoft Build 2025)**
-
-The **Microsoft 365 Agents Toolkit and Software Development Kit (SDK) are now Generally Available**. These tools are designed for professional developers, offering full control, easier building/testing/evolving of agents, and deployment to Azure with smart defaults.
-
-#### **3.2 Synergies: MCP, M365 Agents SDK, and the Broader AI Ecosystem**
-
-##### **3.2.1 Connecting M365 Agents SDK with Azure AI Foundry and Semantic Kernel**
-
-The M365 Agents SDK is engineered for seamless integration:
-*   **Azure AI Foundry:** Developers can integrate components from the Azure AI Foundry SDK into their M365 Agents [24, referring to its section 3.1]. Azure AI Foundry provides specialized agent services, multi-agent orchestration, and enterprise-grade agent identity via Entra Agent ID [23, referring to its section 1.1].
-*   **Semantic Kernel SDK:** Can be effectively used within M365 Agents for orchestration, enabling agents to chain calls to AI models, plugins, and memory sources. The **`weather-agent/dotnet` sample is a key example of integrating Semantic Kernel, demonstrating `AddKernel()` and `AddAzureOpenAIChatCompletion()` (or similar for other LLMs) in `Program.cs` for DI, and then using the `Kernel` instance within the agent class (e.g., `MyAgent.cs`).**
-The M365 Agents SDK's AI agnosticism also supports other frameworks like LangChain or custom logic [19, 20, referring to its section 3.1]. **Developers can choose to implement AI services at the same time the core agent container gets built (e.g., in `Program.cs` via DI), or implement them elsewhere, for example, in the agent class (e.g., `MyAgent`) that gets built and passed to the agent at runtime. This latter approach allows for flexible use of Semantic Kernel or even multiple orchestrators, built separately from the main agent container logic.**
-
-##### **3.2.2 Mastering Model Context Protocol (MCP) for .NET within M365 Agents**
-
-Microsoft's significant investment signals MCP as a standard for agent interoperability.
-*   **Consuming MCP Tools with .NET M365 Agents:** Agents built with the M365 Agents SDK can act as MCP clients using the official C\# SDK for MCP to consume tools, resources, and prompts from external MCP servers [40, referring to its section 2.2].
-*   **Exposing M365 Agent Capabilities via MCP with .NET:** An M365 Agent can also expose its functionalities as an MCP server using the C\# MCP SDK [40, referring to its section 2.2]. Azure API Management can transform existing REST APIs into remote MCP servers [40, referring to its section 3.2].
-MCP typically uses JSON-RPC 2.0 for messaging, with Server-Sent Events (SSE) as a common transport [23, referring to its section 3.2].
-
-##### **3.2.3 The Pro-Code/Low-Code Bridge: M365 Agents SDK and Copilot Studio**
-
-Microsoft fosters a complementary development environment for pro-code and low-code agent building:
-*   **Distinct Tools:** Copilot Studio for fusion teams/citizen devs (visual, managed SaaS); M365 Agents SDK for pro-devs needing deep customization [20, referring to its section 1.2].
-*   **Interoperability Pathways:**
-    *   Agents built with M365 Agents SDK can be surfaced as "skills" in Copilot Studio.
-    *   Multi-agent orchestration enables collaboration between agents built with different tools (M365 Agents SDK, Azure AI Agents Service, Fabric, Copilot Studio).
-*   **Custom Engine Agents:** The M365 Agents SDK is a primary tool for "custom engine agents," offering developers complete authority over orchestration, AI models, and data integrations. These can be deployed within M365 Copilot [20, referring to its sections 3.1; 23, referring to its section 4.1].
-
-### **Conclusion**
-
-This foundational guide has introduced the Model Context Protocol (MCP) and the Microsoft 365 Agents SDK, outlining their core principles, architectures, and key implementation aspects for .NET developers within the Nucleus project. MCP provides the standard for tool interaction, while the M365 Agents SDK offers the framework for building modern, AI-powered agents integrated into the Microsoft ecosystem. Understanding these technologies is crucial for leveraging the full potential of Project Nucleus's refactored architecture. The "Nucleus Project: Advanced Architecture, Implementation, and Operations Guide" will build upon these foundations to detail project-specific patterns and advanced strategies.
+By addressing these advanced implementation details with the recommended approaches, Project Nucleus can build a robust, secure, scalable, and highly capable M365 Agent platform. Continuous monitoring of Microsoft's evolving guidance in these rapidly advancing areas will also be crucial.
 
 ---
 
-### **Works Cited (for Document 1)**
+### **Works Cited**
 
-\ AI agents unleashed in Windows with Model Context Protocol ..., accessed May 21, 2025, [https://siliconangle.com/2025/05/19/microsoft-unleashing-ai-agents-windows-model-context-protocol/](https://siliconangle.com/2025/05/19/microsoft-unleashing-ai-agents-windows-model-context-protocol/)
-\ Model Context Protocol (MCP) an overview - Philschmid, accessed May 21, 2025, [https://www.philschmid.de/mcp-introduction](https://www.philschmid.de/mcp-introduction)
-\ The Model Context Protocol MCP Architecture 2025 - CustomGPT, accessed May 21, 2025, [https://customgpt.ai/the-model-context-protocol-mcp-architecture/](https://customgpt.ai/the-model-context-protocol-mcp-architecture/)
-\ A Complete Guide to the Model Context Protocol (MCP) in 2025 - Keywords AI, accessed May 21, 2025, [https://www.keywordsai.co/blog/introduction-to-mcp](https://www.keywordsai.co/blog/introduction-to-mcp)
-\ Function Calling vs. MCP vs. A2A: Developer's Guide to AI Agent Protocols - Zilliz blog, accessed May 21, 2025, [https://zilliz.com/blog/function-calling-vs-mcp-vs-a2a-developers-guide-to-ai-agent-protocols](https://zilliz.com/blog/function-calling-vs-mcp-vs-a2a-developers-guide-to-ai-agent-protocols)
-\ A beginners Guide on Model Context Protocol (MCP) - OpenCV, accessed May 21, 2025, [https://opencv.org/blog/model-context-protocol/](https://opencv.org/blog/model-context-protocol/)
-\ Building Standardized AI Tools with the Model Context Protocol (MCP) - INNOQ, accessed May 21, 2025, [https://www.innoq.com/en/articles/2025/03/model-context-protocol/](https://www.innoq.com/en/articles/2025/03/model-context-protocol/) (Note: This source discusses JSON-RPC and SSE in MCP context)
-\ Model Context Protocol (MCP): Why it matters! | AWS re:Post, accessed May 21, 2025, [https://repost.aws/articles/ARK3Jah0ZyS8GkPTsOJSnZkA/model-context-protocol-mcp-why-it-matters](https://repost.aws/articles/ARK3Jah0ZyS8GkPTsOJSnZkA/model-context-protocol-mcp-why-it-matters)
-\ Build a Model Context Protocol (MCP) server in C\# - .NET Blog, accessed May 21, 2025, [https://devblogs.microsoft.com/dotnet/build-a-model-context-protocol-mcp-server-in-csharp/](https://devblogs.microsoft.com/dotnet/build-a-model-context-protocol-mcp-server-in-csharp/)
-\ Microsoft Collaborates with Anthropic to Launch C\# SDK for MCP Integration - InfoQ, accessed May 21, 2025, [https://www.infoq.com/news/2025/04/microsoft-csharp-sdk-mcp/](https://www.infoq.com/news/2025/04/microsoft-csharp-sdk-mcp/)
-\ modelcontextprotocol/csharp-sdk: The official C\# SDK for ... - GitHub, accessed May 21, 2025, [https://github.com/modelcontextprotocol/csharp-sdk](https://github.com/modelcontextprotocol/csharp-sdk)
-\ Model Context Protocol (MCP) vs Function Calling: A Deep Dive into AI Integration Architectures - MarkTechPost, accessed May 21, 2025, [https://www.marktechpost.com/2025/04/18/model-context-protocol-mcp-vs-function-calling-a-deep-dive-into-ai-integration-architectures/](https://www.marktechpost.com/2025/04/18/model-context-protocol-mcp-vs-function-calling-a-deep-dive-into-ai-integration-architectures/)
-\ What you need to know about the Model Context Protocol (MCP) - Merge.dev, accessed May 21, 2025, [https://www.merge.dev/blog/model-context-protocol](https://www.merge.dev/blog/model-context-protocol)
-\ Securing the Model Context Protocol: Building a safer agentic future on Windows, accessed May 21, 2025, [https://blogs.windows.com/windowsexperience/2025/05/19/securing-the-model-context-protocol-building-a-safer-agentic-future-on-windows/](https://blogs.windows.com/windowsexperience/2025/05/19/securing-the-model-context-protocol-building-a-safer-agentic-future-on-windows/)
-\ Building Claude-Ready Entra ID-Protected MCP Servers with Azure ..., accessed May 21, 2025, [https://devblogs.microsoft.com/blog/claude-ready-secure-mcp-apim](https://devblogs.microsoft.com/blog/claude-ready-secure-mcp-apim)
-\ What is the Azure MCP Server (Preview)? - Learn Microsoft, accessed May 21, 2025, [https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/)
-\ Microsot Build 2025| The main Highlights - Plain Concepts, accessed May 21, 2025, [https://www.plainconcepts.com/microsot-build-2025-recap/](https://www.plainconcepts.com/microsot-build-2025-recap/) (Note: Original "MCP Guide" used this as Ref 2 for MCP registry and MS joining steering committee)
-\ Microsoft 365 Agents SDK documentation, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/)
-\ What is the Microsoft 365 Agents SDK, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/agents-sdk-overview](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/agents-sdk-overview)
-\ Custom engine agents for Microsoft 365 overview, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-custom-engine-agent](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-custom-engine-agent)
-\ Multi-agent orchestration and more: Copilot Studio announcements - Microsoft, accessed May 23, 2025, [https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/multi-agent-orchestration-maker-controls-and-more-microsoft-copilot-studio-announcements-at-microsoft-build-2025/](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/multi-agent-orchestration-maker-controls-and-more-microsoft-copilot-studio-announcements-at-microsoft-build-2025/)
-\ microsoft/Agents-for-net: This repository is for active ... - GitHub, accessed May 23, 2025, [https://github.com/microsoft/Agents-for-net](https://github.com/microsoft/Agents-for-net)
-\ How agents work in the Microsoft 365 Agents SDK (preview), accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/how-agent-works-sdk](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/how-agent-works-sdk)
-\ Create and Deploy a Custom Engine Agent with Microsoft 365 Agents SDK, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/create-deploy-agents-sdk](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/create-deploy-agents-sdk)
-\ Create a new .NET agent in Visual Studio using the Microsoft 365 Agents Toolkit, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-new-toolkit-project-vs](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-new-toolkit-project-vs)
-\ Migration guidance from Azure Bot Framework SDK to the Microsoft 365 Agents SDK, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/bf-migration-guidance](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/bf-migration-guidance)
-\ Introducing the Microsoft 365 Agents SDK, accessed May 23, 2025, [https://devblogs.microsoft.com/microsoft365dev/introducing-the-microsoft-365-agents-sdk/](https://devblogs.microsoft.com/microsoft365dev/introducing-the-microsoft-365-agents-sdk/)
-\ What's is Microsoft 365 Agents SDK and the Evolution of the Bot Framework #bot #agent #m365 - YouTube, accessed May 23, 2025, [https://www.youtube.com/watch?v=LdjiSEb4CPA](https://www.youtube.com/watch?v=LdjiSEb4CPA)
-\ Quickstart: Create an agent with the Agents SDK - Learn Microsoft, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-test-basic-agent](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-test-basic-agent) (Used as ref 17 in M365 Agents SDK Guide for IAgentHttpAdapter example)
-\ Building agents with Agents SDK | Microsoft Learn, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/building-agents](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/building-agents) (Used as ref 2 in M365 Agents SDK Guide for OnActivity handler example)
-\ Deploy your agent to Azure and register with Azure Bot Service manually | Microsoft Learn, accessed May 23, 2025, [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/deploy-azure-bot-service-manually](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/deploy-azure-bot-service-manually)
-\ AgentState(IStorage, String) Constructor (Microsoft.Agents.Builder.State), accessed May 23, 2025, [https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.builder.state.agentstate.-ctor?view=m365-agents-sdk](https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.builder.state.agentstate.-ctor?view=m365-agents-sdk)
-\ Announcing Microsoft Entra Agent ID: Secure and manage your AI agents, accessed May 23, 2025, [https://techcommunity.microsoft.com/blog/microsoft-entra-blog/announcing-microsoft-entra-agent-id-secure-and-manage-your-ai-agents/3827392](https://techcommunity.microsoft.com/blog/microsoft-entra-blog/announcing-microsoft-entra-agent-id-secure-and-manage-your-ai-agents/3827392)
-\ Microsoft extends Zero Trust to secure the agentic workforce, accessed May 23, 2025, [https://www.microsoft.com/en-us/security/blog/2025/05/19/microsoft-extends-zero-trust-to-secure-the-agentic-workforce/](https://www.microsoft.com/en-us/security/blog/2025/05/19/microsoft-extends-zero-trust-to-secure-the-agentic-workforce/)
-\ Multi-agent orchestration and more: Copilot Studio announcements ..., accessed May 21, 2025 (MCP Guide Ref 23), [https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/multi-agent-orchestration-maker-controls-and-more-microsoft-copilot-studio-announcements-at-microsoft-build-2025/](https://www.microsoft.com/en-us/microsoft-copilot/blog/copilot-studio/multi-agent-orchestration-maker-controls-and-more-microsoft-copilot-studio-announcements-at-microsoft-build-2025/)
-\ modelcontextprotocol/registry: A community driven registry ... - GitHub, accessed May 21, 2025 (MCP Guide Ref 26), [https://github.com/modelcontextprotocol/registry](https://github.com/modelcontextprotocol/registry)
-\ Google I/O 2025: Key Takeaways of AI-Powered Tech Event Everyone Must Know About!, accessed May 21, 2025 (MCP Guide Ref 3), [https://theusaleaders.com/news/google-i-o-2025/](https://theusaleaders.com/news/google-i-o-2025/)
-\ Build 2025: Agents in Microsoft 365 announcements, accessed May 23, 2025 (M365 Agents SDK Guide Ref 7), [https://techcommunity.microsoft.com/blog/microsoft365copilotblog/build-2025-agents-in-microsoft-365-announcements/4414281](https://techcommunity.microsoft.com/blog/microsoft365copilotblog/build-2025-agents-in-microsoft-365-announcements/4414281)
-\ Introducing Microsoft 365 Copilot Tuning, multi-agent orchestration, and more from Microsoft Build 2025 | Microsoft 365 Blog, accessed May 23, 2025 (M365 Agents SDK Guide Ref 14), [https://www.microsoft.com/en-us/microsoft-365/blog/2025/05/19/introducing-microsoft-365-copilot-tuning-multi-agent-orchestration-and-more-from-microsoft-build-2025/](https://www.microsoft.com/en-us/microsoft-365/blog/2025/05/19/introducing-microsoft-365-copilot-tuning-multi-agent-orchestration-and-more-from-microsoft-build-2025/)
-\ Connect Once, Integrate Anywhere with MCPs - Microsoft Developer Blogs, accessed May 23, 2025 (M365 Agents SDK Guide Ref 26), [https://devblogs.microsoft.com/blog/connect-once-integrate-anywhere-with-mcps](https://devblogs.microsoft.com/blog/connect-once-integrate-anywhere-with-mcps)
+1.  Choose the right agent solution to support your use case | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/choose-agent-solution](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/choose-agent-solution)
+2.  How agents work in the Microsoft 365 Agents SDK (preview) | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/how-agent-works-sdk](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/how-agent-works-sdk)
+3.  Skills overview - Bot Service | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/bot-service/skills-conceptual?view=azure-bot-service-4.0](https://learn.microsoft.com/en-us/azure/bot-service/skills-conceptual?view=azure-bot-service-4.0)
+4.  Microsoft 365 Agents SDK | Microsoft Learn. Accessed May 24, 2025. [https://microsoft.github.io/Agents/](https://microsoft.github.io/Agents/)
+5.  Architecting your multi agent solutions with Copilot Studio and M365 ... | YouTube. Accessed May 24, 2025. [https://www.youtube.com/watch?v=pG01UDoM3xE](https://www.youtube.com/watch?v=pG01UDoM3xE)
+6.  Microsoft Build 2025 | Microsoft News. Accessed May 24, 2025. [https://news.microsoft.com/build-2025/](https://news.microsoft.com/build-2025/)
+7.  Send proactive notifications to users - Azure documentation | Microsoft Learn (docs.azure.cn). Accessed May 24, 2025. [https://docs.azure.cn/en-us/bot-service/bot-builder-howto-proactive-message?view=azure-bot-service-4.0](https://docs.azure.cn/en-us/bot-service/bot-builder-howto-proactive-message?view=azure-bot-service-4.0)
+8.  ChannelAdapter.ContinueConversationAsync Method (Microsoft.Agents.Builder) | Microsoft Learn (.NET API docs M365 Agents SDK). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.builder.channeladapter.continueconversationasync?view=m365-agents-sdk](https://learn.microsoft.com/en-us/dotnet/api/microsoft.agents.builder.channeladapter.continueconversationasync?view=m365-agents-sdk)
+9.  PnP Core SDK with "system-assigned managed identity" authentication #457 | GitHub (pnp/pnpcore). Accessed May 24, 2025. [https://github.com/pnp/pnpcore/issues/457](https://github.com/pnp/pnpcore/issues/457)
+10. Azure Active Directory Develop | PDF | .NET Framework | Autenticación - Scribd. Accessed May 24, 2025. [https://es.scribd.com/document/695740912/azure-active-directory-develop](https://es.scribd.com/document/695740912/azure-active-directory-develop)
+11. Event driven architecture to process the M365 resource activities | YouTube. Accessed May 24, 2025. [https://www.youtube.com/watch?v=HP2HYpFm6qI](https://www.youtube.com/watch?v=HP2HYpFm6qI)
+12. Best practices for improving performance using Azure Service Bus | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-performance-improvements](https://learn.microsoft.com/en-us/azure/service-bus-messaging/service-bus-performance-improvements)
+13. Create and Deploy a Custom Engine Agent with Microsoft 365 Agents SDK | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/create-deploy-agents-sdk](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/create-deploy-agents-sdk)
+14. Microsoft 365 Agents SDK JavaScript reference | Microsoft Learn (overview/agents-overview). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/javascript/api/overview/agents-overview?view=agents-sdk-js-latest](https://learn.microsoft.com/en-us/javascript/api/overview/agents-overview?view=agents-sdk-js-latest)
+15. Quickstart: Create an agent with the Agents SDK | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-test-basic-agent](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/create-test-basic-agent)
+16. Agents for Microsoft 365 Copilot | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/agents-overview](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/agents-overview)
+17. Bring Your Agents into Microsoft 365 Copilot with the Agents SDK | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/bring-agents-to-copilot](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/bring-agents-to-copilot)
+18. Set Up Your Development Environment to Extend Microsoft 365 Copilot | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/prerequisites](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/prerequisites)
+19. Tutorial for using Azure App Configuration dynamic configuration in ... | Microsoft Learn (Azure Functions C#). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/azure-app-configuration/enable-dynamic-configuration-azure-functions-csharp](https://learn.microsoft.com/en-us/azure/azure-app-configuration/enable-dynamic-configuration-azure-functions-csharp)
+20. Azure App Configuration best practices | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/azure-app-configuration/howto-best-practices](https://learn.microsoft.com/en-us/azure/azure-app-configuration/howto-best-practices)
+21. azure-dev/cli/azd/CHANGELOG.md at main | GitHub (Azure/azure-dev). Accessed May 24, 2025. [https://github.com/Azure/azure-dev/blob/main/cli/azd/CHANGELOG.md](https://github.com/Azure/azure-dev/blob/main/cli/azd/CHANGELOG.md)
+22. Options pattern in ASP.NET Core | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options?view=aspnetcore-9.0](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/configuration/options?view=aspnetcore-9.0)
+23. Azure MCP Server tools | Microsoft Learn (Cosmos DB reference). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/)
+24. What is the Microsoft 365 Agents SDK | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/agents-sdk-overview](https://learn.microsoft.com/en-us/microsoft-365/agents-sdk/agents-sdk-overview)
+25. Azure Cosmos DB design pattern: Document Versioning - Code Samples | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/samples/azure-samples/cosmos-db-design-patterns/document-versioning/](https://learn.microsoft.com/en-us/samples/azure-samples/cosmos-db-design-patterns/document-versioning/)
+26. Azure Cosmos DB design pattern: Schema Versioning - Code Samples | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/samples/azure-samples/cosmos-db-design-patterns/schema-versioning/](https://learn.microsoft.com/en-us/samples/azure-samples/cosmos-db-design-patterns/schema-versioning/)
+27. Multitenancy and Azure Cosmos DB - Azure Architecture Center | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/service/cosmos-db](https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/service/cosmos-db)
+28. Configure managed identities with Microsoft Entra ID for your Azure Cosmos DB account | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-setup-managed-identity](https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-setup-managed-identity)
+29. App Configuration tools for the Azure MCP Server | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/app-configuration](https://learn.microsoft.com/en-us/azure/developer/azure-mcp-server/tools/app-configuration)
+30. Piecing together the Agent puzzle: MCP, authentication ... | Cloudflare Blog. Accessed May 24, 2025. [https://blog.cloudflare.com/building-ai-agents-with-mcp-authn-authz-and-durable-objects/](https://blog.cloudflare.com/building-ai-agents-with-mcp-authn-authz-and-durable-objects/)
+31. Overview of permissions and consent in the Microsoft identity platform | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/entra/identity-platform/permissions-consent-overview](https://learn.microsoft.com/en-us/entra/identity-platform/permissions-consent-overview)
+32. Use data plane role-based access control - Azure Cosmos DB for ... (NoSQL) | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-setup-rbac](https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-setup-rbac)
+33. Large Language Model (LLM) Security Risks and Best Practices | Legit Security. Accessed May 24, 2025. [https://www.legitsecurity.com/aspm-knowledge-base/llm-security-risks](https://www.legitsecurity.com/aspm-knowledge-base/llm-security-risks)
+34. LLM01: Prompt Injection - OWASP Top 10 for LLM & Generative AI Security | OWASP Foundation. Accessed May 24, 2025. [https://genai.owasp.org/llmrisk2023-24/llm01-24-prompt-injection/](https://genai.owasp.org/llmrisk2023-24/llm01-24-prompt-injection/)
+35. Work with stored procedures, triggers, and UDFs in Azure Cosmos DB | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/stored-procedures-triggers-udfs](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/stored-procedures-triggers-udfs)
+36. Build API plugins as declarative agent actions using TypeSpec for Microsoft 365 Copilot | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/build-api-plugins-typespec](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/build-api-plugins-typespec)
+37. How to audit an Azure Cosmos DB - Vunvulea Radu | Blogger.com. Accessed May 24, 2025. [http://vunvulearadu.blogspot.com/2018/02/how-to-audit-azure-cosmos-db.html](http://vunvulearadu.blogspot.com/2018/02/how-to-audit-azure-cosmos-db.html) (Change Feed context)
+38. How to audit Azure Cosmos DB control plane operations | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/cosmos-db/audit-control-plane-logs](https://learn.microsoft.com/en-us/azure/cosmos-db/audit-control-plane-logs)
+39. Semantic Kernel Agent Framework | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/](https://learn.microsoft.com/en-us/semantic-kernel/frameworks/agent/)
+40. Function calling with chat completion | Microsoft Learn (Semantic Kernel). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/function-calling/](https://learn.microsoft.com/en-us/semantic-kernel/concepts/ai-services/chat-completion/function-calling/)
+41. Microsoft.Extensions.AI libraries - .NET | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/ai/microsoft-extensions-ai](https://learn.microsoft.com/en-us/dotnet/ai/microsoft-extensions-ai)
+42. gunpal5/Google_GenerativeAI ... C# .Net SDK for Google Generative AI | GitHub. Accessed May 24, 2025. [https://github.com/gunpal5/Google_GenerativeAI](https://github.com/gunpal5/Google_GenerativeAI)
+43. Function Calling with the Gemini API | Google AI for Developers. Accessed May 24, 2025. [https://ai.google.dev/gemini-api/docs/function-calling](https://ai.google.dev/gemini-api/docs/function-calling)
+44. OpenRouter FAQ | Developer Documentation. Accessed May 24, 2025. [https://openrouter.ai/docs/faq](https://openrouter.ai/docs/faq)
+45. Tool & Function Calling | Use Tools with OpenRouter. Accessed May 24, 2025. [https://openrouter.ai/docs/features/tool-calling](https://openrouter.ai/docs/features/tool-calling)
+46. Gemini AI Structured Output with references via OpenAI SDK - Stack Overflow. Accessed May 24, 2025. [https://stackoverflow.com/questions/79588648/gemini-ai-structured-output-with-references-via-openai-sdk](https://stackoverflow.com/questions/79588648/gemini-ai-structured-output-with-references-via-openai-sdk)
+47. Gemini models via Openrouter not supported · Issue #5621 · microsoft/autogen | GitHub. Accessed May 24, 2025. [https://github.com/microsoft/autogen/issues/5621](https://github.com/microsoft/autogen/issues/5621)
+48. Openrouter: Error inside tool result when using functions without arguments · Issue #5666 · microsoft/autogen | GitHub. Accessed May 24, 2025. [https://github.com/microsoft/autogen/issues/5666](https://github.com/microsoft/autogen/issues/5666)
+49. Build an AI agent bot in Teams | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/build-an-ai-agent-in-teams](https://learn.microsoft.com/en-us/microsoftteams/platform/toolkit/build-an-ai-agent-in-teams)
+50. API Streaming | Real-time Model Responses in OpenRouter. Accessed May 24, 2025. [https://openrouter.ai/docs/api-reference/streaming](https://openrouter.ai/docs/api-reference/streaming)
+51. Announcing Microsoft Entra Agent ID: Secure and manage your AI agents | Microsoft Tech Community (Entra Blog). Accessed May 24, 2025. [https://techcommunity.microsoft.com/blog/microsoft-entra-blog/announcing-microsoft-entra-agent-id-secure-and-manage-your-ai-agents/3827392](https://techcommunity.microsoft.com/blog/microsoft-entra-blog/announcing-microsoft-entra-agent-id-secure-and-manage-your-ai-agents/3827392)
+52. Best practices for using Azure Key Vault | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/key-vault/general/best-practices](https://learn.microsoft.com/en-us/azure/key-vault/general/best-practices)
+53. Build MCP Remote Servers with Azure Functions | .NET Blog. Accessed May 24, 2025. [https://devblogs.microsoft.com/dotnet/build-mcp-remote-servers-with-azure-functions/](https://devblogs.microsoft.com/dotnet/build-mcp-remote-servers-with-azure-functions/)
+54. Integrating Model Context Protocol Tools with Semantic Kernel ... | Microsoft Developer Blogs. Accessed May 24, 2025. [https://devblogs.microsoft.com/semantic-kernel/integrating-model-context-protocol-tools-with-semantic-kernel-a-step-by-step-guide/](https://devblogs.microsoft.com/semantic-kernel/integrating-model-context-protocol-tools-with-semantic-kernel-a-step-by-step-guide/)
+55. Using Model Context Protocol in agents - Pro-code agents with Semantic Kernel | developerscantina.com. Accessed May 24, 2025. [https://www.developerscantina.com/p/mcp-semantic-kernel/](https://www.developerscantina.com/p/mcp-semantic-kernel/)
+56. Plugins in Semantic Kernel | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/semantic-kernel/concepts/plugins/](https://learn.microsoft.com/en-us/semantic-kernel/concepts/plugins/)
+57. Introducing the Agent Store: Build, publish, and discover agents ... | Microsoft 365 Developer Blog. Accessed May 24, 2025. [https://devblogs.microsoft.com/microsoft365dev/introducing-the-agent-store-build-publish-and-discover-agents-in-microsoft-365-copilot/](https://devblogs.microsoft.com/microsoft365dev/introducing-the-agent-store-build-publish-and-discover-agents-in-microsoft-365-copilot/)
+58. Guidelines to Validate Agents - Teams | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/appsource/prepare/review-copilot-validation-guidelines](https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/appsource/prepare/review-copilot-validation-guidelines)
+59. Establish applications in the Microsoft Entra ID ecosystem | GitHub (MicrosoftDocs/entra-docs). Accessed May 24, 2025. [https://github.com/MicrosoftDocs/entra-docs/blob/main/docs/architecture/establish-applications.md](https://github.com/MicrosoftDocs/entra-docs/blob/main/docs/architecture/establish-applications.md)
+60. Add app roles and get them from a token - Microsoft identity platform ... | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-app-roles-in-apps](https://learn.microsoft.com/en-us/entra/identity-platform/howto-add-app-roles-in-apps)
+61. Identity and account types for single- and multitenant apps - Microsoft identity platform | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/security/zero-trust/develop/identity-supported-account-types](https://learn.microsoft.com/en-us/security/zero-trust/develop/identity-supported-account-types)
+62. Grant tenant-wide admin consent to an application - Microsoft Entra ... | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/grant-admin-consent](https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/grant-admin-consent)
+63. Convert single-tenant app to multitenant on Microsoft Entra ID - Azure documentation | Microsoft Learn (docs.azure.cn). Accessed May 24, 2025. [https://docs.azure.cn/en-us/entra/identity-platform/howto-convert-app-to-be-multi-tenant](https://docs.azure.cn/en-us/entra/identity-platform/howto-convert-app-to-be-multi-tenant)
+64. Data Isolation Strategies in Multi-Tenancy Azure Architecture | NashTech Blog. Accessed May 24, 2025. [https://blog.nashtechglobal.com/data-isolation-strategies-in-multi-tenancy-azure-architecture/](https://blog.nashtechglobal.com/data-isolation-strategies-in-multi-tenancy-azure-architecture/)
+65. Tutorial: Build and secure an ASP.NET Core web API with the Microsoft identity platform | Microsoft Learn (docs.azure.cn). Accessed May 24, 2025. [https://docs.azure.cn/en-us/entra/identity-platform/tutorial-web-api-dotnet-core-build-app](https://docs.azure.cn/en-us/entra/identity-platform/tutorial-web-api-dotnet-core-build-app)
+66. Need help setting up isolation models for secure multi tennancy service | Microsoft Learn (Answers). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/answers/questions/2240069/need-help-setting-up-isolation-models-for-secure-m](https://learn.microsoft.com/en-us/answers/questions/2240069/need-help-setting-up-isolation-models-for-secure-m)
+67. Announced at Build 2025: Foundry connection for Azure Cosmos ... | Microsoft Developer Blogs (CosmosDB). Accessed May 24, 2025. [https://devblogs.microsoft.com/cosmosdb/announced-at-build-2025-foundry-connection-for-azure-cosmos-db-global-secondary-index-full-text-search-and-more/](https://devblogs.microsoft.com/cosmosdb/announced-at-build-2025-foundry-connection-for-azure-cosmos-db-global-secondary-index-full-text-search-and-more/)
+68. .NET Aspire overview | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/get-started/aspire-overview](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/aspire-overview)
+69. Tutorial: Add .NET Aspire to an existing .NET app | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/get-started/add-aspire-existing-app](https://learn.microsoft.com/en-us/dotnet/aspire/get-started/add-aspire-existing-app)
+70. Local Azure provisioning - .NET Aspire | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/azure/local-provisioning](https://learn.microsoft.com/en-us/dotnet/aspire/azure/local-provisioning)
+71. .NET Aspire Azure Cosmos DB integration | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/database/azure-cosmos-db-integration](https://learn.microsoft.com/en-us/dotnet/aspire/database/azure-cosmos-db-integration)
+72. aspire-samples/.../AspireShop.AppHost/Program.cs at main · dotnet/aspire-samples | GitHub. Accessed May 24, 2025. [https://github.com/dotnet/aspire-samples/blob/main/samples/AspireShop/AspireShop.AppHost/Program.cs](https://github.com/dotnet/aspire-samples/blob/main/samples/AspireShop/AspireShop.AppHost/Program.cs)
+73. Unable to follow docs to implement Aspire specific CosmosDB package #2318 | GitHub (dotnet/aspire). Accessed May 24, 2025. [https://github.com/dotnet/aspire/discussions/2318](https://github.com/dotnet/aspire/discussions/2318)
+74. .NET Aspire Azure integrations overview | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/azure/integrations-overview](https://learn.microsoft.com/en-us/dotnet/aspire/azure/integrations-overview)
+75. .NET Aspire architecture overview | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/architecture/overview](https://learn.microsoft.com/en-us/dotnet/aspire/architecture/overview)
+76. Deploying MCP Servers with Azure Container Apps | Stochastic Coder. Accessed May 24, 2025. [https://stochasticcoder.com/2025/04/29/deploying-mcp-servers-with-azure-container-apps/](https://stochasticcoder.com/2025/04/29/deploying-mcp-servers-with-azure-container-apps/)
+77. Deploy .NET Aspire projects to Azure Container Apps | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/deployment/azure/aca-deployment](https://learn.microsoft.com/en-us/dotnet/aspire/deployment/azure/aca-deployment)
+78. Configure Azure Container Apps environments - .NET Aspire | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/azure/configure-aca-environments](https://learn.microsoft.com/en-us/dotnet/aspire/azure/configure-aca-environments)
+79. docs-aspire/docs/deployment/azure/aca-deployment-azd-in ... | GitHub (dotnet/docs-aspire). Accessed May 24, 2025. [https://github.com/dotnet/docs-aspire/blob/main/docs/deployment/azure/aca-deployment-azd-in-depth.md](https://github.com/dotnet/docs-aspire/blob/main/docs/deployment/azure/aca-deployment-azd-in-depth.md)
+80. docs-aspire/docs/whats-new/dotnet-aspire-9.2.md at main | GitHub (dotnet/docs-aspire). Accessed May 24, 2025. [https://github.com/dotnet/docs-aspire/blob/main/docs/whats-new/dotnet-aspire-9.2.md](https://github.com/dotnet/docs-aspire/blob/main/docs/whats-new/dotnet-aspire-9.2.md)
+81. Authenticate Azure-hosted .NET apps to Azure resources using a system-assigned managed identity - .NET | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/azure/sdk/authentication/system-assigned-managed-identity](https://learn.microsoft.com/en-us/dotnet/azure/sdk/authentication/system-assigned-managed-identity)
+82. Azure App Configuration integration - .NET Aspire | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/azure/azure-app-configuration-integration](https://learn.microsoft.com/en-us/dotnet/aspire/azure/azure-app-configuration-integration)
+83. .NET Aspire Azure Key Vault integration | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/dotnet/aspire/security/azure-security-key-vault-integration](https://learn.microsoft.com/en-us/dotnet/aspire/security/azure-security-key-vault-integration)
+84. .NET Aspire Integrations (SQL Server Integration in Aspire Applications) | C# Corner. Accessed May 24, 2025. [https://www.c-sharpcorner.com/article/net-aspire-integrations-sql-server-integration-in-aspire-applications/](https://www.c-sharpcorner.com/article/net-aspire-integrations-sql-server-integration-in-aspire-applications/)
+85. How to create Azure Bot service in a Private network and integrate with MS Teams application | Microsoft Learn (Answers). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/answers/questions/2153606/how-to-create-azure-bot-service-in-a-private-netwo](https://learn.microsoft.com/en-us/answers/questions/2153606/how-to-create-azure-bot-service-in-a-private-netwo)
+86. Is it possible to integrate Azure Bot with Teams when the public access is disabled ... | Microsoft Learn (Answers). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/answers/questions/2263616/is-it-possible-to-integrate-azure-bot-with-teams-w](https://learn.microsoft.com/en-us/answers/questions/2263616/is-it-possible-to-integrate-azure-bot-with-teams-w)
+87. Baseline OpenAI End-to-End Chat Reference Architecture | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/architecture/ai-ml/architecture/baseline-openai-e2e-chat](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/architecture/baseline-openai-e2e-chat)
+88. Azure Networking architecture documentation | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/networking/fundamentals/architecture-guides](https://learn.microsoft.com/en-us/azure/networking/fundamentals/architecture-guides)
+89. Configure network isolation - Bot Service | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/bot-service/dl-network-isolation-how-to?view=azure-bot-service-4.0](https://learn.microsoft.com/en-us/azure/bot-service/dl-network-isolation-how-to?view=azure-bot-service-4.0)
+90. About network isolation in Azure AI Bot Service | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/bot-service/dl-network-isolation-concept?view=azure-bot-service-4.0](https://learn.microsoft.com/en-us/azure/bot-service/dl-network-isolation-concept?view=azure-bot-service-4.0)
+91. Azure security baseline for Azure Bot Service | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/security/benchmark/azure/baselines/azure-bot-service-security-baseline](https://learn.microsoft.com/en-us/security/benchmark/azure/baselines/azure-bot-service-security-baseline)
+92. Delivering increased productivity for bot development and deployment | Microsoft Azure Blog. Accessed May 24, 2025. [https://azure.microsoft.com/en-us/blog/delivering-increased-productivity-for-bot-development-and-deployment/](https://azure.microsoft.com/en-us/blog/delivering-increased-productivity-for-bot-development-and-deployment/)
+93. Conversational AI updates for July 2019 | Microsoft Azure Blog. Accessed May 24, 2025. [https://azure.microsoft.com/en-us/blog/conversational-ai-updates-for-july-2019/](https://azure.microsoft.com/en-us/blog/conversational-ai-updates-for-july-2019/)
+94. Recommended way to network isolate with an Azure Bot Service | Microsoft Learn (Answers). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/answers/questions/2243086/recommended-way-to-network-isolate-with-an-azure-b](https://learn.microsoft.com/en-us/answers/questions/2243086/recommended-way-to-network-isolate-with-an-azure-b)
+95. OpenAI compatibility | Gemini API | Google AI for Developers. Accessed May 24, 2025. [https://ai.google.dev/gemini-api/docs/openai](https://ai.google.dev/gemini-api/docs/openai)
+96. Overview of Azure Firewall service tags | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/azure/firewall/service-tags](https://learn.microsoft.com/en-us/azure/firewall/service-tags)
+97. Block access to LLM applications using keywords and FQDN ... | Fortinet Docs. Accessed May 24, 2025. [https://docs.fortinet.com/document/fortigate/7.6.2/administration-guide/116184/block-access-to-llm-applications-using-keywords-and-fqdn](https://docs.fortinet.com/document/fortigate/7.6.2/administration-guide/116184/block-access-to-llm-applications-using-keywords-and-fqdn)
+98. Provisioning API Keys | Programmatic Control of OpenRouter API Keys. Accessed May 24, 2025. [https://openrouter.ai/docs/features/provisioning-api-keys](https://openrouter.ai/docs/features/provisioning-api-keys)
+99. Use private endpoints in the classic Microsoft Purview governance portal | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/purview/data-gov-classic-private-link](https://learn.microsoft.com/en-us/purview/data-gov-classic-private-link)
+100. Responsible AI Validation Checks for Declarative Agents | Microsoft Learn (M365 Copilot Extensibility). Accessed May 24, 2025. [https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/rai-validation](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/rai-validation)
+101. Deploy large language models responsibly with Azure AI | Microsoft Tech Community (Machine Learning Blog). Accessed May 24, 2025. [https://techcommunity.microsoft.com/blog/machinelearningblog/deploy-large-language-models-responsibly-with-azure-ai/3876792](https://techcommunity.microsoft.com/blog/machinelearningblog/deploy-large-language-models-responsibly-with-azure-ai/3876792)
+102. Microsoft extends Zero Trust to secure the agentic workforce | Microsoft Security Blog. Accessed May 24, 2025. [https://www.microsoft.com/en-us/security/blog/2025/05/19/microsoft-extends-zero-trust-to-secure-the-agentic-workforce/](https://www.microsoft.com/en-us/security/blog/2025/05/19/microsoft-extends-zero-trust-to-secure-the-agentic-workforce/)
+103. Data Protection Impact Assessment (DPIA) – Microsoft CoPilot 365 | ICO UK. Accessed May 24, 2025. [https://ico.org.uk/media2/ob4ncmpz/ic-359252-x5s0-copilot-dpia.pdf](https://ico.org.uk/media2/ob4ncmpz/ic-359252-x5s0-copilot-dpia.pdf)
+104. AI Agents: Mastering Agentic RAG - Part 5 | Microsoft Community Hub. Accessed May 24, 2025. [https://techcommunity.microsoft.com/blog/educatordeveloperblog/ai-agents-mastering-agentic-rag---part-5/4396171](https://techcommunity.microsoft.com/blog/educatordeveloperblog/ai-agents-mastering-agentic-rag---part-5/4396171)
+105. Commercial marketplace policies and terms - Partner Center | Microsoft Learn. Accessed May 24, 2025. [https://learn.microsoft.com/en-us/partner-center/marketplace-offers/policies-terms](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/policies-terms)
+106. Common Azure Marketplace Publishing Challenges Solved | WeTransact. Accessed May 24, 2025. [https://www.wetransact.io/blog/common-azure-marketplace-publishing-challenges-solved](https://www.wetransact.io/blog/common-azure-marketplace-publishing-challenges-solved)

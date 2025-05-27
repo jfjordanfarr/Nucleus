@@ -1,66 +1,89 @@
 ---
-title: "MCP Tool: Persona Behaviour Configuration Architecture"
-description: "Detailed architecture for the Nucleus Persona Behaviour Configuration MCP Tool, outlining its purpose, MCP operations, core logic, dependencies, and security model."
+title: "MCP Tool: PersonaBehaviourConfig Server Architecture"
+description: "Defines the architecture for the Nucleus_PersonaBehaviourConfig_McpServer, responsible for managing dynamic persona configurations."
 version: 1.0
-date: 2025-05-26
+date: 2025-05-27
 parent: ../01_MCP_TOOLS_OVERVIEW.md
 see_also:
-  - title: "MCP Tools Overview"
-    link: "../01_MCP_TOOLS_OVERVIEW.md"
-  - title: "Comprehensive System Architecture" # Link to North Star 2
-    link: "../../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
-  - title: "MCP Foundations" # Link to North Star 1, Part 1
-    link: "../../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md#part-1-model-context-protocol-mcp-deep-dive"
+    - ../../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md
+    - ../../../CoreNucleus/03_DATA_PERSISTENCE_STRATEGY.md
+    - ../../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md
+    - ../../../Agents/01_M365_AGENTS_OVERVIEW.md
 ---
 
-# MCP Tool: Persona Behaviour Configuration Architecture
+# MCP Tool: PersonaBehaviourConfig Server Architecture
 
-## 1. Purpose and Core Responsibilities
+## 1. Purpose & Scope
 
-*   Clearly define the **primary goal** of this MCP Tool within the Nucleus ecosystem.
-*   What specific set of backend Nucleus capabilities does it encapsulate and expose?
-*   How does it contribute to the overall functionality of Nucleus M365 Persona Agents?
+The `Nucleus_PersonaBehaviourConfig_McpServer` (Persona Behaviour Configuration MCP Server) is a dedicated Model Context Protocol (MCP) server responsible for providing M365 Persona Agents with access to dynamic, runtime persona configuration data. This data, primarily stored in Azure Cosmos DB, includes elements like persona-specific system prompts, LLM model preferences, temperature settings, and other behavioral parameters defined in the [Persona Configuration Schema](../../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md).
 
-## 2. Key MCP Operations / Tools Exposed
+This server allows for centralized management and dynamic updates to persona behaviors without requiring redeployment of the M365 Agent or the core Nucleus backend. It ensures that Personas can adapt their interactions and processing logic based on the latest configurations.
 
-*   List and describe each **MCP Tool operation** this server will expose. For each operation:
-    *   **`OperationName`** (e.g., `KnowledgeStore.SearchArtifactMetadata`, `FileAccess.GetEphemeralContentStream`)
-    *   **Description:** What the operation does, when an M365 Agent should call it.
-    *   **Input Parameters (Conceptual DTOs):** What data does it expect (e.g., `ArtifactReference`, `TenantId`, `QueryParameters`, `PersonaKnowledgeEntryData`). Refer to DTOs in `Nucleus.Abstractions` or define new ones if specific to this tool's contract.
-    *   **Output/Return Value (Conceptual DTOs):** What data does it return (e.g., `ListOfArtifactMetadata`, `EphemeralContentStreamResult`, `PersistenceConfirmation`).
-    *   **Idempotency considerations** (if applicable).
-    *   **Error Handling:** How are common errors represented in the MCP response?
+## 2. Key MCP Operations
 
-## 3. Core Internal Logic & Components
+The server exposes the following primary MCP operations:
 
-*   Describe the main internal components and logic flow within this MCP Tool.
-*   What key Nucleus interfaces (from `Nucleus.Abstractions`) does it implement or utilize (e.g., `IArtifactProvider` for `FileAccessMCP`, `IArtifactMetadataRepository` for `KnowledgeStoreMCP`)?
-*   What Nucleus domain libraries (e.g., `Nucleus.Domain.RAG` for `RAGPipelineMCP`) does it use?
-*   How does it handle `tenantId` scoping internally for all its operations?
+### 2.1. `PersonaBehaviourConfig.GetDynamicConfiguration`
+
+*   **Description:** Retrieves the dynamic configuration settings for a specified Persona.
+*   **Request Parameters:**
+    *   `personaId` (string): The unique identifier of the Persona.
+    *   `tenantId` (string): The tenant identifier for data scoping.
+    *   `configurationKeys` (array of strings, optional): Specific configuration keys to retrieve. If null or empty, all dynamic configurations for the persona are returned.
+*   **Response:**
+    *   A JSON object containing the requested configuration key-value pairs.
+*   **Security Context:** Requires a valid Azure AD token for an M365 Persona Agent. The server validates the token and ensures the agent has permissions to access configuration data for the specified `tenantId`.
+
+### 2.2. `PersonaBehaviourConfig.UpdateDynamicConfiguration`
+
+*   **Description:** Allows authorized administrative tools or processes to update specific dynamic configuration settings for a Persona. *This operation is typically restricted and not directly callable by standard M365 Persona Agents during normal user interactions.*
+*   **Request Parameters:**
+    *   `personaId` (string): The unique identifier of the Persona.
+    *   `tenantId` (string): The tenant identifier for data scoping.
+    *   `configurationsToUpdate` (JSON object): Key-value pairs of configurations to update.
+*   **Response:**
+    *   Success/failure status.
+*   **Security Context:** Requires a highly privileged Azure AD token, typically associated with an administrative application or a specific service principal with rights to modify persona configurations. Standard M365 Persona Agent tokens will be rejected.
+
+## 3. Internal Logic & Processing
+
+*   **Configuration Retrieval:** Upon receiving a `GetDynamicConfiguration` request, the server queries the `PersonaConfigurations` container in Azure Cosmos DB (partitioned by `tenantId` and `personaId`) to fetch the relevant configuration document or specific fields.
+*   **Configuration Update:** For `UpdateDynamicConfiguration` requests, after stringent authorization checks, the server performs a partial update (patch) operation on the corresponding Cosmos DB document.
+*   **Caching (Future Consideration):** A caching layer (e.g., Azure Cache for Redis) might be introduced to reduce latency for frequently accessed configurations.
 
 ## 4. Dependencies
 
-*   **Azure Services:** (e.g., Azure Cosmos DB for `KnowledgeStoreMCP`, Azure Key Vault for secrets, Azure App Configuration for static settings).
-*   **External Services/LLMs:** (e.g., `ContentProcessingMCP` might call a configured LLM for summarization or image description if not done by the agent).
-*   **Other Nucleus MCP Tools:** (e.g., `RAGPipelineMCP` will definitely call `KnowledgeStoreMCP`).
-*   **Shared Nucleus Libraries:** (`Nucleus.Abstractions`, `Nucleus.Infrastructure.*` for specific implementations like `CosmosDb` or `FileProviders`).
+*   **Azure Cosmos DB:** Primary data store for dynamic persona configurations. Accessed via the .NET SDK for Cosmos DB.
+*   **Azure AD (Microsoft Entra ID):** For authenticating incoming MCP requests from M365 Persona Agents and administrative tools.
+*   **Nucleus MCP Libraries:** For MCP message serialization/deserialization and server hosting.
+*   **`Nucleus.Shared.Kernel.Abstractions`:** For shared models and interfaces, including those related to persona configuration.
 
 ## 5. Security Model
 
-*   **Authentication of Callers:** How does this MCP Tool authenticate incoming requests from Nucleus M365 Persona Agents (or other authorized clients)? (e.g., Validating Azure AD tokens, checking for specific scopes/roles).
-*   **Authorization within the Tool:** Once authenticated, how does it authorize specific operations? (e.g., based on claims in the token, like `tenantId` or specific app roles granted to the calling agent).
-*   **Authentication to Dependencies:** How does this MCP Tool securely authenticate to its own dependencies (e.g., using its Managed Identity for Cosmos DB, Key Vault)?
+*   **Authentication:** All MCP requests must be authenticated using Azure AD tokens. The server validates the token signature, audience, and issuer.
+*   **Authorization:**
+    *   `GetDynamicConfiguration`: Requires a token from a recognized M365 Persona Agent or a service principal with read access to persona configurations. Tenant isolation is enforced based on claims in the token and the `tenantId` parameter.
+    *   `UpdateDynamicConfiguration`: Requires a token with specific administrative privileges (e.g., a dedicated application role or scope) to modify configurations. This prevents unauthorized changes by standard agents.
+*   **Data at Rest:** Secured by Azure Cosmos DB's default encryption.
+*   **Data in Transit:** Secured by HTTPS/TLS for MCP communication.
 
-## 6. Data Handling & Persistence (If Applicable)
+## 6. Data Handling & Persistence
 
-*   If this tool interacts with persistent data (e.g., `KnowledgeStoreMCP`), reiterate how tenant isolation is achieved.
-*   Describe any specific data schemas or indexing strategies relevant to this tool's function within Cosmos DB (complementing the overall strategy in `CoreNucleus/03_DATA_PERSISTENCE_STRATEGY.md`).
+*   **Primary Data Store:** Azure Cosmos DB, `PersonaConfigurations` container.
+*   **Data Schema:** Adheres to the structure defined in the [Persona Configuration Schema](../../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md), focusing on the dynamic/runtime aspects.
+*   **Partitioning:** Data in Cosmos DB is partitioned by `tenantId` and `personaId` to ensure data isolation and query efficiency.
+*   **No Local Persistence:** The MCP server itself is stateless and does not persist configuration data locally. All data is read from and written to Cosmos DB.
 
-## 7. Deployment & Configuration Considerations
+## 7. Deployment & Hosting
 
-*   Briefly mention typical deployment (e.g., Azure Container App).
-*   Key configuration settings this tool requires (e.g., DB connection string, LLM API key name from Key Vault).
+*   **Hosting:** Deployed as an Azure App Service or Azure Container Instance, configured as an MCP server endpoint.
+*   **Scalability:** Leverages Azure App Service/ACI scaling capabilities and Cosmos DB's elastic scalability.
+*   **Configuration:** Application settings include Cosmos DB connection strings, Azure AD application IDs/secrets for token validation, and MCP server binding information.
 
-## 8. Future Considerations / Potential Enhancements
+## 8. Future Considerations & Potential Enhancements
 
-*   (Optional) Any planned future capabilities for this specific tool.
+*   **Configuration Versioning:** Implement a mechanism to version persona configurations, allowing rollback to previous states.
+*   **Advanced Caching Strategies:** Implement more sophisticated caching with appropriate invalidation mechanisms for frequently accessed configurations.
+*   **Auditing:** Add detailed audit logging for configuration changes (`UpdateDynamicConfiguration` calls).
+*   **Bulk Operations:** Support for bulk retrieval or update of configurations for multiple personas (with appropriate security controls).
+*   **Schema Validation Service:** Integration with a service that validates configuration updates against the defined JSON schema before persisting them.

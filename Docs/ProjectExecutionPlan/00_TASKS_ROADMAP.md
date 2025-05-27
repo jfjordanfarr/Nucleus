@@ -1,8 +1,11 @@
 ---
 title: "Nucleus - Development Phases (Post-M365 Agent SDK Pivot)"
 description: "Outlines the planned development phases for Nucleus, now centered on building Microsoft 365 Persona Agents and backend Model Context Protocol (MCP) Tool/Server applications."
-version: 2.0
-date: 2025-05-25
+version: 3.0
+date: 2025-05-27
+see_also:
+  - title: "Project Mandate & Vision"
+    link: "./00_REQUIREMENTS_PROJECT_MANDATE.md"
 ---
 
 # Nucleus - Development Phases (Post-M365 Agent SDK Pivot)
@@ -13,9 +16,9 @@ This document outlines the planned development phases for Nucleus, structured si
 
 ## Phase 1: MVP - Core M365 Agent & Backend MCP Tool Foundation
 
-**Epic:** `EPIC-MVP-M365-AGENT-MCP` - Establish the minimum viable **Nucleus M365 Persona Agent application** (e.g., `BootstrapperNucleusAgent`) and the essential backend **Nucleus MCP Tool/Server applications** (`Nucleus_KnowledgeStore_McpServer` for Cosmos DB, `Nucleus_FileAccess_McpServer` for local file `IArtifactProvider`). Validate basic interaction via M365 Agents Playground or Teams, and ensure MCP tool communication. Set up foundational architecture for this distributed system using .NET Aspire for local orchestration.
+**Epic:** `EPIC_PHASE1_MVP_FOUNDATION` - Establish the minimum viable **Nucleus M365 Persona Agent application** (e.g., `BootstrapperNucleusAgent`) and the essential backend **Nucleus MCP Tool/Server applications** (`Nucleus_KnowledgeStore_McpServer` for Cosmos DB, `Nucleus_FileAccess_McpServer` for local file `IArtifactProvider`). Validate basic interaction via M365 Agents Playground or Teams, and ensure MCP tool communication. Set up foundational architecture for this distributed system using .NET Aspire for local orchestration.
 
-*See also: [Requirements: MVP - M365 Agent & MCP Foundation](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md) <!-- TODO: Update this link to the new requirements file name -->*
+*See also: [Requirements: Phase 1 - MVP Foundation](./01_REQUIREMENTS_PHASE1_MVP_FOUNDATION.md)*
 
 *   **Issue:** `ISSUE-MVP-SETUP-001`: Establish Core Project Structure for M365 Agents & MCP Tools (New `src/Nucleus.Agents/*`, `src/Nucleus.McpTools/*` projects).
 *   **Issue:** `ISSUE-MVP-ABSTRACTIONS-001`: Refine `Nucleus.Abstractions` (Review DTOs, Interfaces for M365/MCP context).
@@ -31,9 +34,9 @@ This document outlines the planned development phases for Nucleus, structured si
 
 ## Phase 2: Enhanced M365 Agent Capabilities & M365 Channel Integration
 
-**Epic:** `EPIC-M365-AGENT-ENHANCED` - Fully integrate a lead Nucleus M365 Persona Agent (e.g., `EduFlowNucleusAgent`) with Microsoft Teams and M365 Copilot. Implement robust asynchronous processing and proactive replies. Enhance backend MCP Tools.
+**Epic:** `EPIC_PHASE2_ENHANCEMENTS` - Fully integrate a lead Nucleus M365 Persona Agent (e.g., `EduFlowNucleusAgent`) with Microsoft Teams and M365 Copilot. Implement robust asynchronous processing and proactive replies. Enhance backend MCP Tools.
 
-*See also: [Requirements: M365 Agent & MCP Tool Integration](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md) <!-- TODO: Update this link to the new requirements file name -->*
+*See also: [Requirements: Phase 2 - Enhancements](./02_REQUIREMENTS_PHASE2_ENHANCEMENTS.md)*
 
 *   **Issue:** `ISSUE-M365-AGENT-EDUFLOW-001`: Develop `EduFlowNucleusAgent` M365 Agent application.
 *   **Issue:** `ISSUE-M365-AGENT-TEAMS-COPILOT-001`: Deploy and validate `EduFlowNucleusAgent` in Microsoft Teams and M365 Copilot (if feasible for custom engine agents).
@@ -48,9 +51,9 @@ This document outlines the planned development phases for Nucleus, structured si
 
 ## Phase 3: Advanced Persona Intelligence & Backend Sophistication
 
-**Epic:** `EPIC-PERSONA-MCP-ADVANCED` - Develop sophisticated agentic behaviors within M365 Persona Agents (leveraging `IPersonaRuntime` and `IAgenticStrategyHandler`), implement advanced RAG (4R ranking via `Nucleus_RAGPipeline_McpServer`), enhance dynamic `PersonaConfiguration` via `Nucleus_PersonaBehaviourConfig_McpServer`, and add caching/testing.
+**Epic:** `EPIC_PHASE3_ADVANCED_INTELLIGENCE` - Develop sophisticated agentic behaviors within M365 Persona Agents (leveraging `IPersonaRuntime` and `IAgenticStrategyHandler`), implement advanced RAG (4R ranking via `Nucleus_RAGPipeline_McpServer`), enhance dynamic `PersonaConfiguration` via `Nucleus_PersonaBehaviourConfig_McpServer`, and add caching/testing.
 
-*See also: [Requirements: Advanced Backend Capabilities & Persona Refinement](../Requirements/03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md) <!-- TODO: Update this link to the new requirements file name -->*
+*See also: [Requirements: Phase 3 - Advanced Intelligence](./03_REQUIREMENTS_PHASE3_ADVANCED_INTELLIGENCE.md)*
 
 *   **Issue:** `ISSUE-ADV-AGENT-LOGIC-001`: Implement advanced agentic strategies (`MultiStepReasoning`, `ToolUsing` via MCP) within `IPersonaRuntime` for M365 Agents.
 *   **Issue:** `ISSUE-ADV-MCPTOOL-RAG-001`: Develop `Nucleus_RAGPipeline_McpServer` implementing 4R ranking and hybrid search, calling `KnowledgeStoreMCP`.
@@ -65,9 +68,9 @@ This document outlines the planned development phases for Nucleus, structured si
 
 ## Phase 4: Platform Maturity & Enterprise Readiness
 
-**Epic:** `EPIC-NUCLEUS-PLATFORM-MATURITY` - Focus on reliability, scalability, security hardening (Entra Agent ID), observability of the distributed system, advanced workflow orchestration for background tasks, richer M365 Agent UI, and enterprise admin features.
+**Epic:** `EPIC_PHASE4_PLATFORM_MATURITY` - Focus on reliability, scalability, security hardening (Entra Agent ID), observability of the distributed system, advanced workflow orchestration for background tasks, richer M365 Agent UI, and enterprise admin features.
 
-*See also: [Requirements: Platform Maturity & Operational Excellence](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md) <!-- TODO: Update this link to the new requirements file name -->*
+*See also: [Requirements: Phase 4 - Platform Maturity](./04_REQUIREMENTS_PHASE4_PLATFORM_MATURITY.md)*
 
 *   **Issue:** `ISSUE-MAT-OBSERVABILITY-001`: Implement comprehensive distributed tracing and monitoring across M365 Agents, MCP Tools, Service Bus, and Cosmos DB.
 *   **Issue:** `ISSUE-MAT-SECURITY-HARDENING-001`: Conduct security review of M365 Agents, MCP Tools, Entra Agent ID usage, and inter-service authentication. Implement hardening.

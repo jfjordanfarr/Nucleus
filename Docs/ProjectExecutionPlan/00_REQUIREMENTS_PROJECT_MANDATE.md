@@ -1,14 +1,17 @@
 ---
 title: "Nucleus Project Mandate (Post-M365 Agent SDK Pivot)"
 description: "The vision, imperative, and core requirements for the Nucleus platform, now centered on Microsoft 365 Persona Agents and backend MCP Tools."
-version: 1.7
-date: 2025-05-25
+version: 1.8
+date: 2025-05-27
+see_also:
+  - title: "Development Roadmap"
+    link: "./00_TASKS_ROADMAP.md"
 ---
 
 # Nucleus: Project Mandate & Vision (Post-M365 Agent SDK Pivot)
 
-**Version:** 1.7
-**Date:** 2025-05-25
+**Version:** 1.8
+**Date:** 2025-05-27
 
 ## 1. The Imperative: Why We Build
 

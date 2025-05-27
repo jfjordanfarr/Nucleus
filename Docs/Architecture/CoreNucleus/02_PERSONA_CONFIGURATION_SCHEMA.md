@@ -1,9 +1,22 @@
 ---
 title: "Architecture - Persona Configuration (for M365 Agents & MCP Tools)"
 description: "Defines the structure and settings for configuring Nucleus M365 Persona Agents, including multi-LLM provider support and dynamic/behavioral configurations."
-version: 2.1
-date: 2025-05-25
+version: 2.2
+date: 2025-05-27
 parent: ./01_PERSONA_CONCEPTS.md
+see_also:
+  - title: "Persona Concepts"
+    link: "./01_PERSONA_CONCEPTS.md"
+  - title: "M365 Agents Overview"
+    link: "../Agents/01_M365_AGENTS_OVERVIEW.md"
+  - title: "MCP Tools Overview"
+    link: "../McpTools/01_MCP_TOOLS_OVERVIEW.md"
+  - title: "MCP Tool: Persona Behaviour Configuration"
+    link: "../McpTools/PersonaBehaviourConfig/ARCHITECTURE_MCPTOOL_PERSONA_BEHAVIOUR_CONFIG.md"
+  - title: "Comprehensive System Architecture"
+    link: "../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+  - title: "Core Abstractions, DTOs, and Interfaces"
+    link: "./06_ABSTRACTIONS_DTOs_INTERFACES.md"
 ---
 
 # Persona Configuration (for M365 Agents & MCP Tools)
@@ -37,7 +50,7 @@ Each Persona configuration includes the following key properties.
     *   If `true`, the M365 Agent's `IPersonaRuntime` processing will generate an internal reasoning/planning artifact.
     *   This artifact is included in the M365 Agent's response payload (e.g., an `Activity` attachment).
     *   The **Nucleus M365 Persona Agent** is responsible for saving this artifact to user-controlled M365 storage (e.g., `.Nucleus/Personas/{PersonaId}/ShowYourWork/` in SharePoint/OneDrive via Microsoft Graph API, using its Entra Agent ID permissions) for auditability.
-    *   Referenced in: [Interaction Lifecycle](./../Processing/02_ARCHITECTURE_PROCESSING_INTERACTION_LIFECYCLE.md) <!-- Adjusted link to be relative to CoreNucleus, assuming a Processing folder exists at the same level as CoreNucleus -->
+    *   The mechanism for storing this "ShowYourWork" artifact will leverage Microsoft Graph API, orchestrated by the M365 Agent. Details on M365 Agent interactions can be found in [M365 Agents Overview](../Agents/01_M365_AGENTS_OVERVIEW.md).
 
 ### 2.3 Activation Rules (Revised Context)
 
@@ -59,7 +72,7 @@ Each Persona configuration includes the following key properties.
 *   **`KnowledgeScope`**: (Object, Required)
     *   `Strategy`: (String, Enum, Required) Defines how the Persona Agent (via MCP calls to `Nucleus_KnowledgeStore_McpServer` or `Nucleus_RAGPipeline_McpServer`) accesses user knowledge.
     *   `CollectionIds`: (Array<String>, Optional) Used when `Strategy` is `SpecificCollectionIds`.
-    *   `TargetKnowledgeContainerId`: (String, Optional) Specifies the ID of a dedicated [Persona Knowledge Container](./03_DATA_PERSISTENCE_STRATEGY.md#4-persona-knowledge-container-schema) (e.g., `EduFlow_v1KnowledgeContainer`) to be queried by the `Nucleus_KnowledgeStore_McpServer`.
+    *   `TargetKnowledgeContainerId`: (String, Optional) Specifies the ID of a dedicated Persona Knowledge Container (see details in [`./03_DATA_PERSISTENCE_STRATEGY.md`](./03_DATA_PERSISTENCE_STRATEGY.md)) (e.g., `EduFlow_v1KnowledgeContainer`) to be queried by the `Nucleus_KnowledgeStore_McpServer`.
     *   `MaxContextDocuments`: (Integer, Optional, Default: 10) Maximum number of full documents whose content will be ephemerally fetched (via `Nucleus_FileAccess_McpServer`) based on metadata search results, to form the context for the M365 Agent's LLM.
 
 ### 2.5 Prompt Configuration (Dynamic Sourcing from DB)
