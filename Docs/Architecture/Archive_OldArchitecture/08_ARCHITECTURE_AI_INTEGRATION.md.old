@@ -1,0 +1,130 @@
+---
+title: "Architecture: AI Integration (Post-M365 Agent SDK Pivot)"
+description: "Strategies for integrating LLMs into Nucleus M365 Persona Agents and backend MCP Tools, supporting multi-provider flexibility (Azure OpenAI, Google Gemini, OpenRouter.AI) via Microsoft.Extensions.AI and MCP."
+version: 2.0
+date: 2025-05-25
+---
+
+# Architecture: AI Integration (Post-M365 Agent SDK Pivot)
+
+**Parent:** [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md)
+**Version:** 2.0
+**Date:** 2025-05-25
+
+## 1. Overview and Multi-Provider Strategy
+
+This document outlines the architectural approach for integrating various third-party AI models and services (Large Language Models - LLMs) within the Nucleus ecosystem, which now revolves around **Nucleus M365 Persona Agents** and backend **Nucleus MCP Tool/Server applications**.
+
+A core requirement for Nucleus is **AI provider flexibility**. While some enterprise deployments may mandate the use of **Azure OpenAI Service** for maximum security, compliance, and integration within their Azure tenant, other deployments (including open-source community use or self-hosting) may prefer **Google Gemini** (for its advanced capabilities) or **OpenRouter.AI** (for its model variety, potential latency/cost benefits, and reliability).
+
+The primary architectural choice for direct LLM interaction (chat completions, embeddings) within .NET components (M365 Agents or MCP Tools) is to leverage the **`Microsoft.Extensions.AI`** abstractions, specifically `Microsoft.Extensions.AI.IChatClient` and `Microsoft.Extensions.AI.ITextEmbeddingGenerator`.
+
+**Key Benefits of `Microsoft.Extensions.AI`:**
+*   **Provider Agnosticism:** Using `IChatClient` and `ITextEmbeddingGenerator` allows Nucleus components to interact with different AI providers (Google Gemini, Azure OpenAI, Ollama via community extensions, etc.) through a unified interface. Switching providers primarily involves changing configuration and dependency injection registration of the concrete implementation.
+*   **Flexibility & Extensibility:** The `Microsoft.Extensions.AI` framework supports middleware for capabilities like logging, caching, telemetry, and significantly, **function calling/tool integration** in a standardized way.
+*   **Standardization:** Aligns with emerging .NET standards for AI integration.
+
+**Model Context Protocol (MCP) for Tool Integration:**
+Beyond direct LLM calls for generation/embedding, **MCP is the standard** by which Nucleus M365 Persona Agents will have their LLMs discover and invoke backend Nucleus capabilities (e.g., data access, file processing). The M365 Agent's LLM uses its native function/tool calling, which is then translated by the M365 Agents SDK or an orchestrator like Semantic Kernel into MCP calls to Nucleus MCP Tool/Servers.
+
+## 2. Core LLM Interaction Pattern (`IChatClient` & `ITextEmbeddingGenerator`)
+
+The core pattern relies on registering and injecting `Microsoft.Extensions.AI.IChatClient` for chat completions and `Microsoft.Extensions.AI.ITextEmbeddingGenerator` for embeddings. The specific implementation registered determines the backend AI provider.
+
+**Primary Consumers:**
+*   **Nucleus M365 Persona Agents:** For their primary reasoning, response generation, and orchestrating MCP tool calls based on LLM decisions.
+*   **(Optional) `Nucleus_LLM_Orchestration_McpServer`:** If LLM interactions are centralized into a dedicated MCP tool, this server would use `IChatClient`.
+*   **Backend Nucleus MCP Tools (e.g., `Nucleus_KnowledgeStore_McpServer`):** May use `ITextEmbeddingGenerator` to create embeddings for snippets before saving `PersonaKnowledgeEntry` records.
+
+### 2.1. Provider Implementations
+
+*   **Google Gemini:**
+    *   Can be integrated using its official .NET SDK (e.g., `Google.Ai.Generativelanguage`) wrapped in a custom `IChatClient` / `ITextEmbeddingGenerator` implementation, or via community packages like `Mscc.GenerativeAI.Microsoft` if it aligns with the latest `Microsoft.Extensions.AI` patterns.
+    *   Configuration: `AI:GoogleAI:ApiKey`, `AI:GoogleAI:ChatModel`, `AI:GoogleAI:EmbeddingModel` stored securely in Azure Key Vault, accessed by the consuming service (M365 Agent or MCP Tool) via Managed Identity and Azure App Configuration.
+*   **Azure OpenAI Service:**
+    *   Integrated using official Azure AI SDKs for .NET (`Azure.AI.OpenAI`) which provide extensions to register as `IChatClient` / `ITextEmbeddingGenerator`.
+    *   Authentication via Managed Identity of the consuming service to Azure OpenAI is preferred for enterprise deployments.
+    *   Configuration: `AI:AzureOpenAI:Endpoint`, `AI:AzureOpenAI:ChatDeploymentName`, `AI:AzureOpenAI:EmbeddingDeploymentName`, managed via App Config/Key Vault.
+*   **OpenRouter.AI:**
+    *   Accessed via HTTPS calls. A custom `IChatClient` / `ITextEmbeddingGenerator` implementation would be needed to wrap these HTTP calls, handle authentication (API key), and map requests/responses to the `Microsoft.Extensions.AI` DTOs.
+    *   Configuration: `AI:OpenRouter:ApiKey`, `AI:OpenRouter:Endpoint`, specific model identifiers, managed via App Config/Key Vault.
+
+### 2.2. Dependency Injection and Configuration
+
+Each Nucleus M365 Persona Agent application and each backend Nucleus MCP Tool/Server application that needs to interact directly with LLMs will configure the desired `IChatClient` and `ITextEmbeddingGenerator` implementation in its `Program.cs` based on its specific operational configuration (which could allow a tenant to choose their preferred provider if Nucleus offers this).
+
+**Example (Conceptual - in an M365 Agent or MCP Tool's `Program.cs`):**
+```csharp
+// Based on configuration (e.g., from PersonaConfiguration or global settings)
+var chosenProvider = builder.Configuration["AI:ProviderName"]; // e.g., "AzureOpenAI", "GoogleGemini", "OpenRouter"
+
+if (chosenProvider == "AzureOpenAI")
+{
+    builder.Services.AddAzureOpenAIChatCompletion(
+        builder.Configuration.GetSection("AI:AzureOpenAI:Chat") // Contains Endpoint, DeploymentName
+    );
+    // Add AzureOpenAIEmbeddingGeneration similarly
+    // Ensure DefaultAzureCredential is used if authenticating via Managed Identity
+}
+else if (chosenProvider == "GoogleGemini")
+{
+    // Example using Mscc.GenerativeAI.Microsoft or a custom wrapper
+    builder.Services.AddGeminiChat(options => { /* ... load from AI:GoogleAI config ... */ });
+    // Add GeminiEmbeddingGeneration similarly
+}
+else if (chosenProvider == "OpenRouter")
+{
+    // Register custom OpenRouterChatClient and OpenRouterEmbeddingGenerator
+    // services.AddSingleton<IChatClient, OpenRouterChatClient>();
+    // services.AddSingleton<ITextEmbeddingGenerator, OpenRouterEmbeddingGenerator>();
+}
+
+// Consumers inject IChatClient or ITextEmbeddingGenerator
+```
+
+### 2.3. Providing Ephemeral Context to AI Models (via M365 Agents & MCP Tools)
+
+The principle of ephemeral context remains, but the flow changes:
+
+1.  **M365 Agent Receives Interaction:** A Nucleus M365 Persona Agent gets an `Activity` (e.g., with file attachment info from Teams).
+2.  **Agent Constructs `ArtifactReference`:** The Agent translates platform file info into an `ArtifactReference`.
+3.  **Agent Calls `Nucleus_FileAccess_McpServer`:** Makes an MCP call with the `ArtifactReference`.
+4.  **`FileAccess_McpServer` Fetches Content:** This MCP Tool uses `IArtifactProvider` logic to ephemerally retrieve `ArtifactContent` (stream + metadata) from user's M365 storage (using agent's delegated Graph permissions or MCP tool's own permissions).
+5.  **Content Returned to Agent (or another MCP Tool):** The ephemeral content stream is returned to the M365 Agent or routed to another MCP Tool (e.g., `Nucleus_ContentProcessing_McpServer`).
+6.  **Prompt Assembly:** The M365 Agent (or `Nucleus_LLM_Orchestration_McpServer`) assembles the prompt for its configured LLM (Azure OpenAI, Gemini, or OpenRouter model), including the ephemeral text content and any relevant metadata or conversational history.
+7.  **LLM Call via `IChatClient`:** The prompt is sent to the chosen LLM via the injected `IChatClient`.
+8.  **Response Processing & Cleanup:** The LLM response is processed. The ephemeral content stream is discarded.
+
+This multi-step process, orchestrated by the M365 Agent and utilizing specialized backend MCP Tools, ensures Zero Trust for user file content while providing rich, ephemeral context to any configured LLM.
+
+## 3. LLM Tool Calling of Backend Nucleus MCP Tools
+
+A primary mode of "AI Integration" in the new architecture is how the Nucleus M365 Persona Agent's primary LLM invokes backend Nucleus capabilities exposed as MCP Tools.
+
+1.  **MCP Tool Definition:** Backend Nucleus MCP Tools (e.g., `Nucleus_KnowledgeStore_McpServer`) define their capabilities with clear names, descriptions, and JSON input/output schemas, per MCP standards.
+2.  **Tool Discovery/Registration with Agent's Orchestrator:** The M365 Agent, likely using an orchestration layer like **Semantic Kernel**, connects to these Nucleus MCP Tool/Servers (as an MCP Client). Semantic Kernel can consume MCP tools and represent them as `KernelFunction`s within its plugins.
+3.  **LLM Function Calling:** When the M365 Agent's primary LLM (invoked via `IChatClient`, potentially wrapped by Semantic Kernel) processes a user query, it is made aware of the available `KernelFunction`s (representing the MCP Tools).
+4.  **LLM Decision & Invocation Request:** Based on the user's intent, the LLM decides to call one or more MCP Tools and generates a structured function call request (e.g., JSON specifying tool name and arguments).
+5.  **Semantic Kernel/Agent Logic Translates to MCP Call:** Semantic Kernel (or custom agent logic) intercepts this, translates it into a formal MCP request, and dispatches it to the appropriate Nucleus MCP Tool/Server. This includes securely propagating necessary context like `tenantId`.
+6.  **MCP Tool Executes & Responds:** The Nucleus MCP Tool executes its logic (e.g., querying Cosmos DB, scoped by `tenantId`).
+7.  **Response to LLM:** The result is returned to Semantic Kernel/Agent, then to the LLM, which uses it to formulate the final user response.
+
+This pattern allows the M365 Agent's LLM to dynamically leverage the rich, specialized backend functionalities of Nucleus in a standardized, secure, and interoperable way.
+
+## 4. Future Considerations & Multi-Provider Strategy (Reaffirmed)
+
+*   **Provider-Specific Features vs. Abstraction:** While `Microsoft.Extensions.AI` provides a common interface, Nucleus components might need to be aware of, or have configurable strategies for, leveraging unique strengths or mitigating specific limitations of different LLM providers (e.g., context window sizes, rate limits, specialized tool calling nuances, prompt caching APIs).
+*   **Configuration for LLM Endpoints & Credentials:** The configuration system (`PersonaConfiguration` extended with foundational settings from Azure App Configuration/Key Vault) must robustly handle settings for multiple potential AI providers (Azure OpenAI, Google Gemini, OpenRouter.AI), allowing administrators or even tenants (for self-hosted/premium models) to select and configure their preferred LLM backends securely. This includes API keys, endpoints, model/deployment names.
+
+## 5. Semantic Kernel Analysis (Relevance in New Architecture)
+
+The role of **Semantic Kernel** becomes potentially *more prominent* within each Nucleus M365 Persona Agent.
+*   It can act as the orchestration engine *inside* the agent, managing:
+    *   Interaction with the chosen LLM (via `IChatClient` and SK's chat completion services).
+    *   Integration of Nucleus backend MCP Tools (by loading them as SK plugins/functions).
+    *   Complex prompt engineering, memory management (short-term conversational), and planning capabilities for the agent.
+*   Its ability to consume MCP tools standardizes how the agent interacts with its backend capabilities.
+
+The "Comparison with Nucleus" table (Section 4.2 in the original version of this document) needs updating to reflect this synergy:
+*   "Nucleus Planned/Current Approach" now involves M365 Agents using orchestrators like Semantic Kernel, which in turn call Nucleus MCP Tools.
+*   The distinction blurs, as Nucleus would *leverage* SK for advanced agentic loops *within* its M365 Persona Agents.

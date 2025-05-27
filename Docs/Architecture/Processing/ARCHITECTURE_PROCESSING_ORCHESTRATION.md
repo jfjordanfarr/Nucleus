@@ -1,8 +1,8 @@
 ---
 title: Architecture - Processing Orchestration Overview
-description: Describes the high-level concepts and responsibilities for orchestrating the flow of user interactions within Nucleus, coordinated via the API service which performs activation checks (including Persona resolution) and routes tasks asynchronously, scoped to the resolved Persona.
-version: 1.8
-date: 2025-05-08
+description: Describes how Microsoft 365 Persona Agents orchestrate interactions by invoking backend Nucleus MCP Tool/Server applications.
+version: 2.0
+date: 2025-05-25
 parent: ../01_ARCHITECTURE_PROCESSING.md
 ---
 
@@ -10,60 +10,65 @@ parent: ../01_ARCHITECTURE_PROCESSING.md
 
 ## 1. Introduction
 
-This document provides a high-level overview of the **Orchestration** sub-domain within the overall [Processing Architecture](../01_ARCHITECTURE_PROCESSING.md). Orchestration is concerned with managing the *flow* of work required to handle user interactions and related background processing tasks, especially in a system designed to host multiple, distinctly-scoped Personas.
+This document provides a high-level overview of the **Orchestration** sub-domain within the overall [Processing Architecture](../01_ARCHITECTURE_PROCESSING.md). In the revised Nucleus architecture, orchestration is primarily the responsibility of **Microsoft 365 Persona Agents**. These agents manage the *flow* of work required to handle user interactions by invoking various backend **Nucleus Model Context Protocol (MCP) Tool/Server applications**.
 
-While the [Ingestion](./ARCHITECTURE_PROCESSING_INGESTION.md) components focus on transforming raw artifacts into usable representations (ephemerally), and [Personas](../02_ARCHITECTURE_PERSONAS.md) focus on analyzing content and generating responses (each operating within its configured boundaries), Orchestration bridges the gap. It coordinates the sequence of events, routes requests based on **activation rules evaluated within the API service (which includes resolving the target `PersonaId`)**, and manages the execution context **by queueing activated tasks (now associated with a specific `PersonaId`) for background workers**.
+While [Ingestion](./ARCHITECTURE_PROCESSING_INGESTION.md) components (now often MCP Tools) focus on transforming raw artifacts, and [Personas](../02_ARCHITECTURE_PERSONAS.md) (embodied as M365 Agents) define the logic and user experience, Orchestration describes how the M365 Agent coordinates calls to these backend MCP Tools to fulfill a user's request or process an event.
 
-Key goals of the orchestration layer include:
-*   **Reliability:** Ensuring interactions are processed correctly and consistently via the background queue, respecting Persona scopes.
-*   **Scalability:** Handling varying loads of concurrent interactions through efficient API activation and **asynchronous processing via Azure Service Bus**, with workers potentially handling tasks for different Personas.
-*   **Decoupling & Isolation:** Separating concerns between triggering, activation/routing (which includes Persona resolution), execution (scoped to a Persona), and response delivery. This is crucial for maintaining data isolation between Personas.
-*   **Observability:** Providing visibility into the flow of work through the queue and workers, with logs indicating the active Persona for each task.
+Key goals of this agent-centric orchestration model include:
+*   **Reliability & Resilience:** Leveraging the M365 Agent SDK's capabilities and the robustness of individual MCP Tools.
+*   **Scalability:** M365 Agents can scale according to platform capabilities, and MCP Tools can be scaled independently based on demand.
+*   **Decoupling & Modularity:** Clear separation of concerns between the agent's conversational logic and the specialized functions of backend MCP Tools.
+*   **Observability:** Tracing and logging can be implemented within the M365 Agent and across MCP Tool invocations.
 
-## 2. Core Responsibilities
+## 2. Core Responsibilities of M365 Persona Agents in Orchestration
 
-The Orchestration layer encompasses several key responsibilities, primarily coordinated by the `Nucleus.Services.Api`:
+The M365 Persona Agent, built using the Microsoft 365 Agents SDK, takes on the central coordinating role:
 
-*   **API Request Handling & Hydration:**
-    *   Receiving interaction requests exclusively via the central API endpoint (`POST /api/v1/interactions`), handled by the [`InteractionController.Post`](../../../src/Nucleus.Services/Nucleus.Services.Api/Controllers/InteractionController.cs) method.
-    *   Interpreting the incoming `AdapterRequest` DTO and hydrating the initial message context. This includes `TenantId`, `PlatformType`, platform-specific identifiers useful for Persona resolution (e.g., originating bot ID, channel context), and the list of `ArtifactReference` objects pointing to user content in external storage.
-    *   Potentially invoking an [`IPersonaResolver`](../../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs) service early to map platform identifiers or explicit mentions to a canonical Nucleus `PersonaId`, if applicable, to aid routing. This resolver is key to correctly identifying the target Persona.
-*   **API Interaction Activation & Routing:**
-    *   Determining if an incoming interaction received by the API service warrants processing and for which `PersonaId` based on configured activation rules (e.g., mentions, scope, user, originating bot ID) via [`IActivationChecker`](../../../src/Nucleus.Abstractions/Orchestration/IActivationChecker.cs) (implemented by [`ActivationChecker`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/ActivationChecker.cs)).
-    *   If activated for a specific `PersonaId`, **routing the task exclusively to the asynchronous background task queue (`IBackgroundTaskQueue`)** for processing by a worker service. The message enqueued will contain the `TenantId` and resolved `PersonaId`.
-    *   This centralized API-based activation (including Persona resolution) and purely asynchronous routing process is fundamental for supporting multiple Personas securely.
-    *   **Details:** See [API Activation & Asynchronous Routing](./Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md).
-*   **Interaction Context Creation (Session Initiation):**
-    *   *Following successful API activation and Persona resolution, and before queueing*, the API service (specifically its internal orchestration logic) prepares the initial reference message for the queue.
-    *   This involves creating the `InteractionId`, gathering necessary context identifiers, packaging the `TenantId` and resolved `PersonaId`, and these references for the **asynchronous handler (background worker)**.
-    *   **Details:** See [Session Initiation](./Orchestration/ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md).
-*   **Interaction Lifecycle Management (Executed by Worker, Scoped by Persona):**
-    *   Executing the defined steps for processing an interaction *after it has been dequeued by a background worker*. The dequeued message contains the `TenantId` and `PersonaId`.
-    *   Hydrating the full `InteractionContext` based on the queued references, including ephemeral content fetching via `IArtifactProvider`. **Crucially, the `IPersonaConfigurationProvider` is used with the `TenantId` and `PersonaId` to load the specific `PersonaConfiguration`, which then dictates the scope of all data access (e.g., knowledge bases, file permissions via `IArtifactProvider`).**
-    *   Managing the state of the *individual interaction processing* (e.g., using `PersonaInteractionContext`), ensuring it remains isolated to the active Persona's context.
-    *   Coordinating calls to other services like [`IPersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs) (passing the specific `PersonaConfiguration`), repositories (ensuring data is written to Persona-specific locations or appropriately partitioned), etc., *within the worker process, always respecting the loaded Persona's scope*.
-    *   **Details:** See [Interaction Processing Lifecycle (Activation & Queued Execution)](./Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md).
-*   **State Management:**
-    *   Managing any necessary state related to the *flow* of complex or long-running operations (Note: distinct from the ephemeral interaction scratchpad managed within `PersonaInteractionContext`). This state must also be managed in a way that respects Persona and Tenant boundaries.
-*   **Error Handling & Resilience:**
-    *   Implementing strategies for handling failures during orchestration steps (e.g., retries, compensating actions, logging, alerting).
+*   **Interaction Handling & Intent Recognition:**
+    *   Receiving interaction events from the host platform (e.g., Teams message, Outlook add-in event).
+    *   Using the M365 Agent SDK to understand user intent, parse commands, and extract relevant entities from the user's input and the surrounding context (e.g., attached files, email content).
+*   **MCP Tool Discovery & Invocation:**
+    *   Identifying the necessary Nucleus MCP Tool/Server(s) required to fulfill the user's intent (e.g., a content extraction tool, a knowledge store tool, an AI analysis tool).
+    *   Using an `IMcpToolInvoker` (or similar mechanism as defined in [Processing Interfaces](./ARCHITECTURE_PROCESSING_INTERFACES.md)) to make requests to the appropriate MCP Tools.
+    *   Passing necessary data to the MCP Tools, which might include artifact references (e.g., SharePoint URIs, message attachment IDs), user queries, or persona-specific configuration identifiers.
+*   **Workflow Management:**
+    *   Sequencing calls to multiple MCP Tools if necessary (e.g., extract content from a file, then send it to an AI analysis tool, then store the results).
+    *   Managing the state of the interaction within the agent itself, potentially using the M365 Agent SDK's state management capabilities.
+*   **Response Generation & Delivery:**
+    *   Aggregating responses from various MCP Tool calls.
+    *   Formatting the final response for the user.
+    *   Using the M365 Agent SDK (via a component like `IPlatformMessageRelay` from [Processing Interfaces](./ARCHITECTURE_PROCESSING_INTERFACES.md)) to deliver the response back to the user on the host platform.
+*   **Error Handling & Fallbacks:**
+    *   Managing errors from MCP Tool invocations (e.g., retries, user notifications, graceful degradation).
 
 ## 3. Relationship to Other Components
 
-*   **Client Adapters:** Provide initial triggers (`AdapterRequest`) containing only `ArtifactReference` objects. Receive final responses via [`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs).
-*   **API Endpoint (`/api/v1/interactions`):** The single entry point triggering orchestration.
-*   **[`Nucleus.Services.Api`](../../../src/Nucleus.Services/Nucleus.Services.Api):** The central hub for receiving interactions, performing activation checks (including Persona resolution), and **queueing activated tasks (scoped with `PersonaId`)** for asynchronous processing using [`IOrchestrationService`](../../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs) and `IBackgroundTaskQueue`.
-*   **Activation Rule Engine:** Logic within the API service that determines if an interaction is relevant.
-*   **Internal Task Queue (`IBackgroundTaskQueue`) & Workers (`QueuedInteractionProcessorService`):** The Azure Service Bus queue and the background service(s) responsible for dequeuing reference messages and executing the actual interaction processing logic.
-*   **[`PersonaManager`](../../../src/Nucleus.Domain/Nucleus.Domain.Processing/PersonaManager.cs) Instances:** Components potentially used *by the background worker* to manage the *state* and *lifecycle* of active interaction sessions for specific Personas after dequeuing.
-*   **Persona Runtime ([`IPersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs)):** Executes domain-specific logic (analysis, query handling) *within the background worker process*.
-*   **Artifact Provider ([`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs)):** The central interface used by the **background worker** to fetch artifact content based on an `ArtifactReference` received from the queue.
-*   **Platform Services ([`IPlatformAttachmentFetcher`](../../../src/Nucleus.Abstractions/Adapters/IPlatformAttachmentFetcher.cs), [`IPlatformNotifier`](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)):** Concrete implementations resolved by `IArtifactProvider` or the worker based on `PlatformType`/`ReferenceType` for platform-specific interactions.
-*   **Persona Resolver ([`IPersonaResolver`](../../../src/Nucleus.Abstractions/Orchestration/IPersonaResolver.cs)):** Service used *by the API service before queueing* to map between platform identities and canonical Persona IDs.
-*   **Persona Profile Store:** Provides the data needed by the `IPersonaResolver` and for looking up target platform identifiers.
-*   **Processing Components (Ingestion):** Orchestration *within the worker* invokes necessary ephemeral ingestion/processing steps.
-*   **Compute Runtime:** The API service runs in one environment, while the background workers (`QueuedInteractionProcessorService`) run as hosted services (potentially scaled independently).
+*   **Microsoft 365 Persona Agents:** The primary orchestrators. They contain the conversational logic and the intelligence to decide which MCP Tools to call and in what order.
+    *   **Related Architecture:** [Clients Architecture](../../05_ARCHITECTURE_CLIENTS.md), [Personas Architecture](../../02_ARCHITECTURE_PERSONAS.md)
+*   **Nucleus MCP Tool/Server Applications:** Backend services that perform specific tasks (e.g., `Nucleus_ContentExtractor_McpServer`, `Nucleus_KnowledgeStore_McpServer`, `Nucleus_AiAnalysis_McpServer`). They expose MCP-compliant endpoints.
+    *   **Related Architecture:** [Abstractions Architecture](../../12_ARCHITECTURE_ABSTRACTIONS.md), [Deployment Architecture](../../07_ARCHITECTURE_DEPLOYMENT.md)
+*   **Shared Interfaces (`IMcpToolInvoker`, `IContentExtractor`, `IArtifactStorageProvider`, etc.):** Define the contracts for how agents invoke tools and how tools perform their work.
+    *   **Related Architecture:** [Processing Interfaces](./ARCHITECTURE_PROCESSING_INTERFACES.md)
+*   **M365 Platform (Teams, Outlook, etc.):** Provides the user interface, event triggers, and the runtime environment for the M365 Persona Agents.
+*   **Nucleus Database:** Accessed by specific MCP Tools (e.g., `Nucleus_KnowledgeStore_McpServer`) to persist and retrieve `ArtifactMetadata` and `PersonaKnowledgeEntry` objects.
+    *   **Related Architecture:** [Database Architecture](../../04_ARCHITECTURE_DATABASE.md)
+*   **AI Inference Providers (e.g., Azure OpenAI, Google Gemini):** Used by specific MCP Tools (e.g., `Nucleus_AiAnalysis_McpServer`) for tasks like summarization, Q&A, or other intelligent processing.
+    *   **Related Architecture:** [AI Integration Architecture](../../08_ARCHITECTURE_AI_INTEGRATION.md)
 
-## 4. Future Considerations
+## 4. Deprecated Concepts (from previous API-First Architecture)
 
-As the system matures (e.g., towards [Phase 4 Maturity Requirements](../../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#32-workflow-orchestration)), the orchestration layer may evolve to use more sophisticated tools like dedicated workflow engines (e.g., Azure Durable Functions, Dapr Workflows) to handle more complex, stateful, or long-running processes beyond the simple background task model.
+The following concepts related to orchestration in the previous monolithic API architecture are now deprecated or significantly changed:
+
+*   **Central `IOrchestrationService`:** Replaced by the distributed orchestration logic within M365 Persona Agents invoking MCP Tools.
+*   **API-based Activation (`IActivationChecker`):** Activation logic now resides within the M365 Persona Agent, guided by how it's configured to respond to platform events.
+*   **Central Background Task Queue (`IBackgroundTaskQueue`) for all interactions:** While individual MCP Tools might use internal queues for their own asynchronous tasks, the primary orchestration is driven by the agent.
+*   **Direct API invocation for all processing steps:** Replaced by agent-to-tool communication via MCP.
+*   Detailed sub-documents like `ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md`, `ARCHITECTURE_ORCHESTRATION_ROUTING.md`, and `ARCHITECTURE_ORCHESTRATION_SESSION_INITIATION.md` are being **archived** as their specific approaches are no longer representative of the M365 Agent + MCP model.
+
+## 5. Future Considerations
+
+As the M365 Agents SDK and MCP evolve, the orchestration capabilities within agents may become more sophisticated. For very complex, long-running, or stateful cross-tool workflows, future iterations might explore:
+*   Leveraging features within the M365 Agents SDK for more advanced workflow patterns.
+*   The use of external orchestration services (e.g., Azure Logic Apps, Durable Functions) that an M365 Agent could trigger if a process becomes too complex to manage internally.
+
+This shift to agent-centric orchestration aligns Nucleus with modern distributed application patterns and the capabilities of the Microsoft 365 ecosystem.

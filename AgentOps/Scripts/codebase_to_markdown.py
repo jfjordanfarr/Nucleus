@@ -4,6 +4,50 @@ import fnmatch
 import re
 from pathlib import Path
 
+# --- Binary/Non-text file extensions to exclude ---
+BINARY_EXTENSIONS = {
+    # Images
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp', '.tiff', '.tif',
+    # Videos
+    '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v',
+    # Audio
+    '.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a',
+    # Archives
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
+    # Documents
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    # Executables
+    '.exe', '.dll', '.so', '.dylib', '.bin', '.app', '.deb', '.rpm', '.msi',
+    # Fonts
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+    # Database
+    '.db', '.sqlite', '.sqlite3', '.mdb',
+    # Other binary formats
+    '.iso', '.img', '.dmg', '.toast', '.vcd'
+}
+
+def is_binary_file(file_path):
+    """Check if a file is likely binary based on extension or content."""
+    # Check extension first
+    if file_path.suffix.lower() in BINARY_EXTENSIONS:
+        return True
+    
+    # For files without clear extensions, check if content is binary
+    try:
+        with open(file_path, 'rb') as f:
+            chunk = f.read(1024)  # Read first 1KB
+            if b'\0' in chunk:  # Null bytes typically indicate binary
+                return True
+            # Check for high ratio of non-printable characters
+            text_chars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+            if chunk and len(chunk.translate(None, text_chars)) / len(chunk) > 0.30:
+                return True
+    except (IOError, OSError):
+        # If we can't read the file, assume it might be binary
+        return True
+    
+    return False
+
 # --- Language Mappings (can be extended) ---
 LANGUAGE_MAP = {
     '.py': 'python',
@@ -239,6 +283,12 @@ def main():
                     if file_path == output_file:
                         if verbose: print(f"Skipping output file itself: {relative_path_posix}")
                         skipped_output_file += 1
+                        continue
+
+                    # --- Skip binary files ---
+                    if is_binary_file(file_path):
+                        if verbose: print(f"Skipping binary file: {relative_path_posix}")
+                        skipped_read_error += 1  # Count as read error for simplicity
                         continue
 
                     # Check standard exclusions first (e.g., if a file is in an excluded dir name like 'bin')

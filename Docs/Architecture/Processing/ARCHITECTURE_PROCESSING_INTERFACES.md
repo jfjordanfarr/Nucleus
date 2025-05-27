@@ -1,22 +1,22 @@
 ---
 title: Processing Architecture - Shared Interfaces
-description: Defines common C# interfaces used across various stages of the Nucleus processing pipeline, coordinated via the API service, supporting multi-persona scoped operations.
-version: 1.5
-date: 2025-05-08
+description: Defines common C# interfaces used by Nucleus MCP Tool/Server applications, often invoked by M365 Persona Agents.
+version: 2.0
+date: 2025-05-25
 parent: ../01_ARCHITECTURE_PROCESSING.md
 ---
 
 # Processing Architecture: Shared Interfaces
 
-This document defines common C# interfaces shared by different components within the Nucleus processing architecture, promoting consistency and modularity. It complements the main [Processing Architecture document](../01_ARCHITECTURE_PROCESSING.md) and is related to other interfaces such as `IArtifactProvider`, `IChatClient`, and `IPlatformNotifier`.
+This document defines common C# interfaces shared by different components within the Nucleus processing architecture, promoting consistency and modularity, particularly for **Nucleus MCP Tool/Server applications**. These tools are typically invoked by **Microsoft 365 Persona Agents** acting as orchestrators.
 
-In a multi-persona, multi-tenant environment, these interfaces (especially those involved in orchestration and data handling) are designed to operate within specific scopes defined by `TenantId` and the resolved `PersonaId`.
+It complements the main [Processing Architecture document](../01_ARCHITECTURE_PROCESSING.md).
 
 ## 1. `IContentExtractor`
 
-This interface provides a standard way to handle the *initial parsing* and content retrieval from different source artifact types before further processing or synthesis.
+This interface provides a standard way for **Nucleus MCP Tool/Server applications** to handle the *initial parsing* and content retrieval from different source artifact types before further processing or synthesis. An M365 Persona Agent might invoke an MCP Tool that utilizes an `IContentExtractor` implementation.
 
-*   **Code:** [../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs](../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs)
+*   **Code:** `Nucleus.Abstractions/Extraction/IContentExtractor.cs` (Conceptual path; actual location TBD in new structure)
 *   **Related Architecture:** [ARCHITECTURE_PROCESSING_INGESTION.md](./ARCHITECTURE_PROCESSING_INGESTION.md)
 
 ```csharp
@@ -37,7 +37,7 @@ public interface IContentExtractor
     /// <param name="sourceStream">The stream containing the artifact content.</param>
     /// <param name="mimeType">The MIME type of the content.</param>
     /// <param name="sourceUri">Optional URI of the source for context.</param>
-    /// <returns>A result containing extracted text and potentially other metadata. See ContentExtractionResult in Nucleus.Abstractions.Orchestration.</returns>
+    /// <returns>A result containing extracted text and potentially other metadata. See ContentExtractionResult.</returns>
     Task<ContentExtractionResult> ExtractContentAsync(Stream sourceStream, string mimeType, string? sourceUri = null);
 }
 
@@ -49,102 +49,135 @@ public record ContentExtractionResult(
     Dictionary<string, object>? AdditionalMetadata = null, // e.g., page numbers, structural info
     string? SourceUri = null,
     Exception? Exception = null);
+```
 
-## 2. `IOrchestrationService`
+## 2. `IArtifactStorageProvider` (Conceptual - Replaces aspects of old Orchestration)
 
-This interface defines the central coordinating service for processing incoming requests within the `Nucleus.Services.Api`. It's responsible for managing the overall flow for tasks like ingestion or querying. **In the API-First architecture, implementations of this service are typically invoked by the API's request handlers (e.g., ASP.NET Core Controllers) after initial request validation, authentication, and activation checks (`IActivationChecker`) which include resolving the target `PersonaId`.** It orchestrates steps like resolving the persona (`IPersonaResolver`), fetching artifact content (via [`IArtifactProvider`](../Abstractions/ARCHITECTURE_ABSTRACTIONS_PROVIDER.md) operating under the resolved Persona's scope), invoking specific processors (e.g., content extraction, chunking, embedding, LLM interaction using `IChatClient` from the `Microsoft.Extensions.AI` library or similar AI abstractions), managing interaction context (scoped by `TenantId` and `PersonaId`), and potentially triggering notifications (via `IPlatformNotifier`) or responses.
+This conceptual interface represents the capabilities of a **Nucleus MCP Tool/Server application** (e.g., `Nucleus_KnowledgeStore_McpServer`) to manage the storage and retrieval of `ArtifactMetadata` and `PersonaKnowledgeEntry` objects. M365 Persona Agents would interact with such an MCP Tool to persist or fetch processed information.
 
-*(Note: The service handles both initial interaction processing (`ProcessInteractionAsync`) which includes activation checks and sync/async routing for a specific `TenantId` and resolved `PersonaId`, and the subsequent processing of queued asynchronous requests (`HandleQueuedInteractionAsync`) which are already scoped by `TenantId` and `PersonaId` from the queue message.)*
-
-*   **Code:** [../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs](../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)
+*   **Code:** TBD (Likely within a `Nucleus.Mcp.KnowledgeStore.Abstractions` or similar project)
 *   **Related Architecture:**
-    *   [Ingestion Overview](./ARCHITECTURE_PROCESSING_INGESTION.md)
-    *   [Orchestration Overview](./ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
-    *   [API Interaction Lifecycle](./Orchestration/ARCHITECTURE_ORCHESTRATION_INTERACTION_LIFECYCLE.md)
+    *   [Storage Architecture](../../03_ARCHITECTURE_STORAGE.md)
+    *   [Database Architecture](../../04_ARCHITECTURE_DATABASE.md)
 
 ```csharp
-using Nucleus.Abstractions.Models;
-using System.Threading;
+// Conceptual interface - details to be refined
+using Nucleus.Abstractions.Models; // Assuming ArtifactMetadata, PersonaKnowledgeEntry are here or moved
 using System.Threading.Tasks;
 
-namespace Nucleus.Abstractions.Orchestration;
+namespace Nucleus.Mcp.KnowledgeStore.Abstractions; // Example namespace
 
 /// <summary>
-/// Represents the possible outcomes of the orchestration process for an interaction.
+/// Defines the contract for a service that provides access to the Nucleus knowledge store,
+/// managing ArtifactMetadata and PersonaKnowledgeEntry objects.
+/// This would be implemented by an MCP Tool/Server.
 /// </summary>
-public enum OrchestrationStatus { /* ... See C# file for details ... */ }
-
-/// <summary>
-/// Encapsulates the result of the orchestration process.
-/// </summary>
-public record OrchestrationResult(OrchestrationStatus Status, AdapterResponse? Response);
-
-/// <summary>
-/// Defines the contract for the central orchestration service responsible for
-/// processing interactions received by the API service. Operations are implicitly
-/// or explicitly scoped by TenantId and the resolved PersonaId.
-/// </summary>
-/// <remarks>
-/// Handles activation (including Persona resolution), routing (sync/async), and delegates to specific processing logic.
-/// </remarks>
-public interface IOrchestrationService
+public interface IArtifactStorageProvider
 {
     /// <summary>
-    /// Processes an incoming interaction request, handling activation checks (including Persona resolution),
-    /// routing, and initiating processing (sync or async) for a given Tenant and resolved Persona.
-    /// The AdapterRequest should contain necessary information for Tenant and Persona resolution (e.g., TenantId, originating bot ID).
+    /// Stores artifact metadata.
     /// </summary>
-    Task<OrchestrationResult> ProcessInteractionAsync(
-        AdapterRequest request, // Contains TenantId and cues for PersonaId resolution
-        CancellationToken cancellationToken = default);
+    Task StoreArtifactMetadataAsync(ArtifactMetadata metadata, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Handles an interaction request that has been dequeued for asynchronous processing.
-    /// The NucleusIngestionRequest already contains the resolved TenantId and PersonaId.
+    /// Retrieves artifact metadata.
     /// </summary>
-    Task<OrchestrationResult?> HandleQueuedInteractionAsync(NucleusIngestionRequest request, CancellationToken cancellationToken = default);
+    Task<ArtifactMetadata?> GetArtifactMetadataAsync(string artifactId, string personaId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stores a persona knowledge entry.
+    /// </summary>
+    Task StorePersonaKnowledgeAsync<T>(PersonaKnowledgeEntry<T> entry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves a persona knowledge entry.
+    /// </summary>
+    Task<PersonaKnowledgeEntry<T>?> GetPersonaKnowledgeAsync<T>(string entryId, string personaId, CancellationToken cancellationToken = default);
+
+    // Other methods for querying, deleting, etc.
 }
+```
 
-## 3. `IPlatformNotifier`
+## 3. `IMcpToolInvoker` (Conceptual - Resides in M365 Agent)
 
-*   **Code:** [../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs](../../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)
-*   **Purpose:** Defines an interface for services that can send notifications (messages, acknowledgements) back to a specific platform (e.g., Teams, Slack, Console).
-*   **Key Responsibilities:**
+This conceptual interface would reside within an **M365 Persona Agent** project. It defines how the agent invokes various backend **Nucleus MCP Tool/Server applications**. This replaces the direct, in-process invocation of services like the old `IOrchestrationService`.
+
+*   **Code:** TBD (Likely within an `M365.Ageny.MyPersona.Core` or similar project)
+*   **Related Architecture:**
+    *   [Processing Orchestration](./ARCHITECTURE_PROCESSING_ORCHESTRATION.md) (as it will describe how Agents use these invokers)
+    *   [Abstractions](../../12_ARCHITECTURE_ABSTRACTIONS.md) (for MCP details)
 
 ```csharp
-using System.Threading;
+// Conceptual interface - details to be refined
+using Microsoft.Bot.Builder; // Example, if using Bot Framework for the Agent
 using System.Threading.Tasks;
-using Nucleus.Abstractions.Models;
 
-namespace Nucleus.Abstractions;
+namespace M365.Agent.MyPersona.Core; // Example namespace
 
 /// <summary>
-/// Defines a contract for sending notifications or responses back to the originating platform.
+/// Defines the contract for a component within an M365 Persona Agent
+/// responsible for invoking backend Nucleus MCP Tool/Server applications.
 /// </summary>
-public interface IPlatformNotifier
+public interface IMcpToolInvoker
 {
     /// <summary>
-    /// Gets the platform type this notifier supports.
+    /// Invokes a specified MCP Tool with the given request payload.
     /// </summary>
-    string SupportedPlatformType { get; }
+    /// <typeparam name="TRequest">The type of the request payload for the MCP Tool.</typeparam>
+    /// <typeparam name="TResponse">The expected type of the response from the MCP Tool.</typeparam>
+    /// <param name="toolName">The identifier of the MCP Tool to invoke (e.g., "Nucleus_ContentExtractor_McpServer", "Nucleus_KnowledgeStore_McpServer").</param>
+    /// <param name="requestPayload">The request data for the tool.</param>
+    /// <param name="turnContext">The current turn context from the M365 Agent.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The response from the MCP Tool.</returns>
+    Task<TResponse?> InvokeToolAsync<TRequest, TResponse>(
+        string toolName,
+        TRequest requestPayload,
+        ITurnContext turnContext, // Or other relevant M365 Agent context
+        CancellationToken cancellationToken = default);
+}
+```
 
+## 4. `IPlatformMessageRelay` (Conceptual - Replaces `IPlatformNotifier`)
+
+This conceptual interface would be part of an **M365 Persona Agent**. It's responsible for sending messages back to the host platform (e.g., Teams, Outlook) using the M365 Agent SDK's capabilities. This replaces the older `IPlatformNotifier` which was designed for a monolithic backend.
+
+*   **Code:** TBD (Likely within an `M365.Agent.MyPersona.Core` or similar project)
+*   **Related Architecture:**
+    *   [Clients Architecture](../../05_ARCHITECTURE_CLIENTS.md) (as M365 Agents are the clients)
+
+```csharp
+// Conceptual interface - details to be refined
+using Microsoft.Bot.Builder; // Example, if using Bot Framework for the Agent
+using System.Threading.Tasks;
+
+namespace M365.Agent.MyPersona.Core; // Example namespace
+
+/// <summary>
+/// Defines a contract for sending messages and notifications back to the
+/// originating platform via the M365 Agent SDK.
+/// </summary>
+public interface IPlatformMessageRelay
+{
     /// <summary>
-    /// Asynchronously sends a notification message back to the originating platform context.
+    /// Asynchronously sends a message back to the originating platform conversation.
     /// </summary>
-    Task<(bool Success, string? SentMessageId, string? Error)> SendNotificationAsync(
-        string conversationId,
+    Task SendMessageAsync(
+        ITurnContext turnContext, // M365 Agent's turn context
         string messageText,
-        string? replyToMessageId = null,
+        string? replyToActivityId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Asynchronously sends a simple acknowledgement or typing indicator.
+    /// Asynchronously sends a typing indicator.
     /// </summary>
-    Task<bool> SendAcknowledgementAsync(
-        string conversationId,
-        string? replyToMessageId = null,
+    Task SendTypingIndicatorAsync(
+        ITurnContext turnContext,
         CancellationToken cancellationToken = default);
+
+    // Potentially other methods for sending cards, adaptive cards, etc.
 }
+```
 
 ---
-**(More interfaces may be added here as the processing pipeline evolves)**
+**(More interfaces will be defined or refined as the M365 Agent and MCP Tool architecture evolves, particularly focusing on the specific contracts exposed by MCP Tools and consumed by M365 Agents.)**

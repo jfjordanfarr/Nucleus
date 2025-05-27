@@ -1,0 +1,168 @@
+---
+title: "Architecture - Namespaces and Folder Structure (Post-M365 Agent SDK Pivot)"
+description: "Defines the standard namespace and folder structure for the distributed Nucleus project, including M365 Persona Agents and backend MCP Tool/Server applications, following .NET Aspire and Clean Architecture principles."
+version: 3.0
+date: 2025-05-25
+parent: ./00_ARCHITECTURE_OVERVIEW.md
+---
+
+# Nucleus: Namespace and Folder Structure (Post-M365 Agent SDK Pivot)
+
+## 1. Introduction
+
+This document defines the standard organization for the Nucleus codebase, reflecting its **pivot to a distributed architecture** based on **Microsoft 365 Persona Agents** and backend **Model Context Protocol (MCP) Tool/Server applications**. The goals remain: Clarity, Maintainability, Extensibility, Minimized Path Hallucinations, and Alignment with Best Practices (.NET Aspire, Clean Architecture).
+
+## 2. Top-Level Structure
+
+**[CONTENT LARGELY KEPT - Top-level dev/ops folders are standard]**
+The project root follows the standard .NET Aspire convention and includes development/operational support folders:
+
+```
+./
+├── .devcontainer/            # Devcontainer configuration for consistent environments
+├── .github/                  # GitHub-specific files (e.g., workflows)
+├── .vscode/                  # VSCode-specific settings (e.g., launch configurations)
+├── AgentOps/                 # Scripts and documents for AI Agent-assisted development
+├── Aspire/                   # Aspire orchestration and defaults
+│   ├── Nucleus.AppHost/          # Aspire AppHost (now orchestrates M365 Agents & MCP Tools)
+│   └── Nucleus.ServiceDefaults/  # Aspire ServiceDefaults (used by Agents & MCP Tools)
+├── Docs/                     # Project documentation
+│   └── Architecture/
+├── src/                      # Core application source code
+│   ├── Nucleus.Abstractions/     # Shared DTOs, Core Interfaces (for MCP Tools, internal agent logic)
+│   ├── Nucleus.Agents/           # NEW: Houses M365 Persona Agent application projects
+│   │   ├── Nucleus.Agent.EduFlow/  # Example: EduFlow M365 Persona Agent
+│   │   └── Nucleus.Agent.Helpdesk/ # Example: Helpdesk M365 Persona Agent
+│   ├── Nucleus.Domain/           # Core domain logic (for Personas, RAG, processing - used by Agents & MCP Tools)
+│   │   ├── Nucleus.Domain.Personas.Core/ # IPersonaRuntime, IAgenticStrategyHandler
+│   │   └── Nucleus.Domain.Processing/    # RAG logic, 4R ranking, etc.
+│   ├── Nucleus.Infrastructure/   # Infrastructure concerns (persistence, external providers - used by MCP Tools)
+│   │   ├── Nucleus.Infrastructure.CosmosDb/ # Cosmos DB repository implementations
+│   │   ├── Nucleus.Infrastructure.FileProviders/ # IArtifactProvider implementations (Graph, Local)
+│   │   └── Nucleus.Infrastructure.Messaging/   # Service Bus client logic (for IBackgroundTaskQueue)
+│   └── Nucleus.McpTools/         # NEW: Houses backend MCP Tool/Server application projects
+│       ├── Nucleus.McpTools.KnowledgeStore/
+│       ├── Nucleus.McpTools.FileAccess/
+│       └── Nucleus.McpTools.RAGPipeline/
+├── tests/                    # Test projects
+│   ├── Nucleus.Infrastructure.Testing/ # Shared test infrastructure
+│   ├── Nucleus.Agents.Tests/       # NEW: Unit/Integration tests for M365 Agents
+│   ├── Nucleus.McpTools.Tests/     # NEW: Unit/Integration tests for MCP Tools
+│   └── Nucleus.System.IntegrationTests/ # NEW: Aspire-orchestrated system tests
+# ... rest of root files ...
+```
+
+*   **`.devcontainer/`**: Contains configuration files for setting up a consistent development environment using Docker containers.
+*   **`.github/`**: Holds GitHub-specific configurations, such as CI/CD workflow definitions.
+*   **`.vscode/`**: Stores workspace-specific settings for Visual Studio Code, like launch configurations and recommended extensions.
+*   **`AgentOps/`**: Contains scripts, notes, and context files used for facilitating AI Agent-assisted development (e.g., with Cascade).
+*   **`Aspire/`**: Contains projects specific to .NET Aspire's development-time orchestration (`AppHost`) and shared runtime configurations (`ServiceDefaults`).
+*   **`Docs/`**: Contains all project documentation, including architecture specifications.
+*   **`src/`**: Contains all core source code for the Nucleus application, organized by architectural layer.
+*   **`tests/`**: Contains all automated test projects. Includes Shared Infrastructure, Integration, Unit, and planned End-to-End tests.
+*   Root files like `.gitignore`, `Nucleus.sln`, `README.md`, `.editorconfig`, `.gitattributes`, `LICENSE.txt`, and `.windsurfrules` manage project versioning, building, and development standards.
+
+## 3. `src/` Layer Structure (Revised for Distributed System)
+
+The `src/` directory is organized with new top-level folders for `Nucleus.Agents` (M365 Persona Agent applications) and `Nucleus.McpTools` (backend MCP Tool/Server applications). `Nucleus.Domain` and `Nucleus.Infrastructure` now contain logic primarily consumed by these Agents and MCP Tools. `Nucleus.Abstractions` remains foundational.
+
+## 4. Project Breakdown (Significantly Revised)
+
+This section lists the key new and modified projects. Links point to (potentially new or heavily modified) detailed architecture documents.
+
+*   **Shared Libraries:**
+    *   **[`Nucleus.Abstractions`](./Namespaces/NAMESPACE_ABSTRACTIONS.md) [MODIFIED]** (`src/Nucleus.Abstractions/`): Defines core interfaces (e.g., for repository contracts used by MCP Tools, `IPersonaRuntime`), DTOs (`ArtifactMetadata`, `PersonaKnowledgeEntry`, `PersonaConfiguration`, `ArtifactReference`), and base types.
+    *   **[`Nucleus.Domain.Personas.Core`](./Namespaces/NAMESPACE_PERSONAS_CORE.md) [MODIFIED]** (`src/Nucleus.Domain/Personas/Nucleus.Domain.Personas.Core/`): Core domain logic for executing Persona configurations (`IPersonaRuntime`, `IAgenticStrategyHandler`). Used by M365 Agent applications.
+    *   **[`Nucleus.Domain.Processing`](./Namespaces/NAMESPACE_DOMAIN_PROCESSING.md) [MODIFIED]** (`src/Nucleus.Domain/Nucleus.Domain.Processing/`): Core domain logic for RAG, 4R ranking, content processing primitives. Used by backend MCP Tool applications.
+    *   **(Placeholder for `Nucleus.Application`)** *(Currently empty - might define application services used by MCP Tools or Agents if needed).*
+
+*   **Nucleus M365 Persona Agent Applications (NEW CATEGORY):**
+    *   Located in `src/Nucleus.Agents/`. Each is a separate .NET (ASP.NET Core) project.
+    *   Example: **`Nucleus.Agent.EduFlow`**: Implements the EduFlow Persona using M365 Agents SDK. Contains `AgentApplication` logic, uses `IPersonaRuntime` with "EduFlow" `PersonaConfiguration`, acts as MCP Client to backend Nucleus MCP Tools.
+    *   Example: **`Nucleus.Agent.Helpdesk`**: Implements the IT Helpdesk Persona similarly.
+    *   *(New namespace documents needed for each agent type, e.g., `NAMESPACE_AGENT_EDUFLOW.md`)*
+
+*   **Backend Nucleus MCP Tool/Server Applications (NEW CATEGORY):**
+    *   Located in `src/Nucleus.McpTools/`. Each is a separate .NET service (e.g., ASP.NET Core Web API or Azure Function) exposing MCP endpoints.
+    *   **`Nucleus.McpTools.KnowledgeStore`**: Implements MCP Tools for accessing/managing `ArtifactMetadata` and `PersonaKnowledgeEntry` in Cosmos DB. Uses `Nucleus.Infrastructure.CosmosDb`.
+    *   **`Nucleus.McpTools.FileAccess`**: Implements MCP Tools for ephemeral file access. Uses `Nucleus.Infrastructure.FileProviders` (which contain `IArtifactProvider` implementations).
+    *   **`Nucleus.McpTools.RAGPipeline` (Conceptual):** Implements MCP Tools for advanced search, 4R ranking. Uses `Nucleus.Domain.Processing` and calls `Nucleus.McpTools.KnowledgeStore`.
+    *   **`Nucleus.McpTools.ContentProcessing` (Conceptual):** Implements MCP Tools for complex `IContentExtractor` logic and Markdown synthesis.
+    *   **`Nucleus.McpTools.PersonaBehaviourConfig` (Conceptual):** Implements MCP Tools for managing dynamic `PersonaConfiguration` parts from Cosmos DB.
+    *   *(New namespace documents needed for each MCP Tool/Server, e.g., `NAMESPACE_MCPTOOL_KNOWLEDGE_STORE.md`)*
+
+*   **Infrastructure Implementation Libraries (Supporting MCP Tools):**
+    *   **[`Nucleus.Infrastructure.CosmosDb`](./Namespaces/NAMESPACE_INFRASTRUCTURE_DATA_PERSISTENCE.md) [MODIFIED ROLE]** (`src/Nucleus.Infrastructure/CosmosDb/`): Cosmos DB repository implementations (for `IArtifactMetadataRepository`, `IPersonaKnowledgeRepository`). Now used by `Nucleus.McpTools.KnowledgeStore`.
+    *   **[`Nucleus.Infrastructure.FileProviders`](./Namespaces/NAMESPACE_INFRASTRUCTURE_PROVIDERS.md) [MODIFIED ROLE]** (`src/Nucleus.Infrastructure/FileProviders/`): Implementations of `IArtifactProvider` (e.g., for MS Graph, local files). Now used by `Nucleus.McpTools.FileAccess`.
+    *   **[`Nucleus.Infrastructure.Messaging`](./Namespaces/NAMESPACE_INFRASTRUCTURE_MESSAGING.md) [KEPT]** (`src/Nucleus.Infrastructure/Messaging/`): Handles `IBackgroundTaskQueue` implementation (e.g., Azure Service Bus). Used by M365 Agents (to enqueue) and Background Workers (to dequeue).
+
+*   **Superseded/Archived Projects (Examples):**
+    *   `src/Nucleus.Services/Nucleus.Services.Api/` **[ARCHIVED/DECOMPOSED]**
+    *   `src/Nucleus.Infrastructure/Adapters/Teams/` **[ARCHIVED]** (and similar for Slack, Discord, Email)
+
+*   **Aspire Projects:**
+    *   **[`Nucleus.AppHost`](./Namespaces/NAMESPACE_APP_HOST.md) [MODIFIED]** (`Aspire/Nucleus.AppHost/`): .NET Aspire AppHost, now orchestrates multiple M365 Agent projects, MCP Tool projects, and emulated dependencies for local development.
+    *   **[`Nucleus.ServiceDefaults`](./Namespaces/NAMESPACE_SERVICE_DEFAULTS.md) [KEPT]** (`Aspire/Nucleus.ServiceDefaults/`): Shared Aspire configurations, used by all M365 Agents and MCP Tools.
+
+*   **Test Projects (Restructured):**
+    *   **`Nucleus.Infrastructure.Testing` [KEPT]**: Shared test doubles.
+    *   **`Nucleus.Agents.Tests` (NEW)**: Houses unit/integration tests for individual M365 Agent applications.
+    *   **`Nucleus.McpTools.Tests` (NEW)**: Houses unit/integration tests for individual backend MCP Tool/Server applications.
+    *   **`Nucleus.System.IntegrationTests` (NEW/REPLACES `Services.Api.IntegrationTests`)**: Aspire-orchestrated tests for the entire distributed system.
+    *   **`Nucleus.Domain.Tests` [KEPT/REFOCUSED]**: Unit tests for `Nucleus.Domain.Personas.Core` and `Nucleus.Domain.Processing` libraries.
+    *   *(Individual namespace docs for test projects like `NAMESPACE_SYSTEM_INTEGRATION_TESTS.md` will be needed).*
+
+## 5. `tests/` Layer Structure (Revised)
+
+The `tests/` directory is reorganized:
+*   **`tests/Infrastructure.Testing/`**: Shared test infrastructure.
+*   **`tests/Unit/`**:
+    *   `Nucleus.Domain.Tests/`
+    *   `Nucleus.Agents.UnitTests/` (e.g., for testing specific agent logic components in isolation)
+    *   `Nucleus.McpTools.UnitTests/` (e.g., for testing MCP tool logic with mocked dependencies)
+*   **`tests/Integration/`**:
+    *   `Nucleus.Agents.IntegrationTests/` (e.g., testing an M365 agent with mocked MCP client responses)
+    *   `Nucleus.McpTools.IntegrationTests/` (e.g., testing an MCP tool with an emulated DB via Testcontainers or Aspire)
+*   **`tests/System/Nucleus.System.IntegrationTests/`**: The primary Aspire-orchestrated system integration tests.
+
+## 6. Naming Conventions
+
+*   **Namespaces:** Follow the folder structure precisely. Example: `Nucleus.Infrastructure.Adapters.Local`.
+*   **Project Files:** `.csproj` files should match the primary namespace and folder name. Example: `src/Infrastructure/Adapters/Nucleus.Infrastructure.Adapters.Local/Nucleus.Infrastructure.Adapters.Local.csproj`.
+
+## 7. Dependency Rules (Revised for Distributed System)
+
+*   **M365 Persona Agents:**
+    *   Depend on `Nucleus.Abstractions`, `Nucleus.Domain.Personas.Core`.
+    *   Depend on Microsoft 365 Agents SDK, MCP Client SDK.
+    *   Depend on `Nucleus.Infrastructure.Messaging` (to enqueue tasks).
+    *   **DO NOT** directly depend on `Nucleus.Infrastructure.CosmosDb` or `Nucleus.Infrastructure.FileProviders`. They call MCP Tools for these.
+*   **Backend Nucleus MCP Tool/Servers:**
+    *   Depend on `Nucleus.Abstractions`.
+    *   Depend on relevant `Nucleus.Domain.*` libraries (e.g., `KnowledgeStore` uses `Domain.Processing` for RAG elements).
+    *   Depend on relevant `Nucleus.Infrastructure.*` libraries (e.g., `KnowledgeStore` uses `Infrastructure.CosmosDb`).
+    *   Depend on MCP Server SDK.
+*   **Libraries (`Nucleus.Domain.*`, `Nucleus.Infrastructure.*`):**
+    *   Follow Clean Architecture: `Infrastructure` -> `Domain` (if needed, typically not) -> `Abstractions`. `Domain` -> `Abstractions`.
+*   **No Circular Dependencies.**
+
+## 8. Dependency Graph (Significantly Revised)
+
+**(Self-correction: I will provide a conceptual description. The Mermaid diagram would be very complex for a text-based response but would show multiple M365 Agent apps and multiple MCP Tool apps, with lines indicating MCP calls from Agents to Tools, and Tools potentially calling other Tools or using Infrastructure libraries. The Aspire AppHost would reference all these deployable apps.)**
+
+**Conceptual Description of New Dependency Graph:**
+*   `Nucleus.AppHost` references all `Nucleus.Agent.*` projects and `Nucleus.McpTools.*` projects, plus `Nucleus.ServiceDefaults`.
+*   Each `Nucleus.Agent.*` project references `Nucleus.Abstractions`, `Nucleus.Domain.Personas.Core`, M365 Agents SDK, MCP Client SDK, `Nucleus.Infrastructure.Messaging`.
+*   Each `Nucleus.McpTools.*` project references `Nucleus.Abstractions`, MCP Server SDK, and relevant `Nucleus.Domain.*` and `Nucleus.Infrastructure.*` implementation libraries (e.g., `McpTools.KnowledgeStore` -> `Infrastructure.CosmosDb`).
+*   `Nucleus.Infrastructure.*` libraries reference `Nucleus.Abstractions` and relevant external SDKs (e.g., Cosmos DB SDK).
+*   `Nucleus.Domain.*` libraries reference `Nucleus.Abstractions`.
+*   Test projects reference the projects they test and `Nucleus.Infrastructure.Testing`. `System.IntegrationTests` references `AppHost`.
+
+## 9. Testing (`tests/`) (Restructured)
+*(As described in Section 5 of this document and detailed in the modified `09_ARCHITECTURE_TESTING.md`)*
+
+## 10. Related Documents
+*   [00_ARCHITECTURE_OVERVIEW.md](./00_ARCHITECTURE_OVERVIEW.md) **[MODIFIED]**
+*   [05_ARCHITECTURE_CLIENTS.md](./05_ARCHITECTURE_CLIENTS.md) **[MODIFIED]**
+*   **[NEW]** `Agents/ARCHITECTURE_M365_AGENTS_OVERVIEW.md`
+*   **[NEW]** `McpTools/ARCHITECTURE_MCP_TOOLS_OVERVIEW.md`

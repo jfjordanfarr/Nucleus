@@ -1,147 +1,108 @@
 ---
-title: Persona Configuration - Educator
-description: Describes the configuration for the specialized Educator persona, focused on personalized learning and analysis of learning artifacts.
-version: 1.2
-date: 2025-05-06
+title: Persona Configuration - Educator (M365 Agent)
+description: Describes the configuration for the specialized Educator M365 Persona Agent, focused on personalized learning and analysis of learning artifacts using MCP Tools.
+version: 2.0
+date: 2025-05-25
 parent: ../02_ARCHITECTURE_PERSONAS.md
 ---
 
-# Persona Configuration: Educator
+# Persona Configuration: Educator (M365 Agent)
 
 ## 1. Vision & Purpose
 
-The Educator configuration defines a key persona for Nucleus, detailed within the overall [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It enables the [Persona Runtime/Engine](../02_ARCHITECTURE_PERSONAS.md#22-persona-runtimeengine) to act as a specialized assistant for educational use cases, stemming from the need to create safer, personalized, and authentic learning experiences, particularly recognizing learning within digital creation and self-directed projects ([Security Considerations](../06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries)).
+The Educator configuration defines a key persona for Nucleus, detailed within the overall [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It enables a **Nucleus M365 Persona Agent** (e.g., `EduFlowM365Agent`) to act as a specialized assistant for educational use cases. This stems from the need to create safer, personalized, and authentic learning experiences, particularly recognizing learning within digital creation and self-directed projects ([Security Considerations](../06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries)).
 
-When executed by the Runtime, this configuration aims to:
+When this configuration is loaded by the `IPersonaRuntime` within the `EduFlowM365Agent`, it aims to:
 
-*   **Observe Authenticity:** Understand learning from artifacts referenced by metadata (e.g., coding projects, digital art).
-*   **Document Process:** Analyze *how* learning occurs using configured knowledge frameworks (see Section 7) based on retrieved artifact content.
-*   **Build Understanding:** Contribute to the dynamic, private knowledge base (metadata) for each learner by storing derived analysis (e.g., `PersonaKnowledgeEntry<EduFlowAnalysis>`).
-*   **Provide Insight:** Enable querying of this knowledge base (via metadata search + ephemeral content retrieval) for progress reports and support.
+*   **Observe Authenticity:** Understand learning from artifacts referenced by metadata (e.g., coding projects, digital art), accessed via MCP calls to `Nucleus_FileAccess_McpServer`.
+*   **Document Process:** Analyze *how* learning occurs using configured knowledge frameworks (see Section 7 of [Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md)) based on retrieved artifact content and analysis by its configured LLM (e.g., Gemini, Azure OpenAI).
+*   **Build Understanding:** Contribute to the dynamic, private knowledge base for each learner by storing derived analysis (e.g., `PersonaKnowledgeEntry<EduFlowAnalysis>`) via MCP calls to `Nucleus_KnowledgeStore_McpServer`.
+*   **Provide Insight:** Enable querying of this knowledge base (via MCP calls for metadata search + ephemeral content retrieval) for progress reports and support.
 *   **Foster Engagement:** Potentially leverage Nucleus capabilities to create tailored micro-learning experiences based on analysis.
 
-It transforms ephemeral moments of creation (accessed securely by the Runtime) into tangible evidence of learning stored as secure metadata.
+It transforms ephemeral moments of creation (accessed securely by the M365 Agent via MCP Tools) into tangible evidence of learning stored as secure metadata.
 
-## 2. Typical Request Flow (Query about Learner Progress - Executed by Runtime)
+## 2. Typical Request Flow (Query about Learner Progress - M365 Agent & MCP Tools)
 
-**Purpose:** Illustrates how the Persona Runtime handles a query requesting analysis or summary of a learner's progress when loaded with the Educator configuration, referencing stored metadata and retrieving artifact content securely.
+**Purpose:** Illustrates how the `EduFlowM365Agent` handles a query requesting analysis or summary of a learner's progress, using its configuration to invoke backend MCP Tools and an LLM.
 
 ```mermaid
 sequenceDiagram
-    participant CA as Client Adapter (e.g., Teams)
-    participant API as Nucleus API Service
-    participant Runtime as Persona Runtime (Loaded w/ Educator Config)
-    participant MetaDB as Metadata Database (CosmosDB)
-    participant AI as AI Service (Gemini - Configured)
-    participant UserStore as User-Controlled Storage (via CA)
+    participant UserInDiscord as User in Discord (or Teams)
+    participant AzureBotSvc as Azure Bot Service
+    participant EduFlowM365Agent as EduFlow Nucleus M365 Agent <br/> (IPersonaRuntime w/ Educator Config)
+    participant KnowledgeStoreMCP as Nucleus_KnowledgeStore_McpServer
+    participant FileAccessMCP as Nucleus_FileAccess_McpServer
+    participant ConfiguredLLM as LLM (e.g., Google Gemini)
+    participant BehaviourConfigMCP as Nucleus_PersonaBehaviourConfig_McpServer
 
-    CA->>+API: Send User Query (e.g., "Summarize progress in Algebra based on recent work")
-    API->>+Runtime: Route Request (Invoke Runtime w/ Educator Config)
-    Note over Runtime, MetaDB: Runtime queries Metadata DB for relevant EduFlowAnalysis entries & associated ArtifactMetadata based on query (Algebra, recent) - Scope defined in Config.
-    Runtime->>+MetaDB: Search Metadata Index (using EduFlow_v1KnowledgeContainer)
-    MetaDB-->>-Runtime: Return Matching Metadata (References + existing analysis summaries)
-    Note over Runtime, UserStore: Runtime determines *which* full artifacts need deeper analysis based on query & metadata.
-    Runtime->>+API: Request Artifact Content (Provide Secure References for needed artifacts)
-    API->>+CA: Request Content for Artifact References
-    CA->>+UserStore: Retrieve Full File Content
-    UserStore-->>-CA: Return File Content
-    CA-->>-API: Return File Content
-    API-->>-Runtime: Provide Ephemeral Full Content
-    Note over Runtime, AI: Runtime prepares prompt with query, existing analysis summaries, AND rich ephemeral context from retrieved full artifacts, using Educator prompts from Config.
-    Runtime->>+AI: Generate synthesized progress summary using configured model & Educator prompts/knowledge frameworks.
-    AI-->>-Runtime: Return Synthesized Response (Progress Summary)
-    Runtime-->>-API: Return Final Response (+ optional ShowYourWork if Configured)
-    API-->>-CA: Send Final Response
-    CA->>UserInterface: Display Response
+    UserInDiscord->>AzureBotSvc: Sends Query ("Summarize progress for @StudentX on ProjectY")
+    AzureBotSvc->>EduFlowM365Agent: Delivers Activity
+    EduFlowM365Agent->>EduFlowM365Agent: Loads Educator_Grade5 PersonaConfiguration (static part)
+    Note over EduFlowM365Agent, BehaviourConfigMCP: Agent fetches dynamic prompts/config from BehaviourConfigMCP
+    EduFlowM365Agent-->>BehaviourConfigMCP: MCP Call: GetDynamicConfig("Educator_Grade5_SystemPromptKey")
+    BehaviourConfigMCP-->>EduFlowM365Agent: Returns Dynamic Prompts & Settings
+    EduFlowM365Agent->>EduFlowM365Agent: Merges static & dynamic configuration
+    Note over EduFlowM365Agent, KnowledgeStoreMCP: Agent queries KnowledgeStoreMCP for ArtifactMetadata and PersonaKnowledgeEntry<EduFlowAnalysis> for StudentX & ProjectY
+    EduFlowM365Agent-->>KnowledgeStoreMCP: MCP Call: SearchKnowledge(student="StudentX", project="ProjectY", personaId="Educator_Grade5")
+    KnowledgeStoreMCP-->>EduFlowM365Agent: Returns Matching Metadata (Refs to student's work, prior analyses)
+    Note over EduFlowM365Agent, FileAccessMCP: Agent determines relevant artifacts for full ephemeral content (if needed for summary)
+    EduFlowM365Agent-->>FileAccessMCP: MCP Call: GetEphemeralContent(ArtifactReference)
+    FileAccessMCP-->>EduFlowM365Agent: Provide Ephemeral Full Content (e.g., student's code, essay text)
+    Note over EduFlowM365Agent, ConfiguredLLM: Agent prepares prompt (query + retrieved metadata/content + configured Educator prompts)
+    EduFlowM365Agent->>+ConfiguredLLM: Generate Summary (via IChatClient, using configured LLM provider like Google Gemini)
+    ConfiguredLLM-->>-EduFlowM365Agent: Synthesized Progress Summary
+    EduFlowM365Agent-->>AzureBotSvc: Sends Response Activity (Progress Summary for StudentX)
+    AzureBotSvc-->>UserInDiscord: Display Response
 ```
 
 **Explanation:**
-1.  A user sends a query via the **Client Adapter**.
-2.  The API routes the request, identifies the `PersonaId` (e.g., `Educator_Grade5`), loads the corresponding Educator configuration, and invokes the **Persona Runtime**.
-3.  The Runtime, guided by the Educator configuration, queries the **Metadata Database** (specifically the configured `EduFlow_v1KnowledgeContainer`) to find relevant `PersonaKnowledgeEntry<EduFlowAnalysis>` records and associated `ArtifactMetadata`.
-4.  Based on the query and retrieved metadata, the Runtime identifies which original artifacts require retrieval of their **full content**.
-5.  The Runtime requests this content securely via the standard API -> Adapter -> **User-Controlled Storage** flow.
-6.  The Runtime receives the ephemeral content.
-7.  The Runtime constructs a detailed prompt for the **AI Service** (using the model and specific educational prompts defined in the Educator configuration). This includes the query, metadata summaries, and the **rich, ephemeral context** from the full artifacts.
-8.  The AI Service generates a synthesized response.
-9.  The Runtime returns the final response to the API.
-10. The API sends the response back to the Client Adapter.
+1.  A user (e.g., a teacher) sends a query via a platform like Discord or Teams, mentioning the `EduFlowM365Agent`.
+2.  The Azure Bot Service delivers the activity to the `EduFlowM365Agent`.
+3.  The agent's `IPersonaRuntime` loads its foundational `Educator` persona configuration (e.g., `Educator_Grade5_Config`).
+4.  The agent calls the `Nucleus_PersonaBehaviourConfig_McpServer` to fetch dynamic/behavioral aspects of its configuration (e.g., specific system prompts, response guidelines for "Educator_Grade5").
+5.  The agent merges static and dynamic configurations.
+6.  Guided by the merged configuration (e.g., `KnowledgeScope`), the agent invokes the `Nucleus_KnowledgeStore_McpServer` (an MCP Tool) to search for relevant `ArtifactMetadata` and `PersonaKnowledgeEntry<EduFlowAnalysis>` records related to the student and project.
+7.  The `Nucleus_KnowledgeStore_McpServer` returns metadata, including references to the student's actual work artifacts.
+8.  If the summary requires deeper context than available in metadata, the agent invokes the `Nucleus_FileAccess_McpServer` (an MCP Tool) to securely and ephemerally retrieve the content of specific artifacts.
+9.  The agent constructs a detailed prompt using the user's query, the retrieved metadata, any ephemerally fetched content, and the (dynamically sourced) prompts from its `Educator` configuration.
+10. The agent calls its configured LLM (e.g., Google Gemini, via `IChatClient` and the settings in `LlmConfiguration`) to generate a progress summary.
+11. The LLM returns the synthesized summary.
+12. The `EduFlowM365Agent` formats the response and sends it back to the user via the Azure Bot Service.
 
-## 3. Core Functionality (Enabled by Configuration)
+## 3. Key Configuration Settings (Illustrative for Educator)
 
-When the Persona Runtime executes with an Educator configuration, it performs the following functions based on the configuration settings:
+This section highlights how the [General Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md) schema would be specialized for an `EduFlowM365Agent`.
 
-### 3.1 Interaction Processing & Analysis
+*   **`PersonaId`**: `EduFlow_Grade5_M365Agent` (Example)
+*   **`DisplayName`**: "EduFlow Learning Assistant (Grade 5)"
+*   **`LlmConfiguration`**:
+    *   `Provider`: `GoogleGemini` (Example, could also be `AzureOpenAI`, `OpenRouterAI`)
+    *   `ChatModelId`: `gemini-1.5-pro-latest` (Example)
+    *   `EmbeddingModelId`: `text-embedding-004` (Example)
+    *   `ApiKeySecretName`: `GoogleAIStudioApiKey` (Stored in Azure Key Vault, referenced by App Config)
+    *   `EndpointUrl`: (Optional, if not using default Google AI endpoint)
+*   **`EnabledTools`**: (MCP Tool IDs)
+    *   `Nucleus.KnowledgeStore.Search`
+    *   `Nucleus.KnowledgeStore.StoreEntry`
+    *   `Nucleus.FileAccess.GetEphemeralContent`
+    *   `Nucleus.AiAnalysis.GenerateEduInsight` (A hypothetical specialized MCP tool for educational analysis)
+*   **`KnowledgeScope`**:
+    *   `Strategy`: `TargetedLearnerAndSubject` (A custom strategy for educators)
+    *   `TargetKnowledgeContainerId`: `EduFlow_Grade5_KB` (Points to a specific Cosmos DB container for Grade 5 learning data, accessed via `Nucleus_KnowledgeStore_McpServer`)
+*   **Prompt Configuration (Keys for Dynamic Sourcing)**:
+    *   `SystemMessageKey`: `EduFlow_Grade5_SystemPrompt_v2`
+    *   `ResponseGuidelinesKey`: `EduFlow_GeneralResponseGuidelines_v1`
+*   **Agentic Strategy Configuration**:
+    *   `StrategyType`: `ToolUsing` (To allow explicit calls to `Nucleus.AiAnalysis.GenerateEduInsight` MCP Tool)
+*   **Custom Properties (Keys for Dynamic Sourcing)**:
+    *   `CustomPropertiesKeys`: [`EduFlow_LearningFacetsSchema_v1`, `EduFlow_Grade5CurriculumTags_v1.2`] (Keys to fetch specific schemas or tags from `Nucleus_PersonaBehaviourConfig_McpServer` to guide analysis)
 
-*   **Contextual Understanding:** Interprets user queries within the educational domain (guided by configured prompts).
-*   **Metadata-Driven Retrieval:** Identifies relevant knowledge entries (`PersonaKnowledgeEntry<EduFlowAnalysis>`) and source artifacts (`ArtifactMetadata`) via database queries, scoped by the configuration.
-*   **Secure Content Access:** Orchestrates the retrieval of ephemeral, full artifact content via the Client Adapter when deeper context is needed.
-*   **Content Analysis (On-Demand):** When processing requires analyzing newly retrieved artifact content, it utilizes the configured AI service (e.g., Gemini) guided by specific prompts and knowledge frameworks (referenced in the config) to:
-    *   Extract key concepts, skills, objectives relevant to the query.
-    *   Map content to configured knowledge frameworks.
-    *   Generate insights.
-*   *(Note: The initial creation of `PersonaKnowledgeEntry<EduFlowAnalysis>` still likely happens via a separate, specialized ingestion process/tool invoked by the user/adapter, ensuring security protocols are followed.)*
+## 4. Security & Data Handling
 
-### 3.2 Query Handling & Synthesis
+*   The `EduFlowM365Agent` operates with M365 permissions, accessing student data (files, conversations) only as permitted by its Entra ID configuration and user consent.
+*   MCP Tool calls (e.g., to `Nucleus_FileAccess_McpServer`) are made securely, and these tools enforce their own access controls, often inheriting or validating M365 context.
+*   Sensitive data (student work) is processed ephemerally. Only derived metadata and `PersonaKnowledgeEntry` analyses are stored persistently by `Nucleus_KnowledgeStore_McpServer`.
+*   All configurations, especially API keys (`ApiKeySecretName`), are managed securely via Azure App Configuration and Key Vault.
 
-*   **Knowledge Retrieval:** Queries the configured `EduFlow_v1KnowledgeContainer` in Cosmos DB.
-*   **Ephemeral Context Augmentation:** Combines retrieved metadata/analysis summaries with ephemerally retrieved full artifact content.
-*   **Synthesis:** Uses the combined context, query, and configured prompts.
-*   **Response Generation:** Leverages the configured LLM (via `IChatClient`) with Educator-specific prompts to generate a coherent response.
-
-## 4. Data Schema (`PersonaKnowledgeEntry` with Educator-specific `AnalysisData`)
-
-(The schema below describes the expected JSON structure within the `AnalysisData` property of a `PersonaKnowledgeEntry` record when generated by the Educator persona configuration. `AnalysisData` itself is of type `System.Text.Json.JsonElement?`.)
-
-*   **Base `PersonaKnowledgeEntry` Fields:** Includes standard fields like `Id`, `ArtifactId`, `TenantId`, `UserId`, `PersonaId`, `Timestamp`, etc.
-*   **`AnalysisData` (Expected JSON Structure for Educator):** This JSON object contains the detailed educational analysis with the following fields:
-    *   `subjects`: List of identified academic subjects.
-    *   `skills`: List of skills demonstrated (mapped to pedagogical tree).
-    *   `developmentalAreas`: List of cognitive/social-emotional processes involved (mapped to tautological tree).
-    *   `learningObjectives`: Identified or inferred learning goals.
-    *   `keyConcepts`: Extracted core ideas or topics.
-    *   `summary`: Detailed narrative summary of the analysis.
-    *   `suggestedNextSteps`: Potential follow-up activities or learning paths.
-    *   `originalityScore`: (If applicable) Assessment of work originality.
-*   **`relevantTextSnippets`:** List of objects, each containing:
-    *   `text`: The extracted text snippet.
-    *   `embedding`: Vector embedding of the snippet.
-    *   `sourceLocation`: Pointer to the snippet's location within the original artifact (e.g., timestamp, page number).
-    *   **Security Note:** Storing even sanitized text snippets derived from user content carries risk ([Data Governance Principles](../06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries)). The process creating these snippets MUST rigorously prevent inclusion of PII or sensitive data. Consider storing only embeddings and source locations if sanitization cannot be guaranteed.
-
-## 5. Configuration Settings
-
-Refers to settings defined in [Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md), with Educator-specific values/types:
-
-*   **`PersonaId`**: e.g., `Educator_Grade5`, `Educator_General`
-*   **`DisplayName`**: e.g., "Educator (Grade 5)"
-*   **`LlmConfiguration`**: Specifies models tuned or appropriate for educational analysis and response generation.
-*   **`KnowledgeScope`**: Typically configured to access all user artifacts (`AllUserArtifacts`) or specific educational collections, targeting the `EduFlow_v1KnowledgeContainer`.
-*   **`CorePrompt` / `SystemMessage`**: Tailored prompts emphasizing educational context, helpfulness, safety, and potentially referencing knowledge frameworks.
-*   **`AgenticStrategy`**: May define specific steps for analysis or progress reporting.
-*   **Educator-Specific Settings (Potentially via `CustomProperties` in config):**
-    *   Specific prompt templates for analysis and synthesis.
-    *   References to or identifiers for the Knowledge Trees (Pedagogical/Tautological).
-    *   Configuration for specific analysis tasks.
-
-## 6. Dependencies (for Runtime executing this config)
-
-*   **`Nucleus.Abstractions`:** Uses `ArtifactMetadata`, `PersonaKnowledgeEntry`, `IArtifactMetadataRepository`, `IPersonaKnowledgeRepository`, `IChatClient`.
-*   **Azure Cosmos DB SDK:** For interacting with the knowledge container.
-*   **External AI SDKs:** (e.g., Google.Cloud.AIPlatform.V1) as invoked via `IChatClient` based on config.
-
-## 7. Knowledge Framework: Pedagogical and Tautological Trees
-
-(Content unchanged - remains valid description of the framework referenced in the configuration)
-
-...
-
-## 8. Next Steps
-
-1.  **Define Formal Educator Configuration(s):** Create the actual configuration entries (e.g., in `appsettings.json` or database) for specific Educator personas (e.g., `Educator_Grade5`) according to the `PersonaConfiguration` schema, including custom properties for prompts and framework references.
-2.  **Ensure Runtime Support:** Verify the generic Persona Runtime can correctly load and execute the Educator configuration, including accessing the `EduFlow_v1KnowledgeContainer` and using Educator-specific prompts.
-3.  **Implement `IPersonaKnowledgeRepository`:** Develop the repository for educator knowledge entries if not already present.
-4.  **Develop Query/Analysis Logic (within Runtime):** Ensure the Runtime's logic can handle the steps implied by the Educator configuration (metadata search, ephemeral content request, AI synthesis using specific prompts).
-5.  **Refine Prompts:** Develop and test Educator-specific prompts to be included in the configuration.
-6.  **Testing:** Test interaction flows thoroughly with the Runtime using Educator configurations.
-7.  **(Deprecation):** Remove any old `EducatorPersona.cs` class attempting to implement core logic directly.
+This revised structure aligns the Educator persona with the M365 Agent and MCP architecture, emphasizing dynamic configuration, multi-LLM support, and clear separation of concerns between the agent's orchestration logic and the specialized functions of backend MCP Tools.

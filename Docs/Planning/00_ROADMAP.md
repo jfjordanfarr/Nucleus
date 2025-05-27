@@ -1,69 +1,83 @@
-# Nucleus - Development Phases (Epic -> Issue Outline)
+---
+title: "Nucleus - Development Phases (Post-M365 Agent SDK Pivot)"
+description: "Outlines the planned development phases for Nucleus, now centered on building Microsoft 365 Persona Agents and backend Model Context Protocol (MCP) Tool/Server applications."
+version: 2.0
+date: 2025-05-25
+---
 
-This document outlines the planned development phases for Nucleus, structured similarly to JIRA Epics and Issues. It aligns with the requirements defined in `docs/Requirements/`.
+# Nucleus - Development Phases (Post-M365 Agent SDK Pivot)
+
+This document outlines the planned development phases for Nucleus, structured similarly to JIRA Epics and Issues. It aligns with the refactored requirements reflecting the adoption of the **Microsoft 365 Agents SDK** and **Model Context Protocol (MCP)**.
 
 ---
 
-## Phase 1: MVP - Core API Foundation & Initial Validation
+## Phase 1: MVP - Core M365 Agent & Backend MCP Tool Foundation
 
-**Epic:** `EPIC-MVP-API` - Establish the minimum viable **API service (`Nucleus.ApiService`)** and backend infrastructure. Prioritize building the core **unified interaction API endpoint (`/api/v1/interactions`)**, integrating the initial persona, setting up basic metadata storage (Cosmos DB), and validating these components through **internal integration (e.g., using `Nucleus.Infrastructure.Adapters.Local`) and direct API testing**. Set up foundational architecture and deployment infrastructure (Azure, IaC) for the API.
+**Epic:** `EPIC-MVP-M365-AGENT-MCP` - Establish the minimum viable **Nucleus M365 Persona Agent application** (e.g., `BootstrapperNucleusAgent`) and the essential backend **Nucleus MCP Tool/Server applications** (`Nucleus_KnowledgeStore_McpServer` for Cosmos DB, `Nucleus_FileAccess_McpServer` for local file `IArtifactProvider`). Validate basic interaction via M365 Agents Playground or Teams, and ensure MCP tool communication. Set up foundational architecture for this distributed system using .NET Aspire for local orchestration.
 
-See also:
-*   [Requirements: MVP - Core API & Internal Integration](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
+*See also: [Requirements: MVP - M365 Agent & MCP Foundation](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md) <!-- TODO: Update this link to the new requirements file name -->*
 
-*   **Issue:** `ISSUE-MVP-SETUP-01`: Establish Core Project Structure & Local Environment
-*   **Issue:** `ISSUE-MVP-PROCESS-01`: Develop Basic Content Extraction (Used by API on ephemeral content)
-*   **Issue:** `ISSUE-MVP-PERSONA-01`: Create Initial Bootstrapper Persona
-*   **Issue:** `ISSUE-MVP-API-01`: Develop Backend API (Unified Interaction Endpoint: `/api/v1/interactions`, Status Endpoint)
-*   **Issue:** `ISSUE-MVP-INFRA-01`: Define Basic Infrastructure (as Code for API)
-*   **Issue:** `ISSUE-MVP-RETRIEVAL-01`: Implement Basic Metadata Store (`ArtifactMetadata`, `PersonaKnowledgeEntry`) & Retrieval Foundation
-
----
-
-## Phase 2: Multi-Platform Integration
-
-**Epic:** `EPIC-MULTI-PLATFORM` - Implement client adapters for key communication platforms: Microsoft Teams, Slack, and Discord. Enable querying and interaction through these platforms via the unified API endpoint, with adapters passing platform-specific `ArtifactReference` objects. Enhance API to use `IArtifactProvider` implementations for ephemeral content retrieval.
-
-*   **Issue:** `ISSUE-MP-ADAPT-TEAMS-01`: Implement Teams Client Adapter (Passes Graph `ArtifactReference`)
-*   **Issue:** `ISSUE-MP-ADAPT-SLACK-01`: Implement Slack Client Adapter (Passes Slack file `ArtifactReference`)
-*   **Issue:** `ISSUE-MP-ADAPT-DISCORD-01`: Implement Discord Client Adapter (Passes attachment `ArtifactReference`)
-*   **Issue:** `ISSUE-MP-API-01`: Enhance API (`/interactions`) to handle platform `ArtifactReference` & invoke `IArtifactProvider`.
-*   **Issue:** `ISSUE-MP-PROVIDER-01`: Implement `IArtifactProvider` interface and concrete providers (Teams, Slack, etc.).
-*   **Issue:** `ISSUE-MP-PROCESS-01`: Enhance content extraction (within API) for diverse formats from ephemeral content.
-*   **Issue:** `ISSUE-MP-AUTH-01`: Implement secure handling of credentials needed by API's `IArtifactProvider` implementations (e.g., Graph API secrets).
+*   **Issue:** `ISSUE-MVP-SETUP-001`: Establish Core Project Structure for M365 Agents & MCP Tools (New `src/Nucleus.Agents/*`, `src/Nucleus.McpTools/*` projects).
+*   **Issue:** `ISSUE-MVP-ABSTRACTIONS-001`: Refine `Nucleus.Abstractions` (Review DTOs, Interfaces for M365/MCP context).
+*   **Issue:** `ISSUE-MVP-AGENT-BOOTSTRAP-001`: Develop `BootstrapperNucleusAgent` M365 Agent application (basic `Activity` handling, `IPersonaRuntime` integration with `BootstrapperPersonaConfiguration`).
+*   **Issue:** `ISSUE-MVP-MCPTOOL-KNOWLEDGESTORE-001`: Develop `Nucleus_KnowledgeStore_McpServer` (MCP Tool exposing `IArtifactMetadataRepository` & `IPersonaKnowledgeRepository` for Cosmos DB).
+*   **Issue:** `ISSUE-MVP-MCPTOOL-FILEACCESS-001`: Develop `Nucleus_FileAccess_McpServer` (MCP Tool exposing `IArtifactProvider` for local files initially).
+*   **Issue:** `ISSUE-MVP-AGENT-MCP-INTEG-001`: Implement MCP client logic in `BootstrapperNucleusAgent` to call `KnowledgeStoreMCP` and `FileAccessMCP`.
+*   **Issue:** `ISSUE-MVP-ASPIRE-SETUP-001`: Configure `.NET Aspire AppHost` to orchestrate the `BootstrapperNucleusAgent`, backend MCP Tools, and Cosmos DB emulator locally.
+*   **Issue:** `ISSUE-MVP-CONFIG-STATIC-001`: Implement static configuration loading (Azure App Config/Key Vault via Aspire) for Agents & MCP Tools (LLM keys, MCP endpoints).
+*   **Issue:** `ISSUE-MVP-INFRA-AZURE-001`: Define basic Azure IaC (Bicep via `azd`) for deploying one M365 Agent, core MCP Tools, and Cosmos DB.
 
 ---
 
-## Phase 3: Enhancements & Sophistication
+## Phase 2: Enhanced M365 Agent Capabilities & M365 Channel Integration
 
-**Epic:** `EPIC-ENHANCEMENTS` - Improve persona capabilities (**agentic processing using ephemeral context**), implement the **4 R ranking system** for retrieval, enhance metadata extraction, and add caching/configuration/testing.
+**Epic:** `EPIC-M365-AGENT-ENHANCED` - Fully integrate a lead Nucleus M365 Persona Agent (e.g., `EduFlowNucleusAgent`) with Microsoft Teams and M365 Copilot. Implement robust asynchronous processing and proactive replies. Enhance backend MCP Tools.
 
-*   **Issue:** `ISSUE-ENH-PERSONA-01`: Develop more sophisticated Personas (agentic processing)
-*   **Issue:** `ISSUE-ENH-PROCESS-01`: Implement advanced metadata extraction (Entities, Keywords, Richness) during API processing.
-*   **Issue:** `ISSUE-ENH-PROCESS-02`: Refine Metadata/Knowledge schemas for advanced needs & ranking.
-*   **Issue:** `ISSUE-ENH-QUERY-01`: Enhance retrieval service with filtering and implement **4 R Ranking**.
-*   **Issue:** `ISSUE-ENH-UI-01`: (Low Priority) Improve any Admin UI with richer result display, filtering options, and basic persona management
-*   **Issue:** `ISSUE-ENH-CONFIG-01`: Implement robust configuration management.
-*   **Issue:** `ISSUE-ENH-CACHE-01`: Implement `ICacheManagementService` and integrate caching.
-*   **Issue:** `ISSUE-ENH-TEST-01`: Establish automated testing framework (Unit, Integration, API).
+*See also: [Requirements: M365 Agent & MCP Tool Integration](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md) <!-- TODO: Update this link to the new requirements file name -->*
+
+*   **Issue:** `ISSUE-M365-AGENT-EDUFLOW-001`: Develop `EduFlowNucleusAgent` M365 Agent application.
+*   **Issue:** `ISSUE-M365-AGENT-TEAMS-COPILOT-001`: Deploy and validate `EduFlowNucleusAgent` in Microsoft Teams and M365 Copilot (if feasible for custom engine agents).
+*   **Issue:** `ISSUE-M365-AGENT-FILEHANDLER-001`: Implement robust M365 file handling: M365 Agent gets file info from SDK, passes `ArtifactReference` to `Nucleus_FileAccess_McpServer` (which uses Graph API `IArtifactProvider`).
+*   **Issue:** `ISSUE-M365-AGENT-ASYNC-001`: Implement `IBackgroundTaskQueue` (Azure Service Bus) integration for M365 Agents to offload long tasks.
+*   **Issue:** `ISSUE-M365-AGENT-PROACTIVE-001`: Implement proactive replies from background workers via M365 Agents (using `ConversationReference`).
+*   **Issue:** `ISSUE-M365-MCPTOOL-FILEACCESS-GRAPH-001`: Enhance `Nucleus_FileAccess_McpServer` with `IArtifactProvider` for Microsoft Graph (SharePoint/OneDrive).
+*   **Issue:** `ISSUE-M365-MCPTOOL-CONTENTPROC-001`: Develop `Nucleus_ContentProcessing_McpServer` (for `IContentExtractor` logic and Markdown synthesis from complex types).
+*   **Issue:** `ISSUE-M365-AUTH-ENTRA-ID-001`: Implement Microsoft Entra Agent ID for M365 Agents and secure Agent-to-MCP-Tool authentication using Entra ID tokens.
 
 ---
 
-## Phase 4: Maturity & Optimization
+## Phase 3: Advanced Persona Intelligence & Backend Sophistication
 
-**Epic:** `EPIC-MATURITY` - Focus on reliability, scalability, security, observability, performance, **workflow orchestration**, and **richer bot interactions**.
+**Epic:** `EPIC-PERSONA-MCP-ADVANCED` - Develop sophisticated agentic behaviors within M365 Persona Agents (leveraging `IPersonaRuntime` and `IAgenticStrategyHandler`), implement advanced RAG (4R ranking via `Nucleus_RAGPipeline_McpServer`), enhance dynamic `PersonaConfiguration` via `Nucleus_PersonaBehaviourConfig_McpServer`, and add caching/testing.
 
-*   **Issue:** `ISSUE-MAT-OBSERV-01`: Implement comprehensive logging and monitoring.
-*   **Issue:** `ISSUE-MAT-ERROR-01`: Enhance error handling and resilience.
-*   **Issue:** `ISSUE-MAT-SEC-01`: Conduct security review and implement hardening measures.
-*   **Issue:** `ISSUE-MAT-PERF-01`: Performance analysis and optimization.
-*   **Issue:** `ISSUE-MAT-SCALE-01`: Review and optimize Azure resource configurations for scalability.
-*   **Issue:** `ISSUE-MAT-QUERY-01`: Implement advanced query features (e.g., hybrid search, leveraging 4R ranking results).
-*   **Issue:** `ISSUE-MAT-ADMIN-01`: Develop administrative functions (API/UI).
-*   **Issue:** `ISSUE-MAT-DOCS-01`: Improve internal and potentially external developer/user documentation.
-*   **Issue:** `ISSUE-MAT-ORCH-01`: Implement Workflow Orchestration (e.g., Durable Functions) for complex tasks.
-*   **Issue:** `ISSUE-MAT-BOT-UI-01`: Implement Enhanced Platform Bot Interactions (Adaptive Cards, etc.).
-*   **Issue:** `ISSUE-MAT-BACKUP-01`: Define & Test Backup/Recovery for Metadata DB.
-*   **Issue:** `ISSUE-MAT-DEPLOY-01`: Comprehensive Deployment Automation.
+*See also: [Requirements: Advanced Backend Capabilities & Persona Refinement](../Requirements/03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md) <!-- TODO: Update this link to the new requirements file name -->*
+
+*   **Issue:** `ISSUE-ADV-AGENT-LOGIC-001`: Implement advanced agentic strategies (`MultiStepReasoning`, `ToolUsing` via MCP) within `IPersonaRuntime` for M365 Agents.
+*   **Issue:** `ISSUE-ADV-MCPTOOL-RAG-001`: Develop `Nucleus_RAGPipeline_McpServer` implementing 4R ranking and hybrid search, calling `KnowledgeStoreMCP`.
+*   **Issue:** `ISSUE-ADV-MCPTOOL-PERSONACONFIG-DB-001`: Develop `Nucleus_PersonaBehaviourConfig_McpServer` for dynamic `PersonaConfiguration` (prompts, etc.) from Cosmos DB.
+*   **Issue:** `ISSUE-ADV-AGENT-DYNAMIC-CONFIG-001`: Enable M365 Agents to load and use dynamic behavioral configurations via `PersonaBehaviourConfigMCP`.
+*   **Issue:** `ISSUE-ADV-METADATA-EXTRACTION-001`: Implement advanced metadata extraction (Entities, Keywords) as capabilities within an MCP Tool or M365 Agent logic using configured LLMs.
+*   **Issue:** `ISSUE-ADV-CACHE-001`: Implement `ICacheManagementService` for caching LLM calls or MCP Tool responses within M365 Agents or MCP Tools.
+*   **Issue:** `ISSUE-ADV-TESTING-SYSTEM-001`: Establish comprehensive system integration testing for the distributed system using .NET Aspire (`Aspire.Hosting.Testing`).
+*   **Issue:** `ISSUE-ADV-MULTI-LLM-CONFIG-001`: Ensure M365 Agents and relevant MCP Tools can be configured for different LLM providers (Azure OpenAI, Gemini, OpenRouter).
+
+---
+
+## Phase 4: Platform Maturity & Enterprise Readiness
+
+**Epic:** `EPIC-NUCLEUS-PLATFORM-MATURITY` - Focus on reliability, scalability, security hardening (Entra Agent ID), observability of the distributed system, advanced workflow orchestration for background tasks, richer M365 Agent UI, and enterprise admin features.
+
+*See also: [Requirements: Platform Maturity & Operational Excellence](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md) <!-- TODO: Update this link to the new requirements file name -->*
+
+*   **Issue:** `ISSUE-MAT-OBSERVABILITY-001`: Implement comprehensive distributed tracing and monitoring across M365 Agents, MCP Tools, Service Bus, and Cosmos DB.
+*   **Issue:** `ISSUE-MAT-SECURITY-HARDENING-001`: Conduct security review of M365 Agents, MCP Tools, Entra Agent ID usage, and inter-service authentication. Implement hardening.
+*   **Issue:** `ISSUE-MAT-PERF-SCALE-001`: Performance analysis and optimization for M365 Agents and MCP Tools. Configure scaling for Azure Container Apps/App Services.
+*   **Issue:** `ISSUE-MAT-WORKFLOW-ORCH-001`: Implement advanced workflow orchestration (e.g., Azure Durable Functions triggered by Service Bus worker) for complex, multi-step asynchronous backend tasks involving multiple MCP tool calls.
+*   **Issue:** `ISSUE-MAT-AGENT-UI-RICH-001`: Implement enhanced M365 platform interactions (Adaptive Cards in Teams, etc.) by M365 Persona Agents.
+*   **Issue:** `ISSUE-MAT-ADMIN-FEATURES-001`: Develop admin capabilities (e.g., via a dedicated Admin M365 Agent or a simple web UI calling admin-focused MCP Tools) for managing `PersonaConfiguration` (dynamic parts), monitoring, user management (if applicable beyond Entra ID).
+*   **Issue:** `ISSUE-MAT-ISV-PUBLISHING-001`: Investigate and implement steps for publishing Nucleus M365 Persona Agents to Microsoft Agent Store/AppSource (multi-tenant app registration, validation).
+*   **Issue:** `ISSUE-MAT-DOCS-FINAL-001`: Finalize all developer and user documentation for the pivoted architecture.
+*   **Issue:** `ISSUE-MAT-BACKUP-RECOVERY-DB-001`: Define & Test Backup/Recovery for Nucleus Cosmos DB.
+*   **Issue:** `ISSUE-MAT-DEPLOY-AUTOMATION-FULL-001`: Achieve comprehensive deployment automation (IaC via `azd` and Bicep) for the entire distributed Nucleus platform.
 
 ---

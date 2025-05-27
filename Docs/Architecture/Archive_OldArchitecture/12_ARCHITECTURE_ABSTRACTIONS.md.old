@@ -1,0 +1,378 @@
+---
+title: "Architecture: Abstractions (Post-M365 Agent SDK Pivot)"
+description: "Defines the core domain models and interfaces for the Nucleus platform, their design philosophy, and evolution strategy, reflecting the pivot to Microsoft 365 Agents SDK and MCP."
+version: 1.6
+date: 2025-05-25
+---
+
+# Architecture: Abstractions
+
+## Domain Models
+
+### 1. Introduction
+
+Domain models are the conceptual backbone of the Nucleus platform, representing the key entities, data structures, and their relationships. They are crucial for ensuring a clear, consistent, and maintainable codebase. This document outlines the primary domain models found within the `Nucleus.Abstractions.Models` namespace, their design philosophy, how they are categorized, and the strategy for their evolution.
+
+**Architectural Pivot Note (May 2025):** Following the strategic decision to adopt the Microsoft 365 Agents SDK and Model Context Protocol (MCP), some models and interfaces previously central to direct API interaction and custom client adapter logic will be deprecated or their roles will transform. Nucleus M365 Persona Agents will now handle channel communication, and backend capabilities will largely be exposed as MCP Tools. This document reflects these changes by marking affected abstractions.
+
+A well-defined set of domain models facilitates clear communication between different components of the system and provides a stable foundation upon which business logic and application features are built.
+
+### 2. Core Domain Model Overview
+
+This section provides a structured overview of the data models within the `Nucleus.Abstractions.Models` namespace and its subdirectories.
+
+#### 2.1. Top-Level Models (`Nucleus.Abstractions.Models/`)
+
+*   **[`AdapterRequest.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterRequest.cs)**:
+    *   **[DEPRECATED - M365 Pivot]**
+    *   Original Purpose: Represents a request coming from a custom client adapter to the Nucleus API.
+    *   *New Context:* This specific DTO is largely superseded. M365 Agents will receive `Activity` objects from the M365 Agents SDK. The *concept* of an interaction request containing user context, query, and artifact references remains, but will be embodied by SDK types.
+    *   Key Properties: `InteractionType`, `Query`, `EphemeralContent`, `ArtifactReference`, `TenantContext`, `UserContext`, `ClientState`.
+    *   Type: Record.
+*   **[`AdapterResponse.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/AdapterResponse.cs)**:
+    *   **[DEPRECATED - M365 Pivot]**
+    *   Original Purpose: Represents the immediate response from the Nucleus API to a custom adapter.
+    *   *New Context:* M365 Agents will send responses via the M365 Agents SDK's mechanisms (e.g., `turnContext.SendActivityAsync`). Asynchronous job IDs might still be relevant if Nucleus M365 Agents offload tasks to a backend queue.
+    *   Key Properties: `Success`, `ResponseMessage`, `ErrorMessage`, `JobId`, `AnalysisData`.
+    *   Type: Record.
+*   **[`ArtifactContent.cs`](../../src/Nucleus.Abstractions/Models/ArtifactContent.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: Represents the actual ephemeral content of an artifact fetched by an `IArtifactProvider` (likely exposed via an MCP Tool).
+    *   Key Properties: `ArtifactId` (could be internal Nucleus ID), `MimeType`, `Content` (byte array), `TextContent` (string, for pre-extracted text).
+    *   Type: Record.
+*   **[`ArtifactMetadata.cs`](../../src/Nucleus.Abstractions/Models/ArtifactMetadata.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: Stores metadata about an artifact, such as its origin, type, and descriptive information. Remains central to Nucleus's data strategy, accessed via a `Nucleus_KnowledgeStore_McpServer`.
+    *   Key Properties: `Id`, `TenantId`, `UserId`, `SourcePlatform`, `SourceArtifactId`, `Name`, `MimeType`, `Size`, `CreatedAt`, `LastModifiedAt`, `Uri`, `Tags`, `Description`, `CustomMetadata`.
+    *   Type: Record.
+*   **[`ArtifactReference.cs`](../../src/Nucleus.Abstractions/Models/ArtifactReference.cs)**:
+    *   **[KEPT & EVOLVED - Core Concept]**
+    *   Purpose: Provides a reference to an artifact. M365 Agents will receive attachment/file information from the M365 SDK and will need to construct or translate this into a format understandable by a backend `Nucleus_FileAccess_McpServer` (which wraps `IArtifactProvider` logic). This object or a similar one will encapsulate that reference.
+    *   Key Properties: `SourcePlatform`, `ArtifactId` (platform-specific ID), `TenantId`, `UserId`. Can also include `ContentUri` or `MimeType` as hints.
+    *   Type: Record.
+*   **[`NucleusIngestionRequest.cs`](../../src/Nucleus.Abstractions/Models/ApiContracts/NucleusIngestionRequest.cs)**:
+    *   **[MODIFIED ROLE - M365 Pivot]**
+    *   Original Purpose: Represents a request specifically for ingesting new content into Nucleus via the old API.
+    *   *New Context:* This DTO might still be used as the message payload for the internal Azure Service Bus queue when an M365 Agent offloads a long-running processing task. It would carry `TenantId`, `UserId`, `PersonaId`, and `ArtifactReference`(s) to the background worker.
+    *   Key Properties: `TenantId`, `UserId`, `SourcePlatform`, `SourceArtifactId`, `Name`, `MimeType`, `ContentUri`, `ContentBytes`, `InitialArtifactMetadata`.
+    *   Type: Record.
+*   **[`PersonaKnowledgeEntry.cs`](../../src/Nucleus.Abstractions/Models/PersonaKnowledgeEntry.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: Stores knowledge extracted or generated by a Nucleus Persona M365 Agent in relation to a specific artifact. Central to persona memory and learning, accessed via a `Nucleus_KnowledgeStore_McpServer`.
+    *   Key Properties: `Id`, `ArtifactId`, `TenantId`, `UserId`, `PersonaId`, `Timestamp`, `Summary`, `Keywords`, `EmbeddingVector`, `AnalysisData` (type: `JsonElement?`).
+    *   Type: Record.
+    *   Architectural Note: The use of `JsonElement?` for `AnalysisData` remains a key strength.
+*   **[`PlatformAttachmentReference.cs`](../../src/Nucleus.Abstractions/Models/PlatformAttachmentReference.cs)**:
+    *   **[MODIFIED/MERGED - M365 Pivot]**
+    *   Original Purpose: Represents a reference to an attachment from a specific platform.
+    *   *New Context:* The information captured here is still vital. It will likely be incorporated into how an M365 Agent receives file information from the M365 SDK, and how it constructs the `ArtifactReference` or a similar payload for the `Nucleus_FileAccess_McpServer`. May not exist as a standalone top-level DTO passed widely, but its properties will inform the new artifact referencing mechanism.
+    *   Key Properties: `Platform`, `AttachmentId`, `Name`, `ContentType`, `ContentUrl`.
+    *   Type: Record.
+*   **[`PlatformType.cs`](../../src/Nucleus.Abstractions/Models/PlatformType.cs)**:
+    *   **[KEPT - Core Concept, Values May Evolve]**
+    *   Purpose: Enum defining the different external platforms Nucleus can interact with, or the source of an interaction.
+    *   *New Context:* Values will align with channels supported by the M365 Agents SDK (e.g., "Teams", "M365Copilot", "Web"). "LocalFile" might still be relevant for backend MCP tools or testing.
+    *   Values: `Unknown`, `Teams`, `Slack`, `Email`, `LocalFile`, `WebGeneric`.
+    *   Type: Enum.
+
+#### 2.2. Analysis Models (`Nucleus.Abstractions.Models/Analysis/`)
+
+*   **General Note:** All models in this subdirectory (`BootstrapperAnalysisData.cs`, `EduFlowAnalysisData.cs`, `ProfessionalAnalysisData.cs`) remain **DEPRECATED**.
+*   **Architectural Shift:** The functionality previously intended for these specific C# record types is handled by storing arbitrary JSON structures within the `AnalysisData` property (of type `System.Text.Json.JsonElement?`) in `PersonaKnowledgeEntry.cs`. This remains unchanged and is a strength.
+
+#### 2.3. Configuration Models (`Nucleus.Abstractions.Models/Configuration/`)
+
+*   **[`AgenticStrategyParametersBase.cs`](../../src/Nucleus.Abstractions/Models/Configuration/AgenticStrategyParametersBase.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: Abstract base class for strategy-specific parameters within `PersonaConfiguration`. Still relevant for defining how `IPersonaRuntime` (within an M365 Agent) executes.
+    *   Type: Abstract Class (POCO).
+*   **[`CosmosDbSettings.cs`](../../src/Nucleus.Abstractions/Models/Configuration/CosmosDbSettings.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: POCO for holding Azure Cosmos DB connection and container naming information. Will be used by the `Nucleus_KnowledgeStore_McpServer`.
+    *   Key Properties: `ConnectionString`, `DatabaseName`, `MetadataContainerName`, `KnowledgeContainerName`, `PersonaContainerName`.
+    *   Type: Class (POCO).
+*   **[`GoogleAiOptions.cs`](../../src/Nucleus.Abstractions/Models/Configuration/GoogleAiOptions.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: POCO for holding configuration settings for Google AI services. Will be used by M365 Agents or MCP tools that interact with Gemini via `IChatClient`.
+    *   Key Properties: `ApiKey`, `ModelId`.
+    *   Type: Class (POCO).
+*   **[`IPersonaConfigurationProvider.cs`](../../src/Nucleus.Abstractions/Models/Configuration/IPersonaConfigurationProvider.cs)**:
+    *   **[KEPT & EVOLVED - Core Concept]**
+    *   Purpose: Interface defining a contract for retrieving `PersonaConfiguration` objects.
+    *   *New Context:* Implementations will be used by M365 Agents at startup or per interaction to load their behavioral parameters. This might involve a hybrid approach: fetching base/static parts from Azure App Configuration/Key Vault and dynamic/behavioral parts from a `Nucleus_PersonaBehaviourConfig_McpServer` (which reads from Cosmos DB).
+    *   Key Methods: `Task<PersonaConfiguration?> GetConfigurationAsync(string personaId, CancellationToken cancellationToken)`, `Task<IEnumerable<PersonaConfiguration>> GetAllConfigurationsAsync(CancellationToken cancellationToken)`.
+    *   Type: Interface.
+*   **[`PersonaConfiguration.cs`](../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs)**:
+    *   **[KEPT - Core Concept]**
+    *   Purpose: A comprehensive POCO defining the structure for how Nucleus Persona M365 Agents are configured. This remains the blueprint for a Persona's behavior, LLM settings, knowledge access (now mediated by MCP tools), agentic capabilities, prompts, and activation rules (which might now be more about internal agent routing if one agent handles minor sub-skills).
+    *   Type: Class (POCO).
+
+### 3. Domain Model Relationships (Mermaid Diagram)
+
+**[MODIFY DIAGRAM]**
+
+*   The diagram needs to be updated to reflect the new interaction flow.
+*   `AdapterRequest` and `AdapterResponse` become less central, replaced by M365 SDK `Activity` objects at the edge.
+*   The core relationships between `ArtifactMetadata`, `ArtifactReference`, `PersonaKnowledgeEntry`, and `PersonaConfiguration` remain but are now mediated by M365 Agents and backend MCP Tool interactions.
+
+**(Self-correction: I cannot directly modify the Mermaid diagram in this response format. The instruction would be to update the diagram to show M365 Agents consuming `PersonaConfiguration` and interacting with MCP Tools that, in turn, use `ArtifactReference` to fetch `ArtifactContent` and read/write `ArtifactMetadata` and `PersonaKnowledgeEntry`.)**
+
+```mermaid
+graph TD
+    subgraph "M365 Agent Interaction Cycle (Conceptual)"
+        M365Activity["M365 SDK Activity (In/Out)"]
+        NucleusM365Agent["Nucleus M365 Persona Agent Logic <br/> (Uses IPersonaRuntime, IPersonaConfigurationProvider)"]
+    end
+
+    subgraph "Nucleus Backend MCP Tools & Core Data"
+        FileAccessMcpServer["Nucleus_FileAccess_McpServer <br/> (Uses IArtifactProvider)"]
+        KnowledgeStoreMcpServer["Nucleus_KnowledgeStore_McpServer <br/> (Uses IArtifactMetadataRepository, IPersonaKnowledgeRepository)"]
+        BehaviourConfigMcpServer["Nucleus_PersonaBehaviourConfig_McpServer"]
+
+        subgraph "Artifact & Content Core"
+            AM["ArtifactMetadata.cs"]:::record
+            AC["ArtifactContent.cs"]:::record
+            ARef["ArtifactReference.cs"]:::record
+        end
+
+        subgraph "Persona Knowledge & Configuration Core"
+            PKE["PersonaKnowledgeEntry.cs"]:::record
+            PConf["PersonaConfiguration.cs"]:::poco
+            ASP["AgenticStrategyParametersBase.cs"]:::abstract
+            LlmConf["(PConf.LlmConfiguration)"]:::poco
+            KScope["(PConf.KnowledgeScope)"]:::poco
+            AgConf["(PConf.AgenticStrategyConfiguration)"]:::poco
+        end
+    end
+
+    subgraph "Platform & External Integration (Conceptual)"
+        PAR["PlatformAttachmentReference.cs <br/> [MODIFIED/MERGED CONCEPT]"]:::record
+        PT["PlatformType.cs <br/> [VALUES EVOLVE]"]:::enum
+    end
+
+    subgraph "Infrastructure Settings (for MCP Tools & Agents)"
+        CDS["CosmosDbSettings.cs"]:::poco
+        GAO["GoogleAiOptions.cs"]:::poco
+    end
+
+    %% Relationships
+    M365Activity --> NucleusM365Agent
+
+    NucleusM365Agent -- MCP Call for Config --> BehaviourConfigMcpServer
+    BehaviourConfigMcpServer -- Reads/Writes --> PConf %%% In Cosmos via KnowledgeStoreMCP for dynamic parts
+
+    NucleusM365Agent -- MCP Call for Content --> FileAccessMcpServer
+    FileAccessMcpServer -- Uses --> ARef
+    FileAccessMcpServer -- Returns --> AC
+
+    NucleusM365Agent -- MCP Call for Knowledge --> KnowledgeStoreMcpServer
+    KnowledgeStoreMcpServer -- Reads/Writes --> AM
+    KnowledgeStoreMcpServer -- Reads/Writes --> PKE
+
+    PConf -- "Guides" --> NucleusM365Agent %%% Runtime uses this
+    ARef -- "Used by" --> FileAccessMcpServer
+    AM -- "Referenced by" --> ARef
+    AM -- "Associated with" --> PKE
+    PKE -- "Contextualized by Loaded" --> PConf
+    PKE -- "Relates to" --> AM
+    PKE -- "Contains analysis" --> JsonElement["AnalysisData (JsonElement?)"]
+
+    PConf -- "Contains" --> LlmConf
+    PConf -- "Contains" --> KScope
+    PConf -- "Contains" --> AgConf
+    AgConf -- "Utilizes concrete type of" --> ASP
+
+    PAR -- "Informs construction of" --> ARef
+    ARef -- "Uses" --> PT
+
+
+    %% Styling
+    classDef record fill:#ddeeff,stroke:#333,stroke-width:1px,color:#000
+    classDef poco fill:#e6ffed,stroke:#333,stroke-width:1px,color:#000
+    classDef interface fill:#fff0e6,stroke:#333,stroke-width:1px,color:#000
+    classDef enum fill:#f0f0f0,stroke:#333,stroke-width:1px,color:#000
+    classDef abstract fill:#f5e6ff,stroke:#333,stroke-width:1px,color:#000
+```
+
+### 4. Design Philosophy & Model Categorization
+
+**[KEPT - Unchanged]**
+*(This section's principles are still valid.)*
+
+*   **Records (Data Transfer Objects - DTOs):**
+    *   Used for core data representation, especially for entities that are passed between layers or across service boundaries.
+    *   Examples: `AdapterRequest`, `ArtifactMetadata`, `PersonaKnowledgeEntry`.
+    *   Benefits: Promote immutability, provide value-based equality by default, and are concise for defining data structures.
+*   **POCO Classes (Configuration & Settings):**
+    *   Primarily used for configuration objects that are typically bound from external sources like `appsettings.json` or environment variables.
+    *   Examples: `CosmosDbSettings`, `GoogleAiOptions`, `PersonaConfiguration`.
+    *   Benefits: Simple, mutable (often necessary for binding frameworks), and familiar.
+*   **Interfaces (Service Contracts):** ... (*Note: Many will now define MCP Tool contracts or internal service contracts for MCP Tools.*)
+*   **Enums (Enumerated Types):**
+    *   Define a set of named constants for representing discrete states or types.
+*   **Abstract Classes (Base Types):**
+    *   Provide base types for polymorphism, allowing common functionality or structure to be shared.
+    *   Example: `AgenticStrategyParametersBase`.
+
+### 5. `AnalysisData` Strategy (Flexible JSON Structures)
+
+**[KEPT - Unchanged]**
+*(This remains a core strength of Nucleus's `PersonaKnowledgeEntry`.)*
+
+A key architectural decision is the use of `System.Text.Json.JsonElement?` for the `AnalysisData` property in models like `PersonaKnowledgeEntry.cs` and `AdapterResponse.cs`. This approach was chosen over defining specific C# record types for each persona's analytical output for the following reasons:
+
+*   **Flexibility & Extensibility:** Personas can generate diverse and evolving analytical outputs. Using `JsonElement?` allows these JSON structures to be stored and retrieved without requiring changes to the core C# models each time a persona's output schema changes or a new persona with a unique output is introduced.
+*   **Decoupling:** The core system does not need to be tightly coupled to the specific analysis schemas of every persona. Personas (and their consumers) are responsible for understanding and interpreting their respective `AnalysisData` JSON structures.
+*   **Reduced Boilerplate:** Avoids the proliferation of numerous small C# classes/records solely for representing varied analysis outputs.
+
+While this approach offers flexibility, it implies that the definition and validation of these JSON structures are managed externally to the C# type system, typically through conventions, schema definitions (e.g., JSON Schema) documented per persona, or by the logic within the persona itself.
+
+### 6. Evolving Domain Models: Rich vs. Anemic
+
+**[KEPT - Unchanged]**
+*(This pragmatic approach to model evolution is still sound.)*
+
+The current domain models in Nucleus are largely "anemic," meaning they primarily serve as data containers with minimal behavior. This is a deliberate starting point, leveraging the strengths of C# records for DTOs and simple POCOs for configuration.
+
+Our evolution strategy follows the principle: **"Start anemic, enrich as needed."**
+
+*   **Initial State:** Models are simple data holders, easy to understand, serialize, and pass around.
+*   **Selective Enrichment:** As the system develops, if clear benefits emerge from co-locating specific business logic, validation rules, or helper methods with the data they operate on, relevant models can be selectively enriched.
+    *   This means transitioning a record to a class if mutable state or more complex behavior is required, or adding methods to existing classes.
+    *   The decision to enrich a model will be based on whether it improves clarity, reduces coupling in service layers, and enhances encapsulation without unduly increasing the model's complexity or harming testability.
+
+This pragmatic approach allows for agility while providing a path towards richer domain objects where they add the most value.
+
+### 7. Related Documentation
+
+*   [Code: `Nucleus.Abstractions.Models` Namespace](../../src/Nucleus.Abstractions/Models/) *(Path remains relevant for these core DTOs)*
+*   [Architecture: Personas](./02_ARCHITECTURE_PERSONAS.md) **[TO BE MODIFIED]**
+*   [Architecture: API](./10_ARCHITECTURE_API.md) **[TO BE ARCHIVED/SUPERSEDED]**
+*   **[NEW]** Architecture: Nucleus M365 Persona Agent Design (Details agent structure)
+*   **[NEW]** Architecture: Nucleus MCP Tools Overview (Details backend MCP services)
+
+## Interfaces
+
+### 1. Overview
+
+**[MODIFY Introduction for M365 Pivot]**
+
+Interfaces in Nucleus define contracts for services, providers, and data repositories. They are fundamental to achieving a modular, decoupled architecture by enabling dependency inversion.
+
+**Architectural Pivot Note (May 2025):** With the shift to Microsoft 365 Agents SDK and MCP, the role and location of many interfaces will change:
+*   Interfaces defining contracts for **backend Nucleus capabilities** (e.g., data access, file processing, RAG pipeline) will now primarily define the operations exposed by **MCP Tool/Server applications**.
+*   Interfaces related to direct **platform communication** (e.g., `IPlatformNotifier`, `IPlatformAttachmentFetcher`) are largely **deprecated**, as this functionality will be handled by the M365 Agents SDK.
+*   Core interfaces like `IPersonaConfigurationProvider`, `IArtifactProvider` (internal to an MCP Tool), `IBackgroundTaskQueue`, and repository interfaces (`IArtifactMetadataRepository`, `IPersonaKnowledgeRepository`) remain conceptually vital but will be implemented and consumed within this new M365 Agent and MCP Tool ecosystem.
+
+This allows for implementations to be swapped or extended with minimal impact on other parts of the system, promoting testability, maintainability, and flexibility.
+
+### 2. General Design Principles for Interfaces
+
+**[KEPT - Unchanged]**
+*(These principles are timeless.)*
+
+*   **Clarity and Conciseness:** Interfaces should be minimal, clearly defining only the essential methods and properties required for their specific purpose. This avoids burdening implementors with unnecessary complexity.
+*   **Single Responsibility Principle (SRP):** While an interface might group related operations, its overall contract should focus on a single area of responsibility. Implementations should also adhere to SRP.
+*   **Implementation Agnostic:** Interfaces define *what* functionality is offered, not *how* it's implemented. This allows diverse implementations (e.g., different database backends for a repository interface).
+*   **Async by Default for I/O:** Operations that involve I/O (network calls, file system access, database interaction) should generally be defined as asynchronous (returning `Task` or `Task<T>`) to ensure non-blocking behavior.
+
+### 3. Catalogue of `Nucleus.Abstractions` Interfaces
+
+This section details the primary interfaces defined within the `Nucleus.Abstractions` project.
+
+#### 3.1. [`IPersonaConfigurationProvider.cs`](../../src/Nucleus.Abstractions/Models/Configuration/IPersonaConfigurationProvider.cs)
+*   **[KEPT & EVOLVED - Core Concept]**
+*   Purpose: Defines the contract for retrieving persona configurations.
+*   *New Context:* Will be crucial for Nucleus M365 Persona Agents to load their specific `PersonaConfiguration`. Implementations might now involve a hybrid approach, reading static/bootstrap elements from Azure App Configuration/Key Vault and dynamic/behavioral elements from a new `Nucleus_PersonaBehaviourConfig_McpServer` that accesses Cosmos DB.
+*   Key Methods: `Task<PersonaConfiguration?> GetConfigurationAsync(string personaId, CancellationToken cancellationToken)`, `Task<IEnumerable<PersonaConfiguration>> GetAllConfigurationsAsync(CancellationToken cancellationToken)`.
+*   Type: Interface.
+
+#### 3.2. Orchestration Interfaces (`Nucleus.Abstractions/Orchestration/`)
+
+##### 3.2.1. `IActivationRuleEvaluator.cs`
+*   **[DEPRECATED - M365 Pivot]**
+*   Original Purpose: Defined a contract for evaluating activation rules.
+*   *New Context:* Activation of a specific Nucleus Persona M365 Agent will largely be handled by the user addressing that agent directly on the M365 platform (e.g., `@EduFlowAgent`). Internal logic within an agent to decide on further actions might exist but won't be a globally-scoped "activation rule" in the old sense.
+*   Reasoning for Removal: Superseded by platform-based agent invocation and M365 Agent SDK's event handling.
+
+##### 3.2.2. `IBackgroundTaskQueue.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs`](../../src/Nucleus.Abstractions/Orchestration/IBackgroundTaskQueue.cs)
+*   **[KEPT - Core Concept for Async Offload]**
+*   Purpose: Defines a contract for queuing background work items.
+*   *New Context:* Nucleus M365 Persona Agents will use this to offload long-running tasks (e.g., deep analysis of large files) to a backend worker service. The message payload will include `TenantId`, `PersonaId`, `ArtifactReference`(s), and a `ConversationReference` for proactive replies.
+*   Key Methods: `QueueBackgroundWorkItemAsync` (payload likely `NucleusIngestionRequest` or similar), `DequeueAsync`, `CompleteAsync`, `AbandonAsync`.
+*   Type: Interface.
+
+##### 3.2.3. `IInteractionHandler.cs`
+*   **[DEPRECATED - M365 Pivot]**
+*   Original Purpose: Defined a contract for handlers that process specific types of interactions.
+*   *New Context:* The `AgentApplication` and its `OnActivity` handlers within the M365 Agents SDK, along with the `IPersonaRuntime` and `IAgenticStrategyHandler` within the Nucleus M365 Agent, now fulfill this role.
+*   Reasoning for Removal: Superseded by M365 Agents SDK event handling and internal agent logic.
+
+##### 3.2.4. `IOrchestrationService.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs`](../../src/Nucleus.Abstractions/Orchestration/IOrchestrationService.cs)
+*   **[DEPRECATED/REFACTORED - M365 Pivot]**
+*   Original Purpose: Central service in the old API for managing interaction lifecycle, activation, and routing.
+*   *New Context:* This broad responsibility is now distributed:
+    *   The M365 Agents SDK and Azure Bot Service handle initial event delivery to the specific M365 Persona Agent.
+    *   The M365 Persona Agent's internal logic (using `IPersonaRuntime`) decides on further actions (reply, call MCP tools, enqueue to `IBackgroundTaskQueue`).
+    *   The `QueuedInteractionProcessorService` (background worker) orchestrates the steps of asynchronous tasks by calling backend MCP Tools.
+    *   The concept of a single, central `IOrchestrationService` in the old API is largely dissolved. Some of its internal logic might move into the M365 Agents or the background worker.
+*   Key Methods: `ProcessInteractionAsync`.
+*   Type: Interface.
+
+#### 3.3. Extraction Interfaces (`Nucleus.Abstractions/Extraction/`)
+
+##### 3.3.1. `IContentExtractor.cs`
+*   **Path:** [`../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs`](../../src/Nucleus.Abstractions/Extraction/IContentExtractor.cs)
+*   **[KEPT - Used by Backend MCP Tools]**
+*   Purpose: Defines a contract for services that extract textual content from an artifact stream *after* it has been ephemerally fetched.
+*   *New Context:* This interface and its implementations will likely be used by a backend `Nucleus_ContentProcessing_McpServer` or directly within the `Nucleus_FileAccess_McpServer` after it fetches content via `IArtifactProvider`. It's no longer directly invoked by a central API service in the same way.
+*   Key Methods: `SupportsMimeType`, `ExtractContentAsync`.
+*   Type: Interface.
+
+#### 3.4. Repository Interfaces (`Nucleus.Abstractions/Repositories/`)
+
+##### 3.4.1. [`IArtifactMetadataRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IArtifactMetadataRepository.cs)
+*   **[KEPT - Core Concept, Used by MCP Tool]**
+*   Purpose: Defines contract for storing/retrieving `ArtifactMetadata`.
+*   *New Context:* Will be implemented by the `Nucleus_KnowledgeStore_McpServer` which uses the Cosmos DB SDK.
+*   Key Methods: `GetByIdAsync`, `GetBySourceIdentifierAsync`, `SaveAsync`, `DeleteAsync`.
+*   Type: Interface.
+
+##### 3.4.2. [`IPersonaKnowledgeRepository.cs`](../../src/Nucleus.Abstractions/Repositories/IPersonaKnowledgeRepository.cs)
+*   **[KEPT - Core Concept, Used by MCP Tool]**
+*   Purpose: Defines contract for storing/retrieving `PersonaKnowledgeEntry` records.
+*   *New Context:* Will be implemented by the `Nucleus_KnowledgeStore_McpServer`.
+*   Key Methods: `GetByIdAsync`, `GetByArtifactIdAsync`, `SaveAsync`, `DeleteAsync`.
+*   Type: Interface.
+
+#### 3.5. Provider and Utility Interfaces (`Nucleus.Abstractions/`)
+
+##### 3.5.1. [`IArtifactProvider.cs`](../../src/Nucleus.Abstractions/IArtifactProvider.cs)
+*   **[KEPT - Core Concept, Used by MCP Tool]**
+*   Purpose: Defines the contract for retrieving the actual ephemeral content of an artifact based on an `ArtifactReference`.
+*   *New Context:* Implementations (e.g., for local files, MS Graph, Slack files) will be part of the `Nucleus_FileAccess_McpServer`. The M365 Persona Agent will call this MCP tool, passing an `ArtifactReference` (derived from M365 SDK's file info).
+*   Key Methods: `SupportsArtifactAsync`, `GetArtifactContentAsync`.
+*   Type: Interface.
+
+##### 3.5.2. [`IMessageQueuePublisher.cs`](../../src/Nucleus.Abstractions/IMessageQueuePublisher.cs) (`IMessageQueuePublisher<in T>`)
+*   **[KEPT - For M365 Agent to offload tasks]**
+*   Purpose: Defines a generic contract for publishing messages to a queue.
+*   *New Context:* Nucleus M365 Persona Agents will use this to enqueue long-running tasks to Azure Service Bus (or other configured queue).
+*   Key Methods: `Task PublishAsync(T messagePayload, string queueOrTopicName, CancellationToken cancellationToken)`.
+*   Type: Interface.
+
+##### 3.5.3. [`IPlatformAttachmentFetcher.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformAttachmentFetcher.cs)
+*   **[DEPRECATED - M365 Pivot]**
+*   Original Purpose: Defines a contract for fetching attachment content from a specific platform *by an adapter*.
+*   *New Context:* This specific interface is superseded. The M365 Agents SDK provides attachment info. The `IArtifactProvider` (via the `Nucleus_FileAccess_McpServer`) becomes the central point for resolving these references into content streams, using platform-specific logic internally.
+*   Type: Interface.
+
+##### 3.5.4. [`IPlatformNotifier.cs`](../../src/Nucleus.Abstractions/Adapters/IPlatformNotifier.cs)
+*   **[DEPRECATED - M365 Pivot]**
+*   Original Purpose: Defines a contract for sending notifications back to an originating platform *from the backend API*.
+*   *New Context:* The Microsoft 365 Agents SDK provides the mechanisms for the M365 Persona Agent itself to send messages and proactive notifications back to the user/channel (e.g., `turnContext.SendActivityAsync` or `ChannelAdapter.ContinueConversationAsync`). This custom abstraction is no longer needed for this purpose.
+*   Type: Interface.
+
+**Authors:** Cascade Agent (Initial Draft and Iterative Refinements), Jordan Farr (Guidance and Final Review)

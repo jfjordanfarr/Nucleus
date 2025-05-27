@@ -1,81 +1,117 @@
 ---
-title: "Requirements: Phase 2 - Multi-Platform Integration (Teams First)"
-description: Requirements for supporting Nucleus interactions from multiple collaboration platforms (Teams, Discord, Slack) via dedicated client adapters and the core API.
-version: 1.2
-date: 2025-04-27
+title: "Requirements: M365 Agent & MCP Tool Integration"
+description: "Requirements for Nucleus to function as a backend for Microsoft 365 Agents and as a Model Context Protocol (MCP) Tool/Server, enabling platform-integrated AI Personas."
+version: 2.0
+date: 2025-05-25
 ---
 
-# Requirements: Phase 2 - Multi-Platform Integration
+# Requirements: Microsoft 365 Agent & Model Context Protocol (MCP) Integration
 
-**Version:** 1.2
-**Date:** 2025-04-27
+**Version:** 2.0  
+**Date:** 2025-05-25
 
 ## 1. Goal
 
-To enable the **`Nucleus.Services.Api`** to support interactions originating from multiple collaboration platforms, starting with **Microsoft Teams**, followed by **Discord** and **Slack**. This involves refining API endpoints and DTOs for the unified interaction model, and implementing thin, platform-specific **Client Adapters** that translate platform events into API calls (passing appropriate `ArtifactReference` objects) and render API responses back to the user within their native platform.
+To refactor Nucleus to operate as a robust backend system supporting **Microsoft 365 Agents** and to expose its capabilities as a **Model Context Protocol (MCP) Tool/Server**. This enables Nucleus Personas to be invoked by M365 Agents within the Microsoft ecosystem (Teams, Outlook, etc.) and allows other MCP-compatible agents to leverage Nucleus's specialized knowledge processing and retrieval functionalities. This phase focuses on the core backend services, MCP compliance, and the necessary interfaces for M365 Agent integration.
 
 ## 2. Scope
 
-*   **Platforms:** Microsoft Teams (initial focus), Discord, Slack.
-*   **API Extension:** Defining and implementing endpoints within `Nucleus.Services.Api` to handle requests originating from these platforms, including ingestion initiation (via file references), queries, and status checks, primarily through the unified `/api/v1/interactions` endpoint.
-*   **Client Adapters:** Building dedicated adapters (`Nucleus.Adapters.Teams`, etc.) that act solely as clients to the `Nucleus.Services.Api`. They handle platform-specific protocols (e.g., Bot Framework) and translate data.
-*   **Interaction:** Bot mentions (@PersonaName or platform equivalent), direct messages, file sharing within supported platform contexts.
-*   **Functionality:** Enabling users to initiate analysis of platform-shared files (via references), respond to direct queries, provide status updates on asynchronous jobs, all orchestrated through the central API.
-*   **Foundation:** Builds upon the core API infrastructure established in Phase 1 ([01_REQUIREMENTS_PHASE1_MVP_API.md](./01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)).
+*   **Microsoft 365 Agent Integration:**
+    *   Enabling Nucleus Personas to be discoverable and invocable by M365 Agents.
+    *   Handling requests from M365 Agents, including context (e.g., conversation history, document references from M365 services like SharePoint, OneDrive).
+    *   Returning responses and structured data to M365 Agents for presentation in the host application (Teams, Outlook, etc.).
+*   **Model Context Protocol (MCP) Server/Tool Implementation:**
+    *   Exposing Nucleus's core functionalities (content analysis, knowledge retrieval, persona-specific logic) via MCP-compliant endpoints.
+    *   Defining MCP Tool capabilities that represent Nucleus Persona actions.
+    *   Handling MCP requests, processing them through the Nucleus backend, and returning MCP responses.
+*   **Nucleus Backend Services (`Nucleus.Core`, `Nucleus.Services.Core`, `Nucleus.Services.McpServer`):**
+    *   Refining and extending core services for ingestion, processing, storage (Cosmos DB), and AI interaction (Gemini via `Microsoft.Extensions.AI`).
+    *   Implementing the `Nucleus.Services.McpServer` project to host MCP endpoints.
+    *   Ensuring secure and scalable operation within Azure (App Service, Functions, Service Bus, Cosmos DB).
+*   **Artifact Handling:**
+    *   Processing `ArtifactReference` objects that point to content within the M365 ecosystem (e.g., SharePoint files, OneDrive documents, Teams messages) or other locations accessible via MCP context.
+    *   Utilizing `IArtifactProvider` implementations (e.g., for Microsoft Graph) to resolve these references securely and ephemerally.
+*   **Persona Invocation:**
+    *   Allowing M365 Agents or MCP clients to specify and invoke particular Nucleus Personas (`IPersona` implementations) for specialized processing.
 
 ## 3. Requirements
 
-### 3.1. Admin Experience (Bot Setup & Configuration)
+### 3.1. M365 Agent Integration
 
-*   **REQ-P2-ADM-001:** An Administrator MUST be able to register and deploy the Nucleus Persona(s) as Bot Applications within their respective platforms (Microsoft 365 Tenant, Discord Server(s), Slack Workspace(s)).
-*   **REQ-P2-ADM-002:** The Bot Application registrations MUST include necessary platform-specific permissions/scopes allowing the **Platform Adapter** to receive events and potentially access file metadata/references, and potentially allowing the **`IArtifactProvider` implementation** (used by the `ApiService`) to securely access file content when requested via an `ArtifactReference`:
-    *   Receive messages/events via the platform adapter.
-    *   Read basic user profile information (for identification).
-    *   Access file metadata or generate secure references (`ArtifactReference`) for files shared where the bot has access.
-    *   Allow the adapter to post messages/responses (text, cards, embeds, blocks) based on API results.
-*   **REQ-P2-ADM-003:** Configuration for each Platform Adapter (e.g., App IDs, secrets, tokens needed *by the adapter* for platform communication) and any credentials needed *by the `IArtifactProvider` implementations* for platform API calls (e.g., delegated permissions via Graph API for Teams) MUST be securely manageable within the `ApiService` configuration.
+*   **REQ-M365-INT-001:** Nucleus MUST provide a mechanism for its Personas to be registered or declared in a way that Microsoft 365 Agents can discover and invoke them (e.g., via an App Manifest for Teams, or other M365 extensibility points).
+*   **REQ-M365-INT-002:** Nucleus (specifically, a dedicated M365 integration layer or the MCP Server if M365 Agents use MCP) MUST be able to receive and parse invocation requests from M365 Agents. These requests will include:
+    *   Identifier of the target Nucleus Persona.
+    *   User query or command.
+    *   Contextual information provided by the M365 Agent (e.g., conversation history, references to documents in SharePoint/OneDrive, email content).
+*   **REQ-M365-INT-003:** Nucleus MUST process the M365 Agent's request by:
+    *   Identifying the target `IPersona`.
+    *   Resolving any `ArtifactReference` objects (e.g., M365 Graph URIs) using appropriate `IArtifactProvider` implementations to fetch content ephemerally.
+    *   Invoking the Persona's logic (e.g., `AnalyzeContentAsync`, `HandleInteractionAsync`).
+    *   Utilizing its AI capabilities (e.g., Google Gemini) and internal knowledge store (Cosmos DB).
+*   **REQ-M365-INT-004:** Nucleus MUST return a response to the M365 Agent in a format it expects (e.g., structured JSON, Adaptive Card payload, or MCP response if applicable). The response should be suitable for rendering within the M365 host application.
+*   **REQ-M365-INT-005:** All interactions with M365 services (e.g., accessing files via Graph API) MUST adhere to Microsoft's security and permission models, using appropriate authentication and authorization (e.g., OAuth, managed identities). User data sovereignty and Zero Trust principles are paramount.
 
-### 3.2. End-User Experience (Platform Interaction - Applies to Teams, Discord, Slack)
+### 3.2. Model Context Protocol (MCP) Server/Tool Implementation
 
-*   **REQ-P2-USR-001:** A User MUST be able to add/invite/install the Nucleus Persona bot within their platform environment, subject to policies.
-*   **REQ-P2-USR-002:** A User MUST be able to initiate analysis by sharing a supported file where the bot is present and explicitly mentioning the bot (e.g., "@EduFlow analyze this"). The adapter constructs an appropriate `ArtifactReference` (containing platform file ID, share link, message context, etc.) and sends it to the API's `/api/v1/interactions` endpoint.
-*   **REQ-P2-USR-003:** The bot MUST acknowledge the request natively in the platform chat (e.g., "Okay, I'll ask EduFlow to analyze `[FileName]`. I'll notify you here when done."). This acknowledgement is triggered after the adapter receives a successful response (e.g., HTTP 202 Accepted) from the `ApiService` call.
-*   **REQ-P2-USR-004:** Upon successful completion of asynchronous processing, the bot MUST post a notification message in the originating chat/channel, mentioning the initiating user, containing the analysis summary. This is triggered by the `ApiService` indicating completion (e.g., via webhook callback to the adapter, or the adapter polling a status endpoint).
-*   **REQ-P2-USR-005:** Upon processing failure, the bot MUST post a failure notification similarly.
-*   **REQ-P2-USR-006:** A User MUST be able to query the status of an ongoing asynchronous processing job by mentioning the bot (e.g., "@EduFlow status on `[FileName]`?"). The adapter forwards this query to a dedicated status endpoint on the `ApiService`.
-*   **REQ-P2-USR-007:** In response to a status query API call, the adapter MUST receive status information from the `ApiService` and render an informative update within the chat.
-*   **REQ-P2-USR-008:** A User MUST be able to ask the Persona general questions by mentioning it. The adapter forwards the query text and context to the `ApiService` interaction endpoint.
+*   **REQ-MCP-SRV-001:** Nucleus MUST implement an MCP Server (e.g., as part of `Nucleus.Services.McpServer`) that exposes its functionalities as one or more MCP Tools.
+*   **REQ-MCP-SRV-002:** The MCP Server MUST correctly implement the required MCP endpoints (e.g., for tool discovery, execution, status checks if applicable).
+*   **REQ-MCP-SRV-003:** Nucleus Personas and their specific actions (e.g., "analyze document with EduFlow," "query knowledge with BusinessAssistant") MUST be definable as MCP Tools with clear schemas for their inputs and outputs.
+*   **REQ-MCP-SRV-004:** The MCP Server MUST be able to receive MCP tool invocation requests, parse their parameters, and map them to the corresponding Nucleus Persona and action.
+*   **REQ-MCP-SRV-005:** The MCP Server MUST orchestrate the execution of the request using Nucleus backend services (core logic, `IArtifactProvider` for context, `IPersona` invocation, AI calls, database access).
+*   **REQ-MCP-SRV-006:** The MCP Server MUST return results to the MCP client in the standard MCP format, including success/failure status and any output data.
+*   **REQ-MCP-SRV-007:** The MCP Server SHOULD support asynchronous tool execution patterns if defined by the MCP specification and relevant to Nucleus's long-running tasks.
 
-### 3.3. System Behavior (API Service & Client Adapters)
+### 3.3. Nucleus Backend Services & Core Logic
 
-*   **REQ-P2-SYS-001:** Dedicated client adapters (`TeamsAdapter`, `DiscordAdapter`, `SlackAdapter`) MUST be implemented.
-*   **REQ-P2-SYS-002:** Each adapter MUST handle incoming events/requests from its respective platform API/SDK.
-*   **REQ-P2-SYS-003:** Each adapter MUST translate incoming platform events into appropriate DTOs and make authenticated HTTP calls to defined endpoints on the `Nucleus.Services.Api`.
-*   **REQ-P2-SYS-004:** Adapters MUST extract relevant platform context (user ID, channel/chat ID, message ID, file `ArtifactReference` objects) and include it in the API requests to `/api/v1/interactions`.
-*   **REQ-P2-SYS-005:** The **`Nucleus.Services.Api`** MUST provide endpoints to handle requests from platform adapters, primarily:
-    *   The unified endpoint for general queries/interactions (`POST /api/v1/interactions`). This endpoint accepts `ArtifactReference` objects from adapters to initiate processing.
-    *   An endpoint to query the status of asynchronous jobs (e.g., `GET /api/v1/jobs/{jobId}/status`).
-*   **REQ-P2-SYS-006:** The **`Nucleus.Services.Api`** is responsible for:
-    *   Authenticating requests from adapters.
-    *   Orchestrating content retrieval via `IArtifactProvider` implementations, passing the `ArtifactReference` received from the adapter. **The API service itself does not directly retrieve platform file content.**
-    *   Saving temporary content to `IFileStorage` (if needed during processing).
-    *   Creating/managing `ArtifactMetadata`.
-    *   Initiating and managing synchronous or asynchronous processing tasks (e.g., placing work on a queue).
-    *   Interacting with LLMs and other backend services.
-    *   Storing results and status.
-*   **REQ-P2-SYS-007:** A mechanism MUST exist for the adapter to receive asynchronous results/notifications from the `ApiService` (e.g., API pushing updates via webhooks registered by the adapter, or adapter polling status endpoints).
-*   **REQ-P2-SYS-008:** API responses (for sync requests, status queries, or async notifications) MUST provide sufficient information for the adapter to construct and send appropriate messages back to the user on the source platform.
+*   **REQ-NUC-CORE-001:** The `Nucleus.Core` and `Nucleus.Services.Core` projects MUST provide robust and extensible implementations of:
+    *   `IPersona` interface and base classes.
+    *   `IArtifactProvider` interface and implementations (especially for M365 Graph and potentially generic HTTP resources).
+    *   `IFileStorage` for ephemeral storage during processing.
+    *   Services for interacting with the AI model (e.g., Google Gemini via `Microsoft.Extensions.AI`).
+    *   Services for database interaction (Cosmos DB for `ArtifactMetadata` and `PersonaKnowledgeEntry`).
+    *   Message queueing (Azure Service Bus) for decoupling and managing asynchronous tasks.
+*   **REQ-NUC-CORE-002:** The system MUST securely manage configuration, including API keys for AI services, Cosmos DB connection strings, Service Bus connection strings, and any M365 integration credentials, using Azure Key Vault or similar.
+*   **REQ-NUC-CORE-003:** The system MUST implement comprehensive logging and telemetry (e.g., Azure Application Insights) for monitoring, debugging, and performance analysis.
+*   **REQ-NUC-CORE-004:** The system MUST be designed for stateless operation where possible, particularly for API endpoints and function apps, to ensure scalability.
+*   **REQ-NUC-CORE-005:** The `ArtifactReference` model MUST be robust enough to carry necessary information for `IArtifactProvider` implementations to resolve content from various sources, including M365 (Graph URIs, item IDs) and potentially other MCP-provided contexts.
+
+### 3.4. Administration & Deployment
+
+*   **REQ-ADM-DEP-001:** The Nucleus backend (including the MCP Server) MUST be deployable to Azure using .NET Aspire orchestration or IaC scripts (e.g., Bicep/ARM templates).
+*   **REQ-ADM-DEP-002:** Administrators MUST be able to configure connection strings, AI service endpoints/keys, and other critical settings securely.
+*   **REQ-ADM-DEP-003:** Mechanisms for registering and managing Nucleus Personas available to M365 Agents or via MCP MUST be provided (e.g., configuration files, admin API).
 
 ## 4. Implementation Strategy
 
-1.  **Refine API Endpoints & DTOs:** Ensure the contracts for `/api/v1/interactions` and `/api/v1/jobs/{jobId}/status` can handle platform adapter requests, including `ArtifactReference` objects, within the API architecture documentation ([Docs/Architecture/Api](../../Architecture/Api/)). Define any necessary callback/webhook mechanisms.
-2.  **Implement API Endpoint Logic:** Enhance the core logic within `Nucleus.Services.Api` for the `/api/v1/interactions` endpoint to handle `ArtifactReference` objects originating from platforms and orchestrate processing, including invoking the correct `IArtifactProvider`.
-3.  **Implement `IArtifactProvider` for Teams:** Create an implementation (e.g., `GraphArtifactProvider`) capable of resolving Teams/SharePoint `ArtifactReference` objects using configured credentials/permissions (e.g., Graph API).
-4.  **Implement `TeamsAdapter`:** Build the Teams adapter as a pure API client using the Bot Framework SDK, translating events (including file shares) into `ArtifactReference` objects for API calls, and rendering API responses back to Teams messages.
-5.  **Implement `DiscordAdapter` / `SlackAdapter`:** Build subsequent adapters and corresponding `IArtifactProvider` implementations following the same client/provider pattern, potentially identifying common logic.
+1.  **MCP Core Implementation:**
+    *   Develop the `Nucleus.Services.McpServer` project.
+    *   Implement core MCP request handling, tool definition, and response generation.
+    *   Define initial MCP Tools representing core Nucleus Persona actions (e.g., a generic "analyze" tool, a "query" tool).
+2.  **M365 Integration Research & Prototyping:**
+    *   Investigate the specific mechanisms for M365 Agents to discover and call external tools/services (e.g., if they use MCP directly, or require a specific adapter/manifest).
+    *   Prototype the connection between an M365 Agent (e.g., a sample Teams bot acting as an agent) and the Nucleus MCP Server.
+3.  **Refine Core Services:**
+    *   Ensure `IPersona`, `IArtifactProvider` (especially for Graph API), and other core services can support the data and context provided by M365 Agents and MCP.
+    *   Solidify `ArtifactReference` to handle M365 resource identifiers.
+4.  **Develop `GraphArtifactProvider`:** Implement a robust `IArtifactProvider` for Microsoft Graph to resolve file/item references from SharePoint, OneDrive, Teams, etc., using appropriate authentication.
+5.  **End-to-End Testing:**
+    *   Test invocation of Nucleus Personas from a sample M365 Agent (or test harness).
+    *   Test invocation of Nucleus MCP Tools from a generic MCP client.
+6.  **Deployment & Configuration:**
+    *   Develop .NET Aspire configurations or IaC scripts for deploying the full backend stack to Azure.
+    *   Establish secure configuration management.
 
-## 5. Non-Goals (Phase 2)
+## 5. Non-Goals (This Phase)
 
-*   Full conversational memory across long interactions.
-*   Proactive bot participation without explicit mentions.
-*   Advanced platform-specific UI elements beyond basic formatted messages/responses.
+*   Building a custom UI for Nucleus outside of M365 host applications.
+*   Direct integration with platforms other than those supported by M365 Agents or MCP clients (e.g., standalone Slack, Discord adapters are superseded by this M365/MCP focus).
+*   Implementing all conceivable Nucleus Personas; focus is on the infrastructure to support them.
+
+## 6. Key Dependencies & Linkages
+
+*   **Microsoft 365 Agent SDK/Platform:** The capabilities and requirements of M365 Agents will heavily influence integration points.
+*   **Model Context Protocol (MCP) Specification:** Adherence to the MCP spec is critical for interoperability.
+*   **`00_PROJECT_MANDATE.md`:** Overarching project goals and vision.
+*   **Architecture Documents (especially `00_ARCHITECTURE_OVERVIEW.md`, `01_ARCHITECTURE_PROCESSING.md`, `02_ARCHITECTURE_INTERACTION_FLOW.md`):** Technical design for the Nucleus backend.
+*   **`Microsoft.Extensions.AI`:** For interaction with LLMs.
+*   **Azure Services:** Cosmos DB, Service Bus, App Service/Functions, Key Vault, Application Insights.

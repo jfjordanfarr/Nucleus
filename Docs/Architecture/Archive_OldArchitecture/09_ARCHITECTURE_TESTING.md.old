@@ -1,0 +1,138 @@
+---
+title: "Architecture - Testing Strategy (Post-M365 Agent SDK Pivot)"
+description: "Outlines the testing strategy for the distributed Nucleus platform, centered on .NET Aspire for orchestrating M365 Persona Agents and backend MCP Tools during tests."
+version: 3.4
+date: 2025-05-25
+---
+
+[<- System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md)
+
+# Nucleus: Testing Strategy (Post-M365 Agent SDK Pivot)
+
+**Version:** 3.4
+**Date:** 2025-05-25
+
+This document outlines the multi-layered testing strategy for the distributed Nucleus system, designed to ensure quality and reliability by leveraging the best tools for different validation needs within the .NET Aspire ecosystem. The system now comprises **Nucleus M365 Persona Agent applications** and backend **Nucleus MCP Tool/Server applications**.
+
+## 1. Testing Philosophy
+
+**[CONTENT LARGELY KEPT - Principles are sound, focus on testing distributed components]**
+
+Our testing philosophy emphasizes pragmatism, focusing on validating core logic and key integration points. Key tenets include:
+
+1.  **Focus on Core Logic:** Prioritize robust unit tests for fundamental abstractions (`Nucleus.Abstractions`), domain logic within M365 Agents (`Nucleus.Domain.Personas.Core` for `IPersonaRuntime`, `IAgenticStrategyHandler`) and within MCP Tools (`Nucleus.Domain.Processing` for RAG logic, specific content processors).
+2.  **Component Interaction Confidence (Service Integration Tests - Layer 2):**
+    *   For **M365 Agent Applications:** Test interactions between the agent's internal components (e.g., `IPersonaRuntime` with its `IChatClient` mock, or with a mocked MCP client).
+    *   For **Nucleus MCP Tool/Server Applications:** Use `WebApplicationFactory` (if ASP.NET Core based) or direct instantiation to test the tool's logic with its direct dependencies (e.g., `Nucleus_KnowledgeStore_McpServer` with an in-memory repository or emulated Cosmos DB via Testcontainers if not using full Aspire orchestration for this layer).
+3.  **System Integration Confidence (Primary Focus - Layer 3):** Utilize **.NET Aspire's testing support (`Aspire.Hosting.Testing`)** as the primary tool for System Integration testing. This approach orchestrates the *entire relevant distributed application* defined in the [`Nucleus.AppHost`](../../../Aspire/Nucleus.AppHost/Nucleus.AppHost.csproj), including:
+    *   One or more **Nucleus M365 Persona Agent application(s)**.
+    *   The suite of backend **Nucleus MCP Tool/Server application(s)**.
+    *   Shared dependencies like **emulated Cosmos DB and Service Bus**.
+    *   Tests interact with the system primarily by:
+        *   Simulating M365 `Activity` inputs to the M365 Agent's messaging endpoint (if feasible and an HTTP client can act like Azure Bot Service).
+        *   Directly invoking MCP Tool endpoints (if testing backend logic initiated by an agent).
+        *   Verifying state in emulated Cosmos DB or messages in emulated Service Bus.
+    *   **Implementation Example:** The `ApiIntegrationTests.cs` (now `SystemIntegrationTests.cs`) will be significantly adapted.
+4.  **M365 Agents & MCP Tools as Testable Units:**
+    *   Nucleus M365 Persona Agents are consumers of backend MCP Tools. Their integration tests will involve mocking MCP tool responses or running orchestrated MCP tools via Aspire.
+    *   Nucleus MCP Tool/Servers are tested for their specific contracts and interactions with underlying resources (e.g., Cosmos DB).
+5.  **Avoid Brittle UI Tests (for now):** Focus remains on backend and agent logic. If a dedicated admin UI is built, Playwright for E2E would be considered. M365 platform UIs (Teams, Copilot) are out of scope for Nucleus automated UI testing.
+6.  **Leverage AI for Testing:** Still relevant for test data generation, complex query formulation against M365 Agents or MCP Tools.
+7.  **Documentation as Test Specification:** Still crucial. Tests validate behaviors of M365 Agents and MCP Tools.
+8.  **Security and Data Governance Validation:** Actively design tests to prove tenant isolation (via `tenantId` in MCP calls and DB queries), persona-specific data boundaries within Cosmos DB (per-Persona Knowledge Containers), and correct permission enforcement by M365 Agents (leveraging Entra Agent ID context) when calling MCP Tools.
+9.  **Simplicity and Ergonomics:** Favor standard, potentially built-in .NET testing tools where practicable. Aim for a smaller, tighter suite of very good tests over a philosophy of broad code coverage with countless tests.
+
+## 2. Testing Layers & Tools
+
+**[CONTENT LARGELY KEPT - Layers are valid, tools adapt]**
+We adopt a layered testing strategy, recognizing that different types of validation require different tools and approaches. Our primary test framework across layers is **xUnit.net**, chosen for its modern design, popularity, and strong integration with the .NET ecosystem.
+
+To support these layers, especially Layers 1 and 2, we utilize shared test infrastructure. The [`Nucleus.Infrastructure.Testing`](../../../tests/Infrastructure.Testing) project remains valuable for shared test doubles (in-memory repositories for MCP Tool unit tests, fake queues, mock config).
+
+### 2.1. Layer 1: Unit Tests
+
+*   **Scope:** Individual classes/methods within M365 Agent projects (e.g., `IPersonaRuntime` strategies, specific `IAgenticStrategyHandler`s) and within MCP Tool/Server projects (e.g., repository interaction logic, `IArtifactProvider` implementations, `IContentExtractor`s).
+*   **Tools:** xUnit.net, Moq/NSubstitute, `Nucleus.Infrastructure.Testing`.
+
+### 2.2. Layer 2: Service Integration Tests
+
+*   **Scope (M365 Agents):** Test an M365 Agent's internal orchestration, mocking its MCP client calls to backend Nucleus MCP Tools.
+*   **Scope (MCP Tools):** Test an MCP Tool/Server (e.g., `Nucleus_KnowledgeStore_McpServer`) with its direct dependencies like a real (emulated or Testcontainer-managed) Cosmos DB instance, but without full Aspire AppHost orchestration of *other* MCP tools or M365 Agents. Use `WebApplicationFactory` if the MCP tool is an ASP.NET Core service.
+*   **Location:** Dedicated integration test projects (e.g., `Nucleus.M365.EduFlowAgent.IntegrationTests`, `Nucleus.McpTools.KnowledgeStore.IntegrationTests`).
+
+### 2.3. Layer 3: System Integration Tests (.NET Aspire AppHost)
+
+*   **Scope:** Testing interactions between multiple orchestrated components: M365 Persona Agent(s), backend Nucleus MCP Tool/Server(s), and emulated shared resources (Cosmos DB, Service Bus).
+*   **Purpose:** Verify end-to-end flows. Example:
+    1.  Test sends a simulated M365 `Activity` to an M365 Agent's endpoint (requires understanding how to mimic Azure Bot Service calls or using a test harness provided by M365 SDK).
+    2.  M365 Agent makes MCP calls to orchestrated backend MCP Tools.
+    3.  Verify data in emulated Cosmos DB, or messages in emulated Service Bus (for async tasks).
+    4.  Verify proactive replies sent by the M365 Agent (requires capturing outbound calls or checking platform state if possible).
+*   **Key Technology:** `Aspire.Hosting.Testing`.
+*   **Location:** A central `SystemIntegrationTests` project (e.g., `Nucleus.System.IntegrationTests` replacing `Nucleus.Services.Api.IntegrationTests`).
+
+### 2.4. Layer 4: End-to-End (E2E) User Interaction Tests (Platform Dependent)
+
+*   **Scope:** Testing user interaction flows within actual M365 platforms (e.g., sending a message in Teams and verifying the M365 Persona Agent's response).
+*   **Purpose:** Validates the full loop from user platform to Nucleus M365 Agent and back.
+*   **Tools:** May require platform-specific automation tools (e.g., Playwright for Teams web client if feasible, or specialized bot testing frameworks if provided by Microsoft for M365 Agents). This layer is complex and might be more manual initially.
+*   **Status:** Future consideration, focused on validating M365 Agent responses in-platform.
+
+## 3. Testing Environments
+
+*   **Local Development:** All layers (Unit, Service Integration, System Integration via Aspire AppHost with emulators) are run locally by developers and in CI pre-merge checks.
+*   **CI/CD Pipeline:** Automated execution of Unit, Service Integration, and System Integration tests.
+*   **Staging/Production:** Smoke tests and health checks target deployed API endpoints.
+
+## 4. Testing Specific Components & Flows (Revised)
+
+This section maps components to the primary testing layers:
+
+*   **Domain Logic (M365 Agents & MCP Tools):** Primarily **Unit Tests** (Layer 1).
+*   **Repositories (within `Nucleus_KnowledgeStore_McpServer`):** **Service Integration Tests** (Layer 2 for the MCP Tool) and implicitly via **System Integration Tests** (Layer 3).
+*   **M365 Agent Endpoints:** Primarily **System Integration Tests** (Layer 3) simulating M365 `Activity` calls, or **E2E Tests** (Layer 4) via the actual platform.
+*   **MCP Tool/Server Endpoints:** **Service Integration Tests** (Layer 2, using `WebApplicationFactory` if ASP.NET Core) and **System Integration Tests** (Layer 3, called by orchestrated M365 Agents).
+*   **Background Services (`QueuedInteractionProcessorService`):** Tested implicitly via **System Integration Tests** (Layer 3) by having an M365 Agent enqueue work and verifying expected side effects (MCP Tool calls, data in Cosmos DB, proactive M365 Agent replies).
+
+## 5. System Integration Testing Workflow (Layer 3 Focus - Revised)
+
+This describes the workflow for tests using `Aspire.Hosting.Testing` to orchestrate the distributed Nucleus system:
+
+1.  **Setup (`InitializeAsync`):**
+    *   Use `DistributedApplicationTestingBuilder` to build and start the `Nucleus.AppHost` (which now defines M365 Agents, MCP Tools, CosmosDB emulator, ServiceBus emulator).
+    *   Obtain `HttpClient` instances for M365 Agent messaging endpoints (if directly testable this way) and for backend MCP Tool endpoints using `app.CreateHttpClient("m365AgentAppName")` or `app.CreateHttpClient("mcpToolName")`.
+    *   Resolve Cosmos DB client connected to the emulator.
+2.  **Execute (Test Method):**
+    *   **Option A (Agent-Led):** Send a simulated `Activity` to an M365 Agent's endpoint.
+    *   **Option B (MCP Tool-Led):** Directly call an MCP Tool endpoint (simulating a call from an agent).
+3.  **Verify (Test Method):**
+    *   **M365 Agent Response:** If testing agent, assert immediate acknowledgment or capture asynchronous/proactive responses (this might be complex).
+    *   **MCP Tool Response:** If testing MCP tool, assert its direct response.
+    *   **Side Effects:** Check state of emulated Cosmos DB, messages on emulated Service Bus.
+4.  **Teardown (`DisposeAsync`):** Call `app.DisposeAsync()`.
+
+**(Mermaid Diagram needs significant update to reflect multiple agent and MCP tool processes orchestrated by AppHost, and test client interacting with agent endpoint or MCP tool endpoints).**
+
+## 6. Testing AI Integration (`IChatClient` within M365 Agents/MCP Tools)
+
+**[CONTENT LARGELY KEPT - Principles apply to new components]**
+Verifying integration with external AI services (Azure OpenAI, Gemini, OpenRouter) within the Aspire testing model:
+
+1.  **Configuration:** Ensure M365 Agents or MCP Tools are configured (via user secrets for local Aspire runs) with API keys for *real* AI services.
+2.  **Connectivity (Layer 2):** Service integration tests for components using `IChatClient` can directly instantiate it with configured credentials and make basic calls.
+3.  **E2E Validation (Layer 3):** System Integration tests send inputs (simulated `Activity` to Agent, or direct call to MCP Tool) that require LLM analysis. Assert plausible AI-generated responses or derived data.
+4.  **Monitoring/Logging:** Ensure logging around `IChatClient` calls within M365 Agents/MCP Tools.
+
+## 7. Future Considerations
+
+**[CONTENT MODIFIED - E2E is now about M365 Agent interaction]**
+
+*   **E2E User Interaction Testing (Layer 4):** Implement using Playwright or similar to interact with Nucleus M365 Persona Agents *within* an M365 platform like Teams web client.
+*   **Refined Service Integration (Layer 2):** Further clarify the role and scope of Layer 2 tests now that Layer 3 handles full system orchestration with emulators.
+*   **Observability in Tests:** Leverage Aspire's integrated logging/tracing/metrics within test runs (accessible via the Aspire Dashboard during test execution) for better diagnostics.
+*   **Architecture Testing:** Consider adding tests using **NetArchTest** to enforce architectural rules.
+*   **Performance Testing:** Measuring API response times, processing throughput under load (potentially leveraging Layer 3 setup).
+*   **Security Testing:** Penetration testing, vulnerability scanning.
+*   **Chaos Testing:** Injecting failures into the AppHost-managed resources to test resilience.
+
+This layered testing strategy provides a robust framework for ensuring quality for the distributed Nucleus system, leveraging .NET Aspire to manage the complexity of testing multiple interacting M365 Persona Agents and backend MCP Tool/Server applications.

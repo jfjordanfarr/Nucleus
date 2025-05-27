@@ -1,7 +1,16 @@
-# Phase 4: Maturity & Orchestration Tasks
+---
+title: "ARCHIVED - Phase 4: Maturity & Orchestration Tasks (Superseded by M365 Agent & MCP Tools Integration)"
+description: "ARCHIVED: Detailed tasks for implementing Nucleus Phase 4 maturity and orchestration. This phase is superseded by the M365 Agent and MCP Tools integration strategy."
+version: 1.0 # Assuming this is the first version if not specified, adjust if needed
+date: 2025-05-25
+---
 
-**Epic:** [`EPIC-MATURITY`](./00_ROADMAP.md#phase-4-maturity--orchestration)
-**Requirements:** [`04_REQUIREMENTS_PHASE4_MATURITY.md`](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md)
+# ARCHIVED - Phase 4: Maturity & Orchestration Tasks
+
+**This document is ARCHIVED and SUPERSEDED by the M365 Agent & MCP Tools integration strategy outlined in the current [Roadmap](./00_ROADMAP.md) and the new Phase 4 planning document: [`04_PHASE4_NUCLEUS_PLATFORM_MATURITY_TASKS.md`](./04_PHASE4_NUCLEUS_PLATFORM_MATURITY_TASKS.md).**
+
+**Original Epic:** [`EPIC-MATURITY`](./00_ROADMAP.md#phase-4-maturity--orchestration) (Note: Roadmap has been updated)
+**Original Requirements:** [`04_REQUIREMENTS_PHASE4_MATURITY.md`](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md) (Note: Requirements document has been updated and retitled)
 
 This document details the specific tasks required to complete Phase 4.
 

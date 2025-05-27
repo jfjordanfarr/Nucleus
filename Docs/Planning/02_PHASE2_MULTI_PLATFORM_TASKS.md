@@ -1,14 +1,16 @@
 ---
-title: "Phase 2: API Extension & Multi-Platform Client Adapters Tasks"
-description: "Detailed tasks for implementing the Nucleus API extensions and client adapters needed to support interactions from multiple platforms (Teams, Slack, Discord)."
+title: "ARCHIVED - Phase 2: API Extension & Multi-Platform Client Adapters Tasks (Superseded by M365 Agent & MCP Tools Integration)"
+description: "ARCHIVED: Detailed tasks for implementing the Nucleus API extensions and client adapters needed to support interactions from multiple platforms (Teams, Slack, Discord). This phase is superseded by the M365 Agent and MCP Tools integration strategy."
 version: 1.3
-date: 2025-04-27
+date: 2025-05-25
 ---
 
-# Phase 2: API Extension & Multi-Platform Client Adapters Tasks
+# ARCHIVED - Phase 2: API Extension & Multi-Platform Client Adapters Tasks
 
-**Epic:** [`EPIC-MULTI-PLATFORM`](./00_ROADMAP.md#phase-2-multi-platform-integration)
-**Requirements:** [`02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)
+**This document is ARCHIVED and SUPERSEDED by the M365 Agent & MCP Tools integration strategy outlined in the current [Roadmap](./00_ROADMAP.md) and the new Phase 2 planning document: [`02_PHASE2_M365_AGENT_ENHANCED_TASKS.md`](./02_PHASE2_M365_AGENT_ENHANCED_TASKS.md).**
+
+**Original Epic:** [`EPIC-MULTI-PLATFORM`](./00_ROADMAP.md#phase-2-multi-platform-integration) (Note: Roadmap has been updated)
+**Original Requirements:** [`02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`](../Requirements/02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md) (Note: Requirements document has been updated and retitled)
 
 This document details the specific tasks required to complete Phase 2, focusing on extending the API to handle platform interactions and building the client adapters.
 

@@ -1,65 +1,61 @@
-title: "Requirements: MVP - Core API & Internal Integration"
-description: Minimum requirements for the Nucleus core API service and its validation via internal integration mechanisms and direct API testing.
-version: 1.5
-date: 2025-05-06
+---
+title: "ARCHIVED - Requirements - Phase 1: MVP Console (Superseded by M365 Agent & MCP Architecture)"
+description: "This document is ARCHIVED. The MVP Console concept has been superseded by the Microsoft 365 Agent SDK and Model Context Protocol (MCP) architecture."
+version: 0.1
+date: 2023-10-26
+---
 
-# Requirements: MVP - Core API & Internal Integration
+> [!WARNING]
+> **This document is ARCHIVED and is no longer relevant to the current Nucleus project direction.**
+> The "MVP Console" approach has been superseded by the Microsoft 365 Agent SDK and Model Context Protocol (MCP) architecture.
+> For current requirements, please refer to `00_PROJECT_MANDATE.md` and other active requirement documents.
 
-**Version:** 1.5
-**Date:** 2025-05-06
+## ARCHIVED CONTENT
 
-## 1. Goal
+### 1. Overview
 
-To establish and validate the core backend architecture (`Nucleus.ApiService`) for Nucleus, including persona integration (`BootstrapperPersona`) and basic data flow (query, simple ingestion placeholder). This MVP utilizes **internal integration mechanisms (e.g., leveraging the `Nucleus.Infrastructure.Adapters.Local` for specific system tasks) and direct API testing** to interact with and test the API, prioritizing development velocity and synergy with agentic development workflows. The local development environment using **.NET Aspire** with emulated services remains critical.
+This document outlined the requirements for the Phase 1 MVP Console for the Nucleus project, which have been superseded by the Microsoft 365 Agent SDK and Model Context Protocol (MCP) architecture. The MVP Console was intended as a lightweight, local development tool to facilitate rapid prototyping and testing of Nucleus capabilities in conjunction with the Microsoft 365 Copilot and related technologies.
 
-## 2. Scope
+### 2. Goals
 
-*   **Core Deliverable:** `Nucleus.ApiService` ASP.NET Core Web API providing foundational endpoints.
-*   **Initial Validation:** Primarily through direct API testing and internal service integrations (e.g., using `LocalAdapter`).
-*   **Interaction:** A unified API endpoint (`/api/v1/interactions`) for submitting queries and context (e.g., file references), consumed by internal services or test clients.
-*   **Backend:** `Nucleus.ApiService` ASP.NET Core Web API providing endpoints.
-*   **Processing:** Basic query handling by a single `BootstrapperPersona`. Placeholder for content processing triggered via interactions.
-*   **Data Storage:** Basic storage for persona knowledge entries (Cosmos DB emulator).
-*   **Environment:** Local development using .NET Aspire, orchestrating the API and the essential emulated Azure service (Cosmos DB). Processing uses ephemeral container storage, not external blobs.
+The primary goals for the MVP Console were:
 
-## 3. Requirements
+*   To provide a simplified, local environment for developing and testing Nucleus features.
+*   To enable quick iteration on user interactions and system responses.
+*   To serve as a proof-of-concept for integrating various components of the Nucleus ecosystem.
 
-### 3.1. Local Development Environment (Aspire)
+### 3. Requirements
 
-*   **REQ-MVP-ENV-001:** The `.NET Aspire` AppHost (`Nucleus.AppHost`) MUST successfully launch and orchestrate the following essential components:
-    *   `Nucleus.ApiService` project.
-    *   Azure Cosmos DB Emulator container.
-*   **REQ-MVP-ENV-002:** Aspire MUST correctly inject necessary connection strings and service discovery information (e.g., API base URL, Cosmos connection) into `Nucleus.ApiService` via configuration/environment variables.
-*   **REQ-MVP-ENV-003:** Developers MUST be able to run the entire MVP stack locally using a single command (e.g., `dotnet run` in the AppHost directory).
+#### 3.1. General
 
-### 3.2. Admin Experience (Configuration)
+*   **REQ-MVP-CNSL-001:** The MVP Console MUST be a .NET 6.0+ application.
+*   **REQ-MVP-CNSL-002:** The application structure MUST follow the Clean Architecture guidelines.
+*   **REQ-MVP-CNSL-003:** The solution MUST include the following projects:
+    *   `Nucleus.Console`: The main console application.
+    *   `Nucleus.Api`: The API project for handling interactions.
+    *   `Nucleus.Domain`: The domain model and business logic.
+    *   `Nucleus.Infrastructure`: The infrastructure and data access layer.
+*   **REQ-MVP-CNSL-004:** The console application MUST support the following commands:
+    *   `help`: Display available commands.
+    *   `exit`: Exit the application.
+    *   `query <text>`: Submit a query to the system.
+    *   `ingest <file>`: Ingest a file for processing.
+    *   `status`: Display the current status of the system.
 
-*   **REQ-MVP-ADM-001:** An Administrator (developer during MVP) MUST be able to configure necessary connection details/credentials for external services not managed by Aspire emulators, primarily:
-    *   Configured AI Model Provider API Key and Endpoint (e.g., Google Gemini). **(PARTIAL - Key configured; endpoint implicit in SDK)**
-*   **REQ-MVP-ADM-002:** Configuration MUST be manageable through standard .NET mechanisms (e.g., `appsettings.json`, user secrets, environment variables). **(COMPLETE)**
-
-### 3.3. API Consumption & Validation
-
-*   **REQ-MVP-VAL-001:** The API endpoints MUST be programmatically testable (e.g., via integration tests or a consuming library like `Nucleus.Infrastructure.Adapters.Local`) to validate core functionality, including:
-    *   Invoking the `/api/v1/interactions` endpoint to send a user query and receive a response.
-    *   Invoking the `/api/v1/interactions` endpoint to initiate processing of an artifact reference and receive an acknowledgement or result.
-    *   Invoking placeholder status endpoints (e.g., `/api/status`).
-    *   Graceful error handling for failed API calls.
-
-### 3.4. Backend API (`Nucleus.ApiService`)
+#### 3.2. API
 
 *   **REQ-MVP-API-001:** The API MUST expose a unified `/api/v1/interactions` endpoint (e.g., `POST /api/v1/interactions`).
     *   Accepts a standard interaction request object (containing user info, session context, query text, list of `ArtifactReference` objects, etc.).
     *   Routes the request to the appropriate handler based on context/payload (e.g., activating a Persona for a query, initiating processing for an artifact reference).
     *   For MVP queries, injects and calls the `HandleInteractionAsync` method of the appropriate registered Persona (initially `BootstrapperPersona`).
     *   Returns the persona's response or an acknowledgement (e.g., for asynchronous processing triggers).
-*   **REQ-MVP-API-003:** The API MUST expose a placeholder `/api/status` endpoint (e.g., `GET /api/v1/status`).
+*   **REQ-MVP-API-002:** The API MUST expose a placeholder `/api/status` endpoint (e.g., `GET /api/v1/status`).
     *   Returns basic status information (e.g., API health, loaded personas).
-*   **REQ-MVP-API-004:** The API MUST correctly register and inject the `BootstrapperPersona` and other necessary services (Logging, Configuration, `IPersonaKnowledgeRepository`, `IEmbeddingGenerator`, `IArtifactProvider`). **(PARTIAL - Persona, Logging, Config injected. Repository/Embeddings/Provider TBD)**
-*   **REQ-MVP-API-005:** The API MUST correctly use connection strings/configurations provided by Aspire/environment for accessing emulated/external services (Cosmos DB, AI Provider). **(PARTIAL - AI Provider config used. Cosmos DB TBD)**
-*   **REQ-MVP-API-006:** The API MUST include basic health checks (`/healthz`).
+*   **REQ-MVP-API-003:** The API MUST correctly register and inject the `BootstrapperPersona` and other necessary services (Logging, Configuration, `IPersonaKnowledgeRepository`, `IEmbeddingGenerator`, `IArtifactProvider`). **(PARTIAL - Persona, Logging, Config injected. Repository/Embeddings/Provider TBD)**
+*   **REQ-MVP-API-004:** The API MUST correctly use connection strings/configurations provided by Aspire/environment for accessing emulated/external services (Cosmos DB, AI Provider). **(PARTIAL - AI Provider config used. Cosmos DB TBD)**
+*   **REQ-MVP-API-005:** The API MUST include basic health checks (`/healthz`).
 
-### 3.5. System Behavior (Core Logic & Processing)
+#### 3.3. System Behavior (Core Logic & Processing)
 
 *   **REQ-MVP-SYS-001:** The `BootstrapperPersona` MUST implement `HandleInteractionAsync` to: **(COMPLETE)**
     *   Receive the interaction context (including query text) from the API.
@@ -71,3 +67,7 @@ To establish and validate the core backend architecture (`Nucleus.ApiService`) f
 *   **REQ-MVP-SYS-003:** The system MUST implement basic `IPersonaKnowledgeRepository` using the Cosmos DB .NET SDK against the emulator.
 *   **REQ-MVP-SYS-004:** The system MUST implement a basic `IEmbeddingGenerator` using the configured AI provider's SDK.
 *   **REQ-MVP-SYS-005:** Error handling MUST be implemented in the API and Persona logic to catch common failures (e.g., AI API errors, database connection issues) and return appropriate error responses through the API to the calling client.
+
+### 4. Archival Notice
+
+This document is archived and no longer maintained. The information contained herein is superseded by other documentation and is provided here for reference only.

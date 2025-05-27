@@ -1,11 +1,16 @@
 ---
-title: "Phase 1: MVP - Core API Foundation & Initial Validation Tasks"
-description: "Detailed tasks for implementing the Nucleus Minimum Viable Product (MVP) focused on the core backend API Service and its validation via internal integration (e.g., `LocalAdapter`) and direct API testing."
+title: "ARCHIVED - Phase 1: MVP - Core API Foundation & Initial Validation Tasks (Superseded by M365 Agent & MCP Tools MVP)"
+description: "ARCHIVED: Detailed tasks for implementing the Nucleus Minimum Viable Product (MVP) focused on the core backend API Service. Superseded by new Phase 1 for M365 Agents & MCP Tools."
 version: 1.7
 date: 2025-05-06
 ---
 
-# Phase 1: MVP - Core **API Foundation** & Initial Validation Tasks
+> [!WARNING]
+> **This document is ARCHIVED and is no longer relevant to the current Nucleus project direction.**
+> The tasks outlined here for a monolithic API and local adapter have been superseded by the new Phase 1 MVP focused on building Microsoft 365 Agents and backend Model Context Protocol (MCP) Tools.
+> For current Phase 1 tasks, please refer to `01_PHASE1_MVP_M365_AGENT_TASKS.md`.
+
+# ARCHIVED CONTENT - Phase 1: MVP - Core **API Foundation** & Initial Validation Tasks
 
 **Epic:** [`EPIC-MVP-API`](./00_ROADMAP.md#phase-1-mvp---core-api-foundation--initial-validation)
 **Requirements:** [`01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md`](../Requirements/01_REQUIREMENTS_PHASE1_MVP_CONSOLE.md)
@@ -77,5 +82,3 @@ We will leverage **.NET 9 and Aspire** for local development orchestration and s
 *   [ ] **TASK-MVP-RET-07:** **(Defer Complex Retrieval)** Define `IRetrievalService` interface (simple initial version focusing on metadata/knowledge saving, maybe basic lookup by ID?).
 *   [ ] **TASK-MVP-RET-08:** **(Defer Complex Retrieval)** Implement `BasicRetrievalService` (mostly placeholder/basic save logic integration).
 *   [ ] **TASK-MVP-RET-09:** Integrate metadata/knowledge saving into the `BootstrapperPersona`'s interaction flow (e.g., after analysis, save `ArtifactMetadata` and `PersonaKnowledgeEntry` via repositories).
-
----

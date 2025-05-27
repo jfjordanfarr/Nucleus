@@ -1,0 +1,79 @@
+---
+title: "Nucleus Deployment Architecture Overview (Post-M365 Agent SDK Pivot)"
+description: "Provides an overview of deployment strategies for the distributed Nucleus system, now comprising M365 Persona Agents and backend MCP Tool/Server applications."
+version: 3.0
+date: 2025-05-25
+---
+
+# Nucleus: Deployment Architecture Overview (Post-M365 Agent SDK Pivot)
+
+This document provides a high-level overview of the deployment architecture for the Nucleus system. This architecture has been **significantly revised** to reflect Project Nucleus's strategic pivot towards the Microsoft 365 Agents SDK and Model Context Protocol (MCP). It complements the updated [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md) **[TO BE MODIFIED]** and establishes core deployment principles.
+
+**Architectural Shift Note (May 2025):** Nucleus now operates as a distributed system. The primary components for deployment include:
+1.  **Nucleus M365 Persona Agents:** Individual .NET applications built with the M365 Agents SDK, each embodying a distinct Nucleus Persona (e.g., `EduFlowNucleusAgent`, `HelpdeskNucleusAgent`). These handle channel communication via Azure Bot Service and orchestrate interactions.
+2.  **Backend Nucleus MCP Tool/Server Applications:** A suite of .NET services exposing core Nucleus capabilities (data access, file processing, RAG) via MCP.
+3.  **Shared Backend Infrastructure:** Common resources like Azure Cosmos DB and Azure Service Bus.
+
+## 1. Core Philosophy
+
+The deployment architecture prioritizes:
+
+*   **Flexibility:** Enabling deployment across different environments (cloud providers, self-hosted for backend components where feasible) based on needs.
+*   **Leveraging Managed Services (where applicable):** Minimizing infrastructure management overhead, especially for Azure-hosted components.
+*   **Containerization:** Packaging all application components (M365 Agents, MCP Tools/Servers) into containers for consistent deployment and scaling.
+*   **Scalability:** Designing components to scale independently based on load (e.g., scaling a specific M365 Agent or a backend MCP Tool).
+*   **Configuration Management:** Securely managing configuration and secrets for all distributed components across environments.
+*   **Interoperability:** Aligning with Microsoft's agentic ecosystem for broader integration possibilities.
+
+## 2. Abstract Deployment Requirements
+
+Regardless of the specific target environment, the distributed Nucleus system fundamentally requires a set of core infrastructure capabilities for its various components. These abstract requirements are detailed in:
+
+*   **[Deployment Abstractions](./Deployment/ARCHITECTURE_DEPLOYMENT_ABSTRACTIONS.md) [TO BE MODIFIED]:** Defines the conceptual building blocks (Compute Runtimes for Agents and MCP Tools, Messaging Queue for asynchronous agent-initiated tasks, Document/Vector Database for shared knowledge).
+    *   **Compute Runtimes:** Separate compute environments will be needed for:
+        *   Each **Nucleus M365 Persona Agent application** (e.g., Azure Container App, Azure App Service). These require connectivity to Azure Bot Service and Microsoft Entra ID (for their Entra Agent ID).
+        *   Each **backend Nucleus MCP Tool/Server application** (e.g., Azure Container App, Azure App Service, Azure Functions for MCP-over-HTTP).
+    *   **Messaging Queue (`IBackgroundTaskQueue`):** Remains essential for Nucleus M365 Agents to offload long-running tasks to background worker services, which then orchestrate calls to backend MCP Tools.
+    *   **Document/Vector Database:** The central Azure Cosmos DB (or equivalent) accessed via the `Nucleus_KnowledgeStore_McpServer`.
+
+Understanding these abstractions is key to mapping the system onto different infrastructure platforms. The previous concept of a single central `Nucleus.Services.Api` as the primary "Compute Runtime" and interaction point is now **deprecated**. Interactions flow through the M365 Persona Agents, which then leverage backend MCP Tools.
+
+## 3. Specific Deployment Strategies
+
+Based on the revised abstract requirements, detailed deployment strategies for the distributed Nucleus system will be outlined. These documents will specify the chosen services, configuration, networking, security, and IaC approaches for each deployment target. **Note: Existing specific deployment strategy documents require significant updates.**
+
+*   **[Azure Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md) [TO BE MODIFIED]:** Will detail the recommended architecture using Azure services like:
+    *   Azure Container Apps or Azure App Service for hosting multiple M365 Persona Agent applications and backend Nucleus MCP Tool/Server applications.
+    *   Azure Bot Service for M365 Agent channel connectivity.
+    *   Microsoft Entra ID for M365 Agent identities (Entra Agent ID).
+    *   Azure Cosmos DB for the Nucleus Knowledge Store.
+    *   Azure Service Bus for the asynchronous task queue.
+    *   Azure Key Vault and Azure App Configuration for managing secrets and configurations for all components.
+    *   .NET Aspire and `azd` for orchestrating local development and streamlining Azure deployments.
+*   **[Cloudflare Deployment Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md) [TO BE REVIEWED/MODIFIED]:** Needs re-evaluation. While backend MCP Tools and data stores *could* potentially leverage Cloudflare services for cost-efficiency, the M365 Persona Agent's reliance on Azure Bot Service and Microsoft Entra Agent ID creates a strong Azure affinity for the agent hosting itself. This strategy might evolve to focus on specific backend components if a hybrid cloud approach is considered.
+*   **[Self-Hosted Home Network Strategy](./Deployment/Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md) [TO BE MODIFIED]:** This strategy becomes more complex but still conceptually possible for the backend MCP Tools and data stores (e.g., running Docker containers for MCP Tools, PostgreSQL/pgvector). The M365 Persona Agent component would still require registration with Azure Bot Service and Entra ID, with its compute potentially self-hosted but needing to be reachable by Azure Bot Service (which typically implies a public endpoint, possibly via ngrok or a similar tunneling solution for home networks).
+
+Refer to these specific documents (once updated) for implementation details relevant to your chosen deployment target.
+
+## 4. CI/CD Strategy (Open Source)
+
+Given the open-source nature of Nucleus, the Continuous Integration and Continuous Delivery (CI/CD) strategy remains focused on validating code quality and producing consumable artifacts. This now includes:
+
+*   Building versioned Docker images for each **Nucleus M365 Persona Agent application**.
+*   Building versioned Docker images for each **backend Nucleus MCP Tool/Server application**.
+*   Providing example deployment configurations (e.g., `docker-compose.yml` for local multi-container setups managed by .NET Aspire, example Bicep/Terraform snippets for Azure deployments of the distributed system).
+*   The approach is detailed in:
+    *   **[CI/CD Strategy for Open Source](./Deployment/ARCHITECTURE_DEPLOYMENT_CICD_OSS.md) [MODEST MODIFICATION NEEDED]:** Update to reflect building multiple distinct container images.
+
+## 5. Next Steps (Cross-Cutting Concerns)
+
+Regardless of the chosen deployment strategy, several key steps and considerations remain crucial for a successful implementation of the distributed Nucleus system:
+
+1.  **Infrastructure as Code (IaC):** Develop and maintain robust IaC templates (e.g., Bicep for Azure, potentially Terraform, updated `docker-compose.yml` for Aspire local runs) to provision the infrastructure for all M365 Agents, MCP Tools, and shared services repeatably. ([REQ-P4-ADM-005](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features))
+2.  **CI/CD Pipeline:** Enhance CI/CD pipelines to build, test, and package multiple application artifacts (M365 Agent container images, MCP Tool container images), push them to a registry, and potentially automate deployment updates to target Azure environments.
+3.  **Monitoring Setup:** Implement comprehensive monitoring and logging (e.g., Application Insights) across *all distributed components* (M365 Agents, MCP Tools, Service Bus, Cosmos DB) to ensure full system observability. Distributed tracing becomes even more critical.
+4.  **Cost Analysis:** Re-evaluate and monitor costs based on a distributed deployment model with multiple compute instances.
+5.  **Backup and Recovery:** Reaffirm backup/recovery strategies for the shared Cosmos DB metadata database. ([REQ-P4-ADM-006](../Requirements/04_REQUIREMENTS_PHASE4_MATURITY.md#33-enterprise-readiness--admin-features))
+6.  **Service Discovery & Communication:** Define how M365 Persona Agents will discover and securely communicate with backend Nucleus MCP Tools in a deployed environment (e.g., using Azure Container Apps environment DNS, Managed Identities for service-to-service authentication). .NET Aspire will assist with this.
+
+---

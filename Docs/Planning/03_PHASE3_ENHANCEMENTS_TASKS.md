@@ -1,14 +1,16 @@
 ---
-title: "Phase 3: API Enhancements & Advanced Personas Tasks"
-description: "Detailed tasks for implementing Nucleus Phase 3 enhancements, focusing on sophisticated personas, advanced metadata extraction, 4 R ranking, caching, and configuration."
+title: "ARCHIVED - Phase 3: API Enhancements & Advanced Personas Tasks (Superseded by M365 Agent & MCP Tools Integration)"
+description: "ARCHIVED: Detailed tasks for implementing Nucleus Phase 3 enhancements, focusing on sophisticated personas, advanced metadata extraction, 4 R ranking, caching, and configuration. This phase is superseded by the M365 Agent and MCP Tools integration strategy."
 version: 1.4
-date: 2025-05-06
+date: 2025-05-25
 ---
 
-# Phase 3: API Enhancements & Advanced Personas Tasks
+# ARCHIVED - Phase 3: API Enhancements & Advanced Personas Tasks
 
-**Epic:** [`EPIC-ENHANCEMENTS`](./00_ROADMAP.md#phase-3-enhancements--sophistication)
-**Requirements:** [`03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md`](../Requirements/03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md)
+**This document is ARCHIVED and SUPERSEDED by the M365 Agent & MCP Tools integration strategy outlined in the current [Roadmap](./00_ROADMAP.md) and the new Phase 3 planning document: [`03_PHASE3_AGENT_MCP_ADVANCED_TASKS.md`](./03_PHASE3_AGENT_MCP_ADVANCED_TASKS.md).**
+
+**Original Epic:** [`EPIC-ENHANCEMENTS`](./00_ROADMAP.md#phase-3-enhancements--sophistication) (Note: Roadmap has been updated)
+**Original Requirements:** [`03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md`](../Requirements/03_REQUIREMENTS_PHASE3_ENHANCEMENTS.md) (Note: Requirements document has been updated and retitled)
 
 This document details the specific tasks required to complete Phase 3, primarily focused on the `Nucleus.Services.Api` and its supporting components.
 

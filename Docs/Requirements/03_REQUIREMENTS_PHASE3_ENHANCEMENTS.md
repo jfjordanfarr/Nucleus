@@ -1,90 +1,83 @@
 ---
-title: "Requirements: Phase 3 - API Enhancements & Advanced Personas"
-description: Requirements for enhancing the Nucleus API with advanced persona capabilities, the 4 R ranking system, caching, configuration, and testing.
-version: 1.3
-date: 2025-04-27
+title: "Requirements: Advanced Backend Capabilities & Persona Refinement"
+description: "Requirements for enhancing Nucleus backend services, focusing on advanced RAG, persona logic, AI model integration, caching, configuration, and robust testing, in support of M365 Agent and MCP operations."
+version: 2.0
+date: 2025-05-25
 ---
 
-# Requirements: Phase 3 - API Enhancements & Advanced Personas
+# Requirements: Advanced Backend Capabilities & Persona Refinement
 
-**Version:** 1.3
-**Date:** 2025-04-27
+**Version:** 2.0
+**Date:** 2025-05-25
 
 ## 1. Goal
 
-To significantly enhance the Nucleus platform's backend capabilities, primarily within the `Nucleus.Services.Api`, by implementing advanced agentic persona logic, improving query mechanisms (including the 4 R ranking system), introducing caching and robust configuration, and establishing a solid testing foundation.
+To significantly enhance the Nucleus platform's backend capabilities, primarily within `Nucleus.Core` and `Nucleus.Services.Core`, by implementing advanced Retrieval Augmented Generation (RAG) strategies, refining persona (`IPersona`) logic for complex reasoning and tool use, optimizing AI model interactions (e.g., with Google Gemini via `Microsoft.Extensions.AI`), introducing robust caching and configuration, and establishing a comprehensive testing foundation. These enhancements are crucial for supporting sophisticated operations via Microsoft 365 Agents and the Model Context Protocol (MCP) Server.
 
 ## 2. Scope
 
-*   **Primary Focus:**
-    *   Implementation of sophisticated, specific Personas (e.g., `EduFlow`, `CodeCompanion`).
-    *   Enhancements to `IPersona` capabilities (e.g., stateful processing, tool use - potentially requiring orchestration later).
-    *   Implementation of advanced RAG/query strategies in the backend API (filtering, synthesis).
-    *   Implementation of caching mechanisms.
-    *   Establishment of robust configuration management.
-    *   Setup of automated testing frameworks (Unit, Integration).
-*   **Secondary Focus (Stretch Goals/Potential Scope):**
-    *   Richer bot interactions using platform-specific UI elements (Adaptive Cards, Slack Blocks, Discord Embeds/Commands) - *Deferred to Phase 4*. 
-    *   Introduction of orchestration for complex persona workflows (e.g., Durable Functions) - *Deferred to Phase 4*.
-*   **Foundation:** Builds upon the multi-platform bot integration established in Phase 2 ([02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md](./02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md)).
+*   **Primary Focus (Backend Services):**
+    *   **Advanced RAG & Querying:** Implementing sophisticated query strategies within `Nucleus.Services.Core` (e.g., hybrid search, metadata filtering, the 4 R Ranking System: Recency, Relevancy, Richness, Reputation) to improve the quality of context provided to Personas and AI models.
+    *   **Persona Logic Enhancement:** Evolving `IPersona` implementations to support more complex, multi-step reasoning, internal state management (for a single interaction), and the ability to determine and invoke internal tools/services (like refined retrieval or data transformation) as part of their processing flow. This includes leveraging AI model function calling capabilities where appropriate.
+    *   **AI Model Interaction:** Optimizing interactions with the configured AI model (e.g., Google Gemini), including prompt engineering, managing context windows, and parsing structured outputs.
+    *   **Caching:** Implementing caching mechanisms (`ICacheManagementService`) to reduce latency and redundant computations, particularly for frequently accessed data or expensive AI calls.
+    *   **Configuration:** Establishing robust and secure configuration management (`Microsoft.Extensions.Options`, Azure Key Vault) for all backend components, including persona-specific settings.
+    *   **Automated Testing:** Expanding unit and integration test coverage for all core backend services, including the MCP Server interactions and M365 Agent integration points. Emulating dependencies like Cosmos DB (e.g., using Testcontainers) and AI model responses.
+*   **Foundation:** Builds upon the M365 Agent and MCP integration established in the previous phase ([`02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`](./02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md) - *Note: This filename is now a misnomer and refers to M365/MCP integration requirements*).
 
 ## 3. Requirements
 
-### 3.1. Advanced Querying & Retrieval (Backend API & Services)
+### 3.1. Advanced Querying & Retrieval (Backend Services)
 
-*   **REQ-P3-API-001:** The `Nucleus.Services.Api` project MUST expose secure endpoints through which *all* client interactions (Console App, Platform Bots) flow for performing queries via the unified `/api/v1/interactions` endpoint.
-*   **REQ-P3-API-002:** The `IRetrievalService` implementation MUST be enhanced to support more sophisticated query strategies beyond basic vector similarity search, including:
-    *   Hybrid search (combining vector and keyword/metadata search).
-    *   Metadata filtering (e.g., source platform, time range, artifact type).
-    *   Re-ranking of initial candidates using the **4 R Ranking System (Recency, Relevancy, Richness, Reputation)** to prioritize artifacts for ephemeral context retrieval.
-*   **REQ-P3-API-003:** The backend persona processing MUST support synthesizing information from multiple sources to answer complex user questions. This synthesis relies on:
-    *   Structured knowledge retrieved from `PersonaKnowledgeEntry` records.
-    *   Rich contextual understanding derived from the **ephemerally fetched full content** of the top-ranked source artifacts (identified by `REQ-P3-API-002` and retrieved via `IArtifactProvider`).
-*   **REQ-P3-API-004:** Query responses MUST include sufficient metadata (e.g., `ArtifactReference` identifiers) for clients to display results with clear source attribution, enabling features like "Show Your Work".
+*   **REQ-ADV-RAG-001:** The core retrieval services (e.g., `IRetrievalService` within `Nucleus.Services.Core`) MUST implement advanced query strategies, including:
+    *   Hybrid search combining vector similarity with keyword/metadata-based filtering on `ArtifactMetadata` and `PersonaKnowledgeEntry` records in Cosmos DB.
+    *   Configurable implementation of the **4 R Ranking System (Recency, Relevancy, Richness, Reputation)** to re-rank and select the most pertinent information before it is passed to an AI model or Persona for synthesis.
+    *   Ability to synthesize information from multiple retrieved sources (both structured `PersonaKnowledgeEntry` data and context from ephemerally fetched original content via `IArtifactProvider`) to answer complex queries.
+*   **REQ-ADV-RAG-002:** Query responses, whether direct or as part of an MCP tool output, MUST include clear source attribution (e.g., `ArtifactReference` identifiers, metadata) to enable transparency and verifiability for the invoking agent or user.
 
-### 3.2. Advanced Persona Capabilities
+### 3.2. Advanced Persona Capabilities & Agentic Logic
 
-*   **REQ-P3-PER-001:** The `IPersona` interface and/or its implementations MUST be enhanced to support **agentic processing patterns** involving potentially multiple steps of reasoning and action based on the retrieved structured knowledge and ephemeral context. Examples include:
-    *   **Internal State:** Ability for a persona to maintain internal state *during* a single complex interaction or analysis task.
-    *   **Tool Use Logic:** Ability for a persona's internal logic to determine when to invoke predefined tools (internal services like `IRetrievalService` again, or external APIs via dedicated providers) as part of its analysis process, potentially leveraging AI model function calling capabilities.
-    *   **Refined Structured Output:** Generating more complex or nested structured data (e.g., `PersonaKnowledgeEntry` updates, analysis reports) based on the agentic processing.
-    *(Note: While Phase 3 implements the core agentic logic within personas, complex multi-turn conversations or long-running, stateful workflows requiring external orchestration are deferred to Phase 4)*.
-*   **REQ-P3-PER-002:** Personas SHOULD be configurable with more detailed instructions or operational parameters (potentially via Admin UI or configuration files - *Admin UI targeted for Phase 4*).
+*   **REQ-ADV-PER-001:** `IPersona` implementations MUST be enhanced to support more sophisticated, agentic processing patterns for handling requests from M365 Agents or MCP clients. This includes:
+    *   **Multi-Step Reasoning:** Ability to break down complex requests into smaller, manageable steps.
+    *   **Internal State Management:** Capacity to maintain state *within the scope of a single, complex interaction/analysis task* to inform subsequent steps.
+    *   **Internal Tool Use:** Logic to determine when to invoke other internal Nucleus services (e.g., refined retrieval, data transformation, another specialized internal function) as part of its analysis or response generation process. This may involve structured calls similar to function calling.
+    *   **Structured Output Generation:** Producing well-defined, structured outputs (e.g., updates to `PersonaKnowledgeEntry`, detailed analysis reports, data for Adaptive Cards) suitable for consumption by M365 Agents or MCP clients.
+*   **REQ-ADV-PER-002:** Personas MUST be configurable with detailed operational parameters, prompts, and tool accessibility rules, managed via the central configuration system.
+*   **REQ-ADV-PER-003:** Personas SHOULD leverage the `Microsoft.Extensions.AI` abstractions for seamless interaction with the underlying LLM, including any available features for function calling or structured output parsing.
 
 ### 3.3. Caching Implementation
 
-*   **REQ-P3-CACHE-001:** An `ICacheManagementService` interface MUST be defined.
-*   **REQ-P3-CACHE-002:** An implementation targeting a suitable caching mechanism (e.g., Gemini API Cache, in-memory for local, potentially external later) MUST be created.
-*   **REQ-P3-CACHE-003:** Caching logic MUST be integrated into relevant parts of the system (e.g., `IPersona` implementations) to reduce redundant computations or API calls where appropriate.
+*   **REQ-ADV-CACHE-001:** An `ICacheManagementService` interface and at least one implementation (e.g., using Azure Cache for Redis, or in-memory for development/testing) MUST be provided within `Nucleus.Services.Core`.
+*   **REQ-ADV-CACHE-002:** Caching logic MUST be strategically integrated into performance-sensitive areas, such as:
+    *   Caching results from expensive AI model calls (respecting data volatility).
+    *   Caching frequently accessed `ArtifactMetadata` or `PersonaKnowledgeEntry` data.
+    *   Caching resolved `ArtifactReference` content if permissible and beneficial for short durations.
+*   **REQ-ADV-CACHE-003:** Cache expiration and invalidation strategies MUST be implemented to ensure data freshness.
 
 ### 3.4. Configuration Management
 
-*   **REQ-P3-CONF-001:** Configuration schemas for personas, ingestion sources, and other key components MUST be defined.
-*   **REQ-P3-CONF-002:** Configuration MUST be loaded using standard `Microsoft.Extensions.Options` patterns.
-*   **REQ-P3-CONF-003:** Sensitive configuration values MUST be handled securely (e.g., via Key Vault integration).
+*   **REQ-ADV-CONF-001:** Comprehensive configuration schemas MUST be defined for all backend services, personas, AI model settings, database connections, and caching parameters.
+*   **REQ-ADV-CONF-002:** Configuration MUST be loaded using `Microsoft.Extensions.Options` and support environment-specific overrides (e.g., for development, staging, production).
+*   **REQ-ADV-CONF-003:** All sensitive configuration values (API keys, connection strings) MUST be stored and accessed securely using Azure Key Vault, integrated via managed identities.
 
-### 3.5. Automated Testing Framework
+### 3.5. Automated Testing Framework Enhancement
 
-*   **REQ-P3-TEST-001:** Unit test projects MUST be established for key components.
-*   **REQ-P3-TEST-002:** Integration test project MUST be established.
-*   **REQ-P3-TEST-003:** Mechanisms for emulating dependencies (e.g., Testcontainers for Cosmos DB) MUST be integrated for integration tests.
-*   **REQ-P3-TEST-004:** Initial unit and integration tests covering core functionalities MUST be implemented.
-*   **REQ-P3-TEST-005:** Test execution MUST be integrated into the CI pipeline.
-*   **REQ-P3-TEST-006:** Testing strategies MUST prioritize direct interaction with the `Nucleus.Services.Api` endpoints (e.g., using `HttpClient` in test projects) to validate API contracts and behavior, including scenarios involving `ArtifactReference` objects and simulated `IArtifactProvider` responses.
+*   **REQ-ADV-TEST-001:** Unit test coverage MUST be significantly expanded for all new and existing backend logic in `Nucleus.Core` and `Nucleus.Services.Core`.
+*   **REQ-ADV-TEST-002:** Integration tests MUST be enhanced to cover complex interaction flows, including:
+    *   End-to-end tests for MCP tool invocations via `Nucleus.Services.McpServer`.
+    *   Simulated M365 Agent request scenarios.
+    *   Interactions involving `IArtifactProvider` (with mocked M365 Graph responses), `IRetrievalService`, `IPersona` logic, AI model interaction (mocked), and Cosmos DB (using Testcontainers or emulator).
+*   **REQ-ADV-TEST-003:** Performance and load testing considerations SHOULD be introduced for critical backend services and MCP endpoints.
 
-### 3.6. (Optional) Enhanced Platform Integration
+## 4. Non-Goals (This Phase)
 
-*   **REQ-P3-BOT-001:** Platform adapters (`TeamsAdapter`, `DiscordAdapter`, `SlackAdapter`) MAY be enhanced to utilize richer UI elements for displaying results or handling interactions (e.g., displaying analysis results in an Adaptive Card with actions, using Slack Block Kit for interactive elements, implementing Discord Slash Commands for specific actions). - ***DEFERRED TO PHASE 4***
-*   **REQ-P3-BOT-002:** Bots MAY support more conversational flows for clarifying queries or guiding users. - ***DEFERRED TO PHASE 4***
+*   Developing new user-facing UIs or client adapters beyond supporting M365 Agents and MCP clients.
+*   Introducing fundamentally new external platform integrations (focus remains on M365 and generic MCP).
+*   Full-fledged external workflow orchestration engines (though internal multi-step logic within personas is in scope).
 
-### 3.7. (Optional) Orchestration
+## 5. Key Dependencies & Linkages
 
-*   **REQ-P3-ORC-001:** For complex, multi-step, or long-running persona analysis workflows, an orchestration engine (e.g., Azure Durable Functions, potentially via `Nucleus.Orchestrations` project) MAY be implemented to manage state and execution flow. - ***DEFERRED TO PHASE 4***
-
-## 4. Non-Goals (Phase 3)
-
-*   User-facing Web Application.
-*   Full implementation of external Workflow Orchestration engines (e.g., Durable Functions) for long-running stateful tasks.
-*   Full implementation of Rich Bot Interactions (e.g., Adaptive Cards) beyond basic responses.
-*   Integrating *new* communication platforms beyond Email, Teams, Discord, Slack.
-*   Significant Admin UI development (basic configuration APIs are in scope, but full UI is Phase 4).
+*   **M365 Agent SDK & MCP Specifications:** Continued alignment with these standards.
+*   **`02_REQUIREMENTS_PHASE2_MULTI_PLATFORM.md`:** (Now representing M365/MCP foundational requirements) - This phase builds directly upon it.
+*   **Architecture Documents:** All backend architecture documents are critical references.
+*   **Azure Services:** Deep reliance on Cosmos DB, Service Bus, Key Vault, Application Insights, and potentially Azure Cache for Redis.
