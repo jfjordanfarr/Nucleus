@@ -1,8 +1,22 @@
 ---
 title: "Nucleus Deployment Abstractions"
 description: "Core deployment units and abstractions for the Nucleus platform, focusing on M365 Agents, MCP Tools, and .NET Aspire orchestration."
-version: 3.0 # Updated version
-date: 2025-05-27 # Updated date
+version: 3.1
+date: 2025-05-29
+parent: ./01_DEPLOYMENT_OVERVIEW.md
+see_also:
+  - title: "Deployment Overview"
+    link: "./01_DEPLOYMENT_OVERVIEW.md"
+  - title: "Azure Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_AZURE.md"
+  - title: "Cloudflare Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md"
+  - title: "Self-Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md"
+  - title: ".NET Aspire AppHost Architecture"
+    link: "../DevelopmentLifecycle/Namespaces/NAMESPACE_APP_HOST.md"
+  - title: "Comprehensive System Architecture"
+    link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
 ---
 
 ## 1. Introduction

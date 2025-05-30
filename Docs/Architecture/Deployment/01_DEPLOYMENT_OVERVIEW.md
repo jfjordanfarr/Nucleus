@@ -1,8 +1,22 @@
 ---
 title: "Nucleus Deployment Overview"
 description: "Overview of deployment strategies and models for the Nucleus platform, incorporating M365 Agents, MCP Tools, and .NET Aspire."
-version: 2.0 # Updated version
-date: 2025-05-27 # Updated date
+version: 2.1
+date: 2025-05-29
+parent: ../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
+see_also:
+  - title: "Deployment Abstractions"
+    link: "./02_DEPLOYMENT_ABSTRACTIONS.md"
+  - title: "Azure Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_AZURE.md"
+  - title: "Cloudflare Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_CLOUDFLARE.md"
+  - title: "Self-Hosting Strategy"
+    link: "./Hosting/ARCHITECTURE_HOSTING_SELFHOST_HOMENETWORK.md"
+  - title: "CI/CD Strategy"
+    link: "../DevelopmentLifecycle/03_CICD_STRATEGY.md"
+  - title: "Comprehensive System Architecture"
+    link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
 ---
 
 # Nucleus Deployment Overview

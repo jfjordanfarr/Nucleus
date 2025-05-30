@@ -1,7 +1,18 @@
-# Foundations: Model Context Protocol (MCP) and Microsoft 365 Agents SDK for Nucleus Developers
+---
+title: "Foundations: Model Context Protocol (MCP) and Microsoft 365 Agents SDK for Nucleus Developers"
+description: "A foundational primer on Model Context Protocol (MCP) and the Microsoft 365 Agents SDK, crucial for understanding the Nucleus project's architecture. Incorporates May 2025 Microsoft Build insights."
+version: 1.2
+date: 2025-05-28
+see_also:
+  - title: "Nucleus System Architecture: Comprehensive Guide"
+    link: "./01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+  - title: "System Executive Summary"
+    link: "../CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md"
+  - title: "Project Mandate"
+    link: "../../ProjectExecutionPlan/00_REQUIREMENTS_PROJECT_MANDATE.md"
+---
 
-**Version:** 1.1
-**Date:** May 26, 2025
+# Foundations: Model Context Protocol (MCP) and Microsoft 365 Agents SDK for Nucleus Developers
 
 **Purpose:** This guide serves as the foundational learning resource for developers contributing to Project Nucleus, focusing on the Model Context Protocol (MCP) and the Microsoft 365 Agents SDK. It aims to provide a comprehensive understanding of these core technologies, which are pivotal to Nucleus's architecture. **This document incorporates insights from the latest Microsoft Build 2025 announcements and official SDK documentation (May 2025).**
 

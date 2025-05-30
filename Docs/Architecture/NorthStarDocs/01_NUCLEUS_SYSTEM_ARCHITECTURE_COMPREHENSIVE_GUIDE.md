@@ -1,7 +1,16 @@
-# Nucleus Project: Advanced Architecture, Implementation, and Operations Guide
+---
+title: "Nucleus Project: Advanced Architecture, Implementation, and Operations Guide"
+description: "Advanced architectural and implementation details for Project Nucleus, focusing on M365 Agents SDK, MCP, multi-LLM integration, multi-tenancy, .NET Aspire, network isolation, and RAI."
+version: 1.1
+date: 2025-05-28
+see_also:
+    - "[00_FOUNDATIONS_TECHNOLOGY_PRIMER.md](00_FOUNDATIONS_TECHNOLOGY_PRIMER.md)"
+    - "[00_SYSTEM_EXECUTIVE_SUMMARY.md](../../CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md)"
+    - "[00_REQUIREMENTS_PROJECT_MANDATE.md](../../../ProjectExecutionPlan/00_REQUIREMENTS_PROJECT_MANDATE.md)"
+filepath_override: "Docs/Architecture/NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+---
 
-**Version:** 1.0 (Standalone)
-**Date:** May 26, 2025
+# Nucleus Project: Advanced Architecture, Implementation, and Operations Guide
 
 **Purpose:** This guide provides advanced architectural and implementation details for Project Nucleus, building upon the foundational knowledge of MCP and the Microsoft 365 Agents SDK. It is intended for architects and senior developers involved in building, deploying, and managing the distributed Nucleus system.
 
@@ -290,7 +299,7 @@ This chapter addresses Responsible AI (RAI) considerations and requirements for 
 
 ### **Overall Conclusion and Strategic Recommendations for Project Nucleus**
 
-This advanced guide has detailed strategies for core agent architecture, holistic configuration management, multi-LLM integration, multi-tenant ISV design, backend MCP tool utilization, .NET Aspire for deployment, definitive network isolation, and RAI/governance.
+This advanced guide has detailed strategies for core agent architecture, holistic configuration management, multi-LLM integration, multi-tenancy, ISV design, backend MCP tool utilization, .NET Aspire for deployment, definitive network isolation, and RAI/governance.
 
 **Key Strategic Recommendations (Consolidated):**
 

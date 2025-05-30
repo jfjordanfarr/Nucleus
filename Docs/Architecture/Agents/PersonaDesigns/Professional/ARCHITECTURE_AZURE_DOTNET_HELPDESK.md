@@ -1,8 +1,9 @@
 ---
 title: "Reference Persona: Azure/.NET IT Helpdesk Assistant (M365 Agent)"
 description: "Detailed architecture of an IT Helpdesk assistant implemented as a Nucleus M365 Persona Agent, interacting with backend MCP Tools."
-version: 2.0
-date: 2025-05-25
+version: 2.1
+date: 2025-05-29
+parent: ../ARCHITECTURE_PERSONAS_PROFESSIONAL.md
 ---
 
 ## 1. Overview

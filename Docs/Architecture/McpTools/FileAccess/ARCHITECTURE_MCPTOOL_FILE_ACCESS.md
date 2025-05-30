@@ -1,14 +1,14 @@
 ---
 title: "MCP Tool: FileAccess Server Architecture"
 description: "Detailed architecture for the Nucleus_FileAccess_McpServer, outlining its purpose, MCP operations for ephemeral file content retrieval, core IArtifactProvider logic, dependencies, and security model."
-version: 1.0
-date: 2025-05-27
+version: 1.1 # Incremented version
+date: 2025-05-29 # Updated date
 parent: ../01_MCP_TOOLS_OVERVIEW.md
 see_also:
   - title: "MCP Tools Overview"
     link: "../01_MCP_TOOLS_OVERVIEW.md"
   - title: "Comprehensive System Architecture"
-    link: "../../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    link: "../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md" # Corrected link
   - title: "Core Abstractions, DTOs, and Interfaces"
     link: "../../CoreNucleus/06_ABSTRACTIONS_DTOs_INTERFACES.md"
   - title: "Security Overview and Governance"
@@ -16,7 +16,7 @@ see_also:
   - title: "M365 Agents Overview"
     link: "../../Agents/01_M365_AGENTS_OVERVIEW.md"
   - title: "Foundations: MCP & M365 Agents SDK"
-    link: "../../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md"
+    link: "../../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md" # Corrected link
 ---
 
 # MCP Tool: FileAccess Server Architecture (`Nucleus_FileAccess_McpServer`)
@@ -68,6 +68,7 @@ The internal architecture of the FileAccess MCP Server is centered around the dy
     *   For providers like `GraphArtifactProvider` that access user-specific M365 resources, this security context is paramount. The `GraphArtifactProvider` must use this context to make calls to Microsoft Graph *on behalf of the M365 Agent* (which itself may be acting on behalf of a user or using its own application permissions).
     *   This can be achieved by passing the agent's token to the provider, which then uses it in Graph API calls, or by initiating an On-Behalf-Of (OBO) flow if the FileAccess server needs to obtain a Graph-specific token for the agent. The choice depends on the M365 Agent SDK's capabilities and the permissions model.
     *   This ensures that file access adheres to the permissions granted to the M365 Agent (and transitively, the user) on the M365 platform.
+    *   When an M365 Persona Agent calls `FileAccess.GetFileContentStream`, it provides an `ArtifactReference` which includes details about the file's location (e.g., SharePoint site ID, item ID). Crucially, the `Nucleus_FileAccess_McpServer` **must not** use its own identity or a generic service account to fetch this file content from Microsoft Graph or other sources. Instead, it **must operate within the security context of the calling M365 Persona Agent.** The `GraphArtifactProvider` (or any other provider for M365 sources) must use this context to make calls to Microsoft Graph *on behalf of the M365 Agent* that invoked the MCP operation. This can be achieved by the M365 Agent passing its own Graph-scoped access token (obtained for the necessary Graph permissions like `Files.Read.All` or `Sites.Read.All` depending on the file location) as part of the MCP request to the `FileAccess.GetFileContentStream` operation, or by this MCP tool initiating an On-Behalf-Of (OBO) flow using the M365 Agent's incoming token to obtain a new token with the required Graph permissions. This ensures that file access strictly adheres to the permissions of the M365 Agent, which in turn reflects the user's permissions or the agent's configured application permissions.
 *   **Streaming Focus:** The server is designed to handle file content as streams. `IArtifactProvider` implementations should return `System.IO.Stream` objects. The MCP framework (ASP.NET Core) then streams this response back to the M365 Agent, minimizing memory footprint on the server, especially for large files.
 *   **No Persistent Storage of File Content:** This server **strictly does not store any file content** it retrieves. All access is ephemeral; the content is streamed from the source, through this MCP server, to the M365 Agent. Once the stream is consumed or the request ends, the content is gone from this server's memory.
 *   **`tenantId` Scoping:** While the primary authorization for file access is based on the `ArtifactReference` and the permissions enforced by the underlying platform (e.g., Microsoft Graph), the `tenantId` extracted from the calling M365 Agent's token is used for:

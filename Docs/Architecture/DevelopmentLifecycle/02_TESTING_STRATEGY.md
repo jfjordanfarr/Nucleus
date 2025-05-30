@@ -1,13 +1,16 @@
 ---
 title: "Nucleus Testing Strategy"
 description: "Outlines the comprehensive testing strategy for the Nucleus platform, encompassing M365 Persona Agents, backend MCP Tools, and .NET Aspire orchestration."
-version: 1.1
-date: 2025-05-26
+version: 1.2
+date: 2025-05-29
 parent: ./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md
 see_also:
-    - ../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
-    - ./01_NAMESPACES_FOLDERS.md
-    - ../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md
+    - title: "Comprehensive System Architecture"
+      link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    - title: "Namespaces and Folder Structure"
+      link: ./01_NAMESPACES_FOLDERS.md
+    - title: "Foundations: Technology Primer"
+      link: "../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md"
 ---
 
 # Nucleus Testing Strategy

@@ -1,8 +1,28 @@
 ---
 title: "Reference Persona: EduFlow OmniEducator (M365 Agent)"
 description: "Detailed architecture of the EduFlow OmniEducator, implemented as a Nucleus M365 Persona Agent, interacting with backend MCP Tools."
-version: 2.0
-date: 2025-05-25
+version: 2.1
+date: 2025-05-30
+parent: ../ARCHITECTURE_PERSONAS_EDUCATOR.md
+see_also:
+  - title: "Educator Persona Design (Parent)"
+    link: ../ARCHITECTURE_PERSONAS_EDUCATOR.md
+  - title: "Educator Knowledge Trees"
+    link: ./ARCHITECTURE_EDUCATOR_KNOWLEDGE_TREES.md
+  - title: "Numeracy & Timelines WebApp Concept (Educator)"
+    link: ./NumeracyAndTimelinesWebappConcept.md
+  - title: "Persona Designs Overview"
+    link: ../../00_PERSONA_DESIGNS_OVERVIEW.md
+  - title: "Core Persona Concepts"
+    link: ../../../CoreNucleus/01_PERSONA_CONCEPTS.md
+  - title: "Persona Configuration Schema"
+    link: ../../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md
+  - title: "M365 Agents Overview"
+    link: ../../01_M365_AGENTS_OVERVIEW.md
+  - title: "MCP Tools Overview"
+    link: ../../../McpTools/01_MCP_TOOLS_OVERVIEW.md
+  - title: "Comprehensive System Architecture"
+    link: ../../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
 ---
 
 ## 1. Overview
@@ -28,7 +48,7 @@ The EduFlow OmniEducator system comprises:
     *   **User/Event Interaction:** Handles user messages, commands, @mentions, and crucially, file sharing events within Teams.
     *   **Orchestration:** Manages the pedagogical interaction flow, state, and analysis logic.
     *   **MCP Client:** Makes requests to various backend Nucleus MCP Tool applications.
-    *   **Configuration:** Uses `appsettings.json` and Azure App Configuration. See [Persona Configuration](../../ARCHITECTURE_PERSONAS_CONFIGURATION.md).
+    *   **Configuration:** Uses `appsettings.json` and Azure App Configuration. See [Persona Configuration Schema](../../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md).
 
 2.  **`Nucleus_KnowledgeStore_McpServer` (MCP Tool Application):**
     *   **Functionality:** Provides access to the Nucleus knowledge base (Cosmos DB) for storing and retrieving `ArtifactMetadata` and `PersonaKnowledgeEntry<LearningFacetAnalysis>`.
@@ -225,7 +245,7 @@ This is a .NET application built using the Microsoft 365 Agents SDK.
 ## 7. Deployment
 
 *   Similar to the IT Helpdesk Persona: M365 Agent as Azure App Service/Functions, MCP Tools as separate scalable Azure services (App Services, Container Apps, Functions).
-*   See [Deployment Architecture](../../07_ARCHITECTURE_DEPLOYMENT.md) and [CI/CD for OSS Projects](../../Deployment/ARCHITECTURE_DEPLOYMENT_CICD_OSS.md).
+*   See [Deployment Overview](../../../Deployment/01_DEPLOYMENT_OVERVIEW.md) and [CI/CD Strategy](../../../DevelopmentLifecycle/03_CICD_STRATEGY.md).
 
 ## 8. Future Enhancements
 

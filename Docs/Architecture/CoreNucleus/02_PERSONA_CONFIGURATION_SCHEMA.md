@@ -1,8 +1,8 @@
 ---
 title: "Architecture - Persona Configuration (for M365 Agents & MCP Tools)"
 description: "Defines the structure and settings for configuring Nucleus M365 Persona Agents, including multi-LLM provider support and dynamic/behavioral configurations."
-version: 2.2
-date: 2025-05-27
+version: 2.3
+date: 2025-05-29
 parent: ./01_PERSONA_CONCEPTS.md
 see_also:
   - title: "Persona Concepts"
@@ -14,7 +14,7 @@ see_also:
   - title: "MCP Tool: Persona Behaviour Configuration"
     link: "../McpTools/PersonaBehaviourConfig/ARCHITECTURE_MCPTOOL_PERSONA_BEHAVIOUR_CONFIG.md"
   - title: "Comprehensive System Architecture"
-    link: "../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
   - title: "Core Abstractions, DTOs, and Interfaces"
     link: "./06_ABSTRACTIONS_DTOs_INTERFACES.md"
 ---

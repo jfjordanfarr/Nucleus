@@ -1,9 +1,18 @@
 ---
 title: "Cloudflare Services Complementing an Azure-Hosted Nucleus Platform"
 description: "Evaluates Cloudflare's role in providing complementary services (CDN, WAF, Edge Functions) to the Nucleus platform, which is primarily hosted on Azure and orchestrated by .NET Aspire."
-version: 3.0
-date: 2025-05-27 # Updated to current date
-parent: ../01_DEPLOYMENT_OVERVIEW.md # Verified parent link
+version: 3.1 # Incrementing version
+date: 2025-05-29 # Current date
+parent: ../01_DEPLOYMENT_OVERVIEW.md
+see_also:
+  - title: "Deployment Overview"
+    link: "../01_DEPLOYMENT_OVERVIEW.md"
+  - title: "Deployment Abstractions"
+    link: "../02_DEPLOYMENT_ABSTRACTIONS.md"
+  - title: "Azure Hosting Strategy"
+    link: "./ARCHITECTURE_HOSTING_AZURE.md"
+  - title: "Comprehensive System Architecture"
+    link: "../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
 ---
 
 ## 1. Introduction

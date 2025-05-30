@@ -1,9 +1,20 @@
 ---
 title: "Self-Hosting Nucleus Components: Considerations and .NET Aspire's Role"
 description: "Evaluates self-hosting Nucleus MCP Tools and data on private infrastructure (e.g., home network), detailing .NET Aspire's role in local orchestration, and contrasting with the primary Azure-hosted deployment model."
-version: 3.0
-date: 2025-05-27 # Updated to current date
-parent: ../01_DEPLOYMENT_OVERVIEW.md # Verified parent link
+version: 3.1 # Incrementing version
+date: 2025-05-29 # Current date
+parent: ../01_DEPLOYMENT_OVERVIEW.md
+see_also:
+  - title: "Deployment Overview"
+    link: "../01_DEPLOYMENT_OVERVIEW.md"
+  - title: "Deployment Abstractions"
+    link: "../02_DEPLOYMENT_ABSTRACTIONS.md"
+  - title: "Azure Hosting Strategy"
+    link: "./ARCHITECTURE_HOSTING_AZURE.md"
+  - title: ".NET Aspire AppHost Architecture"
+    link: "../../DevelopmentLifecycle/Namespaces/NAMESPACE_APP_HOST.md"
+  - title: "Security Overview and Governance" # Relevant due to self-hosting implications
+    link: "../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md"
 ---
 
 ## 1. Introduction: Azure First, Self-Hosting as an Alternative

@@ -33,7 +33,7 @@ We envision a future where knowledge work and learning are augmented by reliable
 *   Secure storage of processed data, embeddings, and metadata (via a `Nucleus_KnowledgeStore_McpServer`).
 *   Intelligent, context-aware retrieval (via `Nucleus_RAGPipeline_McpServer` and `Nucleus_KnowledgeStore_McpServer`).
 *   Integration with configurable AI models (via `IChatClient` within Agents or MCP Tools).
-*   A unified interaction model via **Nucleus M365 Persona Agents** operating within Microsoft 365 platforms.
+*   A unified interaction model where intelligent **Nucleus M365 Persona Agents** act as virtual colleagues within Microsoft 365 platforms.
 
 **The Core Interaction Model: Microsoft 365 Agent Integration (Revised)**
 
@@ -71,7 +71,7 @@ Built upon this unified platform, we will develop specific, high-value **Vertica
 To achieve this vision, Nucleus M365 Persona Agents and their backend MCP Tools require:
 
 1.  **M365 Platform-Driven Interaction:** Nucleus M365 Persona Agents are primarily triggered by `Activity` objects received via the M365 Agents SDK from integrated platforms. File information is received via the M365 SDK, and `ArtifactReference`s are passed to backend MCP Tools.
-2.  **Persona Logic Execution within M365 Agents:** Each M365 Persona Agent (using `IPersonaRuntime` and `PersonaConfiguration`) assesses relevance and orchestrates its response, making MCP calls to backend Nucleus tools.
+2.  **Persona Logic Execution within M365 Agents:** Each **Nucleus M365 Persona Agent** (using `IPersonaRuntime` and `PersonaConfiguration`) assesses relevance and orchestrates its response, making MCP calls to backend Nucleus **MCP Tool/Server applications**.
 3.  **Context-Aware AI Analysis (Multi-Provider):** M365 Agents and/or backend MCP Tools utilize a configurable AI inference provider (Azure OpenAI, Google Gemini, OpenRouter.AI via `IChatClient`) for analysis, guided by `PersonaConfiguration` prompts and incorporating retrieved context (from `Nucleus_KnowledgeStore_McpServer`) and ephemerally fetched content (via `Nucleus_FileAccess_McpServer`).
 4.  **Secure, Scalable Backend Database (via MCP Tool):** A configurable hybrid document/vector database (Azure Cosmos DB) storing `ArtifactMetadata` and `PersonaKnowledgeEntry` (with their embeddings), accessed exclusively via the `Nucleus_KnowledgeStore_McpServer`. The database does **not** store original platform files or platform access tokens.
 5.  **Reliable Message Queue (for Agent-Initiated Async Tasks):** A configurable message queue (Azure Service Bus) used by M365 Agents to offload long-running tasks to background workers, which then call MCP Tools.
@@ -116,12 +116,12 @@ What sets Nucleus apart from conventional RAG systems is our intelligence-first,
 
 This anti-chunking philosophy ensures a system that is more intelligent, more respectful of data privacy, and capable of deeper, more nuanced understanding than conventional RAG approaches.
 
-## 5. Call to Action: Building the Future of Learning & Knowledge Work (Revised)
+## 5. Call to Action: Building the Future of Learning & Knowledge Work
 
 **Attention AI Assistant:** You are architecting a **distributed system of Nucleus M365 Persona Agents and backend Nucleus MCP Tools**, adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build this Nucleus foundation – a system designed for insight, personalization, safety, and seamless integration within the Microsoft 365 ecosystem and beyond (via configurable LLMs and future MCP integrations).
 
 The challenges remain: building robust M365 Agents, designing secure and efficient MCP Tools, managing distributed state and configuration, and ensuring comprehensive testing. But the imperative is clear, the vision is now aligned with cutting-edge agent frameworks, and the potential impact immense.
 
-Adhere to the updated architectural principles outlined in the revised [`../Architecture/00_SYSTEM_EXECUTIVE_SUMMARY.md`](../Architecture/00_SYSTEM_EXECUTIVE_SUMMARY.md). Employ Test-Driven Development rigorously for all components. Follow the AgentOps methodology diligently, maintaining context and tracking progress, paying close attention to the VS Code collaboration guidelines.
+Adhere to the updated architectural principles outlined in the revised [`../Architecture/CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md`](../Architecture/CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md). Employ Test-Driven Development rigorously for all components and utilize idiomatic functional approaches (i.e. the Result Pattern, favor Domain Error Types over Exceptions, etc.).
 
 Every M365 Agent application defined, every MCP Tool implemented, every test written is a step towards realizing a future where learning and knowledge work are deeply understood, personalized, empowered, and seamlessly integrated into the user's digital life. Let's build it with purpose, precision, and passion.

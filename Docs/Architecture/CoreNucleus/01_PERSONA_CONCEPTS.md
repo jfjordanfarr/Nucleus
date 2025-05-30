@@ -1,25 +1,47 @@
 ---
-title: "Architecture - Nucleus Personas (Embodied by M365 Agents)"
-description: "Details the architecture for Nucleus Personas, now implemented as Microsoft 365 Agent applications, driven by PersonaConfiguration and IPersonaRuntime, and interacting with backend capabilities via MCP."
-version: 3.1
-date: 2025-05-25
+title: "Nucleus Personas: M365 Agent Embodiment"
+description: "Details the architecture for Nucleus Personas, implemented as Microsoft 365 Agent applications, driven by PersonaConfiguration and IPersonaRuntime, and interacting with backend capabilities via MCP."
+version: 3.2
+date: 2025-05-29
+parent: ./00_CORE_NUCLEUS_OVERVIEW.md
+see_also:
+    - title: "Overall System Architecture"
+      path: ./00_SYSTEM_EXECUTIVE_SUMMARY.md # Corrected from 00_ARCHITECTURE_OVERVIEW.md
+    - title: "Nucleus Processing Architecture"
+      path: ./02_PROCESSING_ARCHITECTURE.md # Corrected from 01_ARCHITECTURE_PROCESSING.md
+    - title: "Nucleus Security Architecture"
+      path: ./07_SECURITY_ARCHITECTURE.md # Corrected from 06_ARCHITECTURE_SECURITY.md
+    - title: "Client & Agent Interaction Architecture"
+      path: ./06_CLIENT_AGENT_INTERACTION_ARCHITECTURE.md # Corrected from 05_ARCHITECTURE_CLIENTS.md
+    - title: "Backend MCP Tools Overview"
+      path: ../McpTools/00_MCP_TOOLS_OVERVIEW.md # Corrected path
+    - title: "Nucleus Storage Architecture"
+      path: ./04_STORAGE_ARCHITECTURE.md # Corrected from 03_ARCHITECTURE_STORAGE.md
+    - title: "Data Persistence Strategy"
+      path: ./05_DATA_PERSISTENCE_STRATEGY.md # Corrected from 03_DATA_PERSISTENCE_STRATEGY.md
+    - title: "Foundations Technology Primer"
+      path: ../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md
+    - title: "Nucleus System Architecture Comprehensive Guide"
+      path: ../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
 ---
 
 # Nucleus: Persona Architecture (Embodied by M365 Agents)
 
-**Version:** 3.1
-**Date:** 2025-05-25
+**Version:** 3.2
+**Date:** 2025-05-29
 
 This document details the architecture for implementing specialized AI assistants, referred to as "Personas" (e.g., `EduFlowOmniEducator`, `Professional_IT_Helpdesk`), within the Nucleus platform. This architecture is updated to reflect the strategic pivot to the **Microsoft 365 Agents SDK** and **Model Context Protocol (MCP)**. Personas are now embodied as distinct **Nucleus M365 Persona Agent applications**.
 
 *   **Related Architecture:**
-    *   [Overall System Architecture](./00_ARCHITECTURE_OVERVIEW.md) <!-- Assuming this is a sibling, if it's CoreNucleus/00_... then it should be ./00_FOUNDATIONS_TECHNOLOGY_PRIMER.md or similar -->
-    *   [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md) <!-- Assuming this is a sibling, if it's CoreNucleus/01_... then it should be ./CoreNucleus/01_ARCHITECTURE_PROCESSING.md or similar -->
-    *   [Security Architecture](./06_ARCHITECTURE_SECURITY.md) <!-- Assuming this is a sibling -->
-    *   [Client & Agent Interaction Architecture](./05_ARCHITECTURE_CLIENTS.md) <!-- Assuming this is a sibling -->
-    *   [Backend MCP Tools Overview](./McpTools/ARCHITECTURE_MCP_TOOLS_OVERVIEW.md) **[NEW]**
-    *   [Storage Architecture](./03_ARCHITECTURE_STORAGE.md) <!-- Assuming this is a sibling -->
-    *   [Data Persistence Strategy](./03_DATA_PERSISTENCE_STRATEGY.md)
+    *   [Overall System Architecture](./00_SYSTEM_EXECUTIVE_SUMMARY.md)
+    *   [Nucleus Processing Architecture](./02_PROCESSING_ARCHITECTURE.md)
+    *   [Nucleus Security Architecture](./07_SECURITY_ARCHITECTURE.md)
+    *   [Client & Agent Interaction Architecture](./06_CLIENT_AGENT_INTERACTION_ARCHITECTURE.md)
+    *   [Backend MCP Tools Overview](../McpTools/00_MCP_TOOLS_OVERVIEW.md)
+    *   [Nucleus Storage Architecture](./04_STORAGE_ARCHITECTURE.md)
+    *   [Data Persistence Strategy](./05_DATA_PERSISTENCE_STRATEGY.md)
+    *   [Foundations Technology Primer](../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md)
+    *   [Nucleus System Architecture Comprehensive Guide](../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md)
 
 ## 1. Core Concept: Personas as Specialized, Configurable M365 Agents
 

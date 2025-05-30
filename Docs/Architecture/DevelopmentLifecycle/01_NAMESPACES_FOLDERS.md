@@ -1,13 +1,16 @@
 ---
 title: "Nucleus Project Namespaces and Folder Structure"
 description: "Defines the standardized namespace and folder organization for the Nucleus project, ensuring consistency and maintainability across the codebase."
-version: 4.1
-date: 2025-05-26
+version: 4.2 # Incremented version
+date: 2025-05-29 # Current date
 parent: ./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md
 see_also:
-    - ../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
-    - ./02_TESTING_STRATEGY.md
-    - ./03_BRANCHING_RELEASE_STRATEGY.md
+    - title: "Comprehensive System Architecture"
+      link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md" # Corrected link
+    - title: "Testing Strategy"
+      link: ./02_TESTING_STRATEGY.md
+    - title: "CI/CD Strategy" # Updated title
+      link: ./03_CICD_STRATEGY.md # Corrected link
     - ./04_CODE_STYLE_LINTING.md
     - ./05_API_DESIGN_GUIDELINES.md
     - ./06_DEVOPS_CICD_PIPELINE.md
@@ -285,11 +288,12 @@ This diagram illustrates the primary dependency flows. The `Nucleus.Mcp.Client` 
 
 ## 10. Related Documents
 
-*   [Development Lifecycle Overview](./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md)
-*   [Testing Strategy](./02_TESTING_STRATEGY.md)
-*   [Branching and Release Strategy](./03_BRANCHING_RELEASE_STRATEGY.md)
-*   [API Design Guidelines](./05_API_DESIGN_GUIDELINES.md)
-*   [Nucleus System Architecture Comprehensive Guide](../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md)
-*   [Technology Primer](../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md)
+This document is part of a larger set of architectural and development lifecycle guidelines. For a complete understanding, refer to:
 
-This structure will evolve but establishing these baselines is key to long-term project health.
+*   **Core Architectural Pillars:**
+    *   [Nucleus System Architecture Comprehensive Guide](../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md) <!-- Corrected link -->
+    *   [Technology Primer](../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md) <!-- Corrected link -->
+*   **Development Lifecycle Overviews:**
+    *   [Development Lifecycle Overview](./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md)
+    *   [Testing Strategy](./02_TESTING_STRATEGY.md)
+    *   [CI/CD Strategy](./03_CICD_STRATEGY.md) <!-- Corrected link and title -->

@@ -1,9 +1,22 @@
 ---
 title: "Azure Hosting Strategy for Nucleus"
 description: "Comprehensive guide to deploying the Nucleus platform (M365 Persona Agents, MCP Tools, and Shared Infrastructure) on Microsoft Azure, leveraging .NET Aspire for orchestration and deployment."
-version: 3.0 # Major Revision
-date: 2025-05-27 # Current Date
+version: 3.1 # Incremental update for TRACS Pass 4
+date: 2025-05-29 # TRACS Pass 4 Update
 parent: ../01_DEPLOYMENT_OVERVIEW.md
+see_also:
+    - title: "Deployment Overview"
+      link: "../01_DEPLOYMENT_OVERVIEW.md"
+    - title: "Deployment Abstractions"
+      link: "../02_DEPLOYMENT_ABSTRACTIONS.md"
+    - title: "Self-Hosting Strategy"
+      link: "./ARCHITECTURE_HOSTING_SELF.md"
+    - title: "Nucleus System Architecture (Comprehensive Guide)"
+      link: "../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    - title: ".NET Aspire Overview"
+      link: "../../../DevelopmentLifecycle/Tools/ARCHITECTURE_ASPIRE_OVERVIEW.md"
+    - title: "Azure Developer CLI (azd) Overview"
+      link: "../../../DevelopmentLifecycle/Tools/ARCHITECTURE_AZD_OVERVIEW.md"
 ---
 
 ## 1. Introduction

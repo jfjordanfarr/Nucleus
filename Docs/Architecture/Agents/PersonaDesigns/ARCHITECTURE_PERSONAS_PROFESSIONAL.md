@@ -1,18 +1,38 @@
 ---
 title: Persona Configuration - Professional Colleague
 description: Describes the configuration for the Professional Colleague M365 Persona Agent, designed for workplace assistance and knowledge retrieval using MCP Tools.
-version: 2.0
-date: 2025-05-25
-parent: ../02_ARCHITECTURE_PERSONAS.md
+version: 2.1
+date: 2025-05-30
+parent: ./00_PERSONA_DESIGNS_OVERVIEW.md
 subfolder_items:
-  - Professional/ARCHITECTURE_AZURE_DOTNET_HELPDESK.md
+  - title: "Azure/.NET Helpdesk Example" # Added title for clarity
+    link: ./Professional/ARCHITECTURE_AZURE_DOTNET_HELPDESK.md
+see_also:
+  - title: "Persona Designs Overview"
+    link: ./00_PERSONA_DESIGNS_OVERVIEW.md
+  - title: "Azure/.NET Helpdesk Example (Professional)"
+    link: ./Professional/ARCHITECTURE_AZURE_DOTNET_HELPDESK.md
+  - title: "Core Persona Concepts"
+    link: ../../CoreNucleus/01_PERSONA_CONCEPTS.md
+  - title: "Persona Configuration Schema"
+    link: ../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md
+  - title: "M365 Agents Overview"
+    link: ../01_M365_AGENTS_OVERVIEW.md
+  - title: "MCP Tools Overview"
+    link: ../../McpTools/01_MCP_TOOLS_OVERVIEW.md
+  - title: "Security Overview and Governance"
+    link: ../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md
+  - title: "Foundations: MCP and M365 Agents SDK Primer"
+    link: ../../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md
+  - title: "Comprehensive System Architecture"
+    link: ../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
 ---
 
 # Persona Configuration: Professional Colleague (M365 Agent)
 
 ## 1. Vision & Purpose
 
-The Professional Colleague configuration defines a persona tailored for workplace environments, as outlined in the [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It enables a **Nucleus M365 Persona Agent** (e.g., `ProfessionalHelpdeskAgent`) to act as a knowledgeable and helpful assistant, capable of leveraging organizational knowledge by invoking backend **Nucleus MCP Tools** and adhering to professional communication standards and security protocols ([Security Considerations](../06_ARCHITECTURE_SECURITY.md)).
+The Professional Colleague configuration defines a persona tailored for workplace environments, as outlined in the [Persona Designs Overview](./00_PERSONA_DESIGNS_OVERVIEW.md). It enables a **Nucleus M365 Persona Agent** (e.g., `ProfessionalHelpdeskAgent`) to act as a knowledgeable and helpful assistant, capable of leveraging organizational knowledge by invoking backend **Nucleus MCP Tools** and adhering to professional communication standards and security protocols ([Security Overview and Governance](../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md)).
 
 When this configuration is loaded by the `IPersonaRuntime` within the M365 Agent, it aims to:
 
@@ -77,7 +97,7 @@ When the `IPersonaRuntime` within the M365 Agent executes with a Professional Co
 
 ## 4. Configuration Settings (Example Values for M365 Agent)
 
-Refers to settings defined in [Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md), with Professional Colleague-specific values. Note the shift to dynamic sourcing for behavioral aspects.
+Refers to settings defined in [Persona Configuration Schema](../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md), with Professional Colleague-specific values. Note the shift to dynamic sourcing for behavioral aspects.
 
 *   **`PersonaId`**: `Professional_HelpdeskAgent` (intrinsic to the M365 Agent application)
 *   **`DisplayName`**: "Professional Helpdesk Assistant"

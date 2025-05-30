@@ -1,14 +1,14 @@
 ---
 title: "MCP Tool: KnowledgeStore Server Architecture"
 description: "Detailed architecture for the Nucleus_KnowledgeStore_McpServer, outlining its purpose, MCP operations for managing ArtifactMetadata and PersonaKnowledgeEntry records, core logic, dependencies, and security model."
-version: 1.0
-date: 2025-05-27
+version: 1.1 # Incremented version
+date: 2025-05-28 # Updated date
 parent: ../01_MCP_TOOLS_OVERVIEW.md
 see_also:
   - title: "MCP Tools Overview"
     link: "../01_MCP_TOOLS_OVERVIEW.md"
   - title: "Comprehensive System Architecture"
-    link: "../../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    link: "../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md" # Corrected link
   - title: "Data Persistence Strategy"
     link: "../../CoreNucleus/03_DATA_PERSISTENCE_STRATEGY.md"
   - title: "Core Abstractions, DTOs, and Interfaces"
@@ -16,7 +16,7 @@ see_also:
   - title: "Security Overview and Governance"
     link: "../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md"
   - title: "Foundations: MCP & M365 Agents SDK"
-    link: "../../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md"
+    link: "../../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md" # Corrected link
 ---
 
 # MCP Tool: KnowledgeStore Server Architecture (`Nucleus_KnowledgeStore_McpServer`)

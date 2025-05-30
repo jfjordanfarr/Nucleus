@@ -4,7 +4,7 @@ description: "Defines the core development tasks for establishing the Minimum Vi
 version: 2.0
 date: 2025-05-27
 parent: ./00_TASKS_ROADMAP.md
-epic: ../../00_TASKS_ROADMAP.md#epic_phase1_mvp_foundation
+epic: ./00_TASKS_ROADMAP.md#epic_phase1_mvp_foundation
 requirements: ./01_REQUIREMENTS_PHASE1_MVP_FOUNDATION.md
 see_also:
   - ../../Architecture/Agents/01_M365_AGENTS_OVERVIEW.md

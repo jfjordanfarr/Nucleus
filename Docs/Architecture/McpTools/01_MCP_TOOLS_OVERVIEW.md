@@ -1,14 +1,14 @@
 ---
 title: "MCP Tools Overview"
 description: "Overview of Model Context Protocol (MCP) Tools within the Nucleus project, which provide reusable backend functionalities for Nucleus M365 Persona Agents."
-version: 1.1 # Incrementing version due to significant refactor
-date: 2025-05-27 # Updated to current date
-parent: ../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
+version: 1.2
+date: 2025-05-28
+parent: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
 see_also:
   - title: "Comprehensive System Architecture"
-    link: "../00_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    link: "../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
   - title: "MCP Foundations"
-    link: "../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md#part-1-model-context-protocol-mcp-deep-dive"
+    link: "../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md#part-1-model-context-protocol-mcp-deep-dive"
   - title: "Core Abstractions, DTOs, and Interfaces"
     link: "../CoreNucleus/06_ABSTRACTIONS_DTOs_INTERFACES.md"
 ---
@@ -66,7 +66,7 @@ Nucleus M365 Persona Agents are the primary consumers of these backend MCP Tools
 *   **Generate Responses:** Utilizing tools to interact with LLMs and formulate replies or actions.
 *   **Execute Tasks:** Orchestrating multiple tools to perform complex operations.
 
-The MCP Tools provide the building blocks, and the `PersonaConfiguration` and `IPersonaRuntime` logic dictate how these blocks are assembled and utilized to achieve the agent's specific goals and behaviors.
+The MCP Tools provide the building blocks, and the `PersonaConfiguration` and `IPersonaRuntime` logic dictate how these blocks are assembled and utilized to achieve the agent's specific goals and behaviors. This orchestration can involve sophisticated patterns, such as parallel invocations of multiple MCP Tools or iterative calls based on evolving context, enabling advanced reasoning strategies like "Cognitive Forking" within the M365 Agent.
 
 ## 4. Extensibility
 

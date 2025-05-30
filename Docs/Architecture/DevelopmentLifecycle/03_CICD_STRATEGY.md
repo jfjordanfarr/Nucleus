@@ -1,9 +1,20 @@
 ---
 title: "Architecture - CI/CD Strategy"
 description: "Outlines the CI/CD strategy for the Nucleus open-source project, focusing on building and packaging M365 Persona Agents and backend MCP Tool/Server applications as part of the development lifecycle."
-version: 3.1
-date: 2025-05-26
+version: 3.2
+date: 2025-05-29
 parent: ./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md
+see_also:
+    - title: "Development Lifecycle Overview"
+      path: ./00_DEVELOPMENT_LIFECYCLE_OVERVIEW.md
+    - title: "Testing Strategy"
+      path: ./02_TESTING_STRATEGY.md
+    - title: "Comprehensive System Architecture"
+      path: ../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
+    - title: "Foundations: MCP & M365 Agents SDK Primer"
+      path: ../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md
+    - title: "Azure Deployment Strategy"
+      path: ../Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md
 ---
 
 # Nucleus: CI/CD Strategy

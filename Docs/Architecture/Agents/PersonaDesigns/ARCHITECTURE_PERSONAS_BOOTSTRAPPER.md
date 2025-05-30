@@ -1,16 +1,31 @@
 ---
 title: Persona Configuration - Bootstrapper (M365 Agent)
 description: Describes the configuration for the basic Bootstrapper M365 Persona Agent, serving as a foundation or fallback, using MCP Tools.
-version: 2.0
-date: 2025-05-25
-parent: ../02_ARCHITECTURE_PERSONAS.md
+version: 2.1
+date: 2025-05-29
+parent: ./00_PERSONA_DESIGNS_OVERVIEW.md
+see_also:
+  - title: "Persona Designs Overview"
+    link: ./00_PERSONA_DESIGNS_OVERVIEW.md
+  - title: "Core Persona Concepts"
+    link: ../../CoreNucleus/01_PERSONA_CONCEPTS.md
+  - title: "Persona Configuration Schema"
+    link: ../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md
+  - title: "M365 Agents Overview"
+    link: ../01_M365_AGENTS_OVERVIEW.md
+  - title: "MCP Tools Overview"
+    link: ../../McpTools/01_MCP_TOOLS_OVERVIEW.md
+  - title: "Foundations: MCP and M365 Agents SDK Primer"
+    link: ../../NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md
+  - title: "Comprehensive System Architecture"
+    link: ../../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
 ---
 
 # Persona Configuration: Bootstrapper (M365 Agent)
 
 ## 1. Purpose
 
-The Bootstrapper persona configuration represents the most fundamental level of interaction for a **Nucleus M365 Persona Agent**, as defined in the [Personas Architecture Overview](../02_ARCHITECTURE_PERSONAS.md). It defines a simple persona intended for:
+The Bootstrapper persona configuration represents the most fundamental level of interaction for a **Nucleus M365 Persona Agent**, as defined in the [Persona Designs Overview](./00_PERSONA_DESIGNS_OVERVIEW.md). It defines a simple persona intended for:
 
 *   **Initial Setup/Testing:** Provides a basic interaction layer for verifying core M365 Agent functionality, its ability to load configuration, make MCP calls to essential backend **Nucleus MCP Tools** (e.g., a simple echo tool, or a basic metadata query tool), and integrate with a configured LLM provider.
 *   **Fallback Behavior:** Can act as a default persona configuration loaded by the `IPersonaRuntime` within an M365 Agent if a more specialized one is not specified or if dynamic configuration loading fails.
@@ -63,7 +78,7 @@ sequenceDiagram
 
 ## 3. Key Configuration Settings (Illustrative for Bootstrapper)
 
-This section highlights how the [General Persona Configuration](./ARCHITECTURE_PERSONAS_CONFIGURATION.md) schema would be specialized for a `BasicM365Agent` using the Bootstrapper configuration.
+This section highlights how the [Persona Configuration Schema](../../CoreNucleus/02_PERSONA_CONFIGURATION_SCHEMA.md) would be specialized for a `BasicM365Agent` using the Bootstrapper configuration.
 
 *   **`PersonaId`**: `Bootstrapper_M365Agent_v1`
 *   **`DisplayName`**: "Nucleus Bootstrapper Agent"
