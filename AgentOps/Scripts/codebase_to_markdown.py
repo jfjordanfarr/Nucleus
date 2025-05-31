@@ -4,6 +4,50 @@ import fnmatch
 import re
 from pathlib import Path
 
+# --- Binary/Non-text file extensions to exclude ---
+BINARY_EXTENSIONS = {
+    # Images
+    '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp', '.tiff', '.tif',
+    # Videos
+    '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.mkv', '.m4v',
+    # Audio
+    '.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a',
+    # Archives
+    '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz',
+    # Documents
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    # Executables
+    '.exe', '.dll', '.so', '.dylib', '.bin', '.app', '.deb', '.rpm', '.msi',
+    # Fonts
+    '.ttf', '.otf', '.woff', '.woff2', '.eot',
+    # Database
+    '.db', '.sqlite', '.sqlite3', '.mdb',
+    # Other binary formats
+    '.iso', '.img', '.dmg', '.toast', '.vcd'
+}
+
+def is_binary_file(file_path):
+    """Check if a file is likely binary based on extension or content."""
+    # Check extension first
+    if file_path.suffix.lower() in BINARY_EXTENSIONS:
+        return True
+    
+    # For files without clear extensions, check if content is binary
+    try:
+        with open(file_path, 'rb') as f:
+            chunk = f.read(1024)  # Read first 1KB
+            if b'\0' in chunk:  # Null bytes typically indicate binary
+                return True
+            # Check for high ratio of non-printable characters
+            text_chars = bytearray({7,8,9,10,12,13,27} | set(range(0x20, 0x100)) - {0x7f})
+            if chunk and len(chunk.translate(None, text_chars)) / len(chunk) > 0.30:
+                return True
+    except (IOError, OSError):
+        # If we can't read the file, assume it might be binary
+        return True
+    
+    return False
+
 # --- Language Mappings (can be extended) ---
 LANGUAGE_MAP = {
     '.py': 'python',
@@ -141,7 +185,8 @@ def main():
                         default=[
                             '**/Pedagogical_And_Tautological_Trees_Of_Knowledge/*',
                             '**/Examples/*',
-                            '**/Library-References/*'
+                            '**/Library-References/*',
+                            '**/Archive_OldArchitecture/*'
                             ],
                         help="Glob patterns for paths to exclude (relative to source). Example: '**/temp/*' '*.log'")
     parser.add_argument("-f", "--force", action="store_true", help="Overwrite output file if it exists.")
@@ -207,9 +252,43 @@ def main():
                     dir_rel_path_posix = dir_rel_path.as_posix().replace('\\', '/')
 
                     # Check exclude patterns
-                    if any(fnmatch.fnmatch(dir_rel_path_posix, pattern) for pattern in exclude_patterns):
+                    matched_by_exclude_pattern = False
+                    offending_pattern_for_log = "" # For logging
+                    for current_pattern_original in exclude_patterns:
+                        pattern_to_test_against_dir = current_pattern_original
+                        if pattern_to_test_against_dir.endswith('/*'):
+                            pattern_to_test_against_dir = pattern_to_test_against_dir[:-2] # e.g., from "**/foo/*" to "**/foo"
+                        elif pattern_to_test_against_dir.endswith('/'):
+                            pattern_to_test_against_dir = pattern_to_test_against_dir[:-1] # e.g., from "**/foo/" to "**/foo"
+                        
+                        # Initial match attempt
+                        current_match_result = fnmatch.fnmatch(dir_rel_path_posix, pattern_to_test_against_dir)
+
+                        # If the initial match fails, and the pattern is like "**/dirname",
+                        # and the path is a simple name (no slashes, e.g. "dirname"),
+                        # then try matching against the "dirname" part of the pattern.
+                        if not current_match_result and \
+                           pattern_to_test_against_dir.startswith('**/') and \
+                           '/' not in dir_rel_path_posix:
+                            simplified_target_pattern = pattern_to_test_against_dir[3:] # Remove "**/"
+                            if verbose:
+                                print(f"DEBUG_FNMATCH_DIR (Alt Attempt): Testing dir='{dir_rel_path_posix}' vs simplified_target_pattern='{simplified_target_pattern}' from original_pattern='{current_pattern_original}'")
+                            if fnmatch.fnmatch(dir_rel_path_posix, simplified_target_pattern):
+                                current_match_result = True
+                        
+                        if verbose:
+                            # Log the original test attempt's details clearly
+                            print(f"DEBUG_FNMATCH_DIR: Testing dir_path='{dir_rel_path_posix}' against pattern_to_test='{pattern_to_test_against_dir}' (original_pattern='{current_pattern_original}'). Final Match Result: {current_match_result}")
+                        
+                        if current_match_result:
+                            matched_by_exclude_pattern = True
+                            offending_pattern_for_log = current_pattern_original
+                            break
+                    
+                    if matched_by_exclude_pattern:
                         dirs_to_remove_pattern.add(d)
-                        if verbose: print(f"Skipping excluded pattern directory: {dir_rel_path_posix}")
+                        if verbose: 
+                            print(f"Skipping excluded pattern directory: {dir_rel_path_posix} (due to pattern: '{offending_pattern_for_log}')")
                         skipped_pattern_exclude += 1
                         continue # Skip gitignore check if already pattern-excluded
 
@@ -241,6 +320,12 @@ def main():
                         skipped_output_file += 1
                         continue
 
+                    # --- Skip binary files ---
+                    if is_binary_file(file_path):
+                        if verbose: print(f"Skipping binary file: {relative_path_posix}")
+                        skipped_read_error += 1  # Count as read error for simplicity
+                        continue
+
                     # Check standard exclusions first (e.g., if a file is in an excluded dir name like 'bin')
                     if any(part in exclude_dirs for part in relative_path.parts):
                         if verbose: print(f"Skipping excluded file (in standard excluded path): {relative_path_posix}")
@@ -248,8 +333,17 @@ def main():
                         continue
 
                     # Check exclude patterns
-                    if any(fnmatch.fnmatch(relative_path_posix, pattern) for pattern in exclude_patterns):
-                        if verbose: print(f"Skipping excluded pattern file: {relative_path_posix}")
+                    offending_pattern_for_file_log = ""
+                    file_matches_exclude_pattern = False
+                    for current_pattern in exclude_patterns:
+                        if fnmatch.fnmatch(relative_path_posix, current_pattern):
+                            offending_pattern_for_file_log = current_pattern
+                            file_matches_exclude_pattern = True
+                            break
+                    
+                    if file_matches_exclude_pattern:
+                        if verbose: 
+                            print(f"Skipping excluded pattern file: '{relative_path_posix}' (due to pattern: '{offending_pattern_for_file_log}')")
                         skipped_pattern_exclude += 1
                         continue
 

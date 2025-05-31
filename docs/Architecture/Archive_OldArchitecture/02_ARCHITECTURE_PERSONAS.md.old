@@ -1,0 +1,91 @@
+---
+title: Architecture - Personas & Multi-Platform Interaction
+description: Details the architecture for Personas, including multi-platform identities, interaction patterns, and persona-to-persona communication, all within the API-First model.
+version: 2.4
+date: 2025-05-06
+---
+
+# Nucleus: Persona Architecture
+
+**Version:** 2.4
+**Date:** 2025-05-06
+
+This document details the architecture for implementing specialized AI assistants, referred to as "Personas" or "Verticals," within the Nucleus platform, as introduced in the [System Architecture Overview](./00_ARCHITECTURE_OVERVIEW.md). It covers their core concept, structure, configuration, and crucially, how they operate as **agentic entities** coordinated via the `Nucleus.Services.Api`, leveraging **ephemeral content retrieval** based on **artifact references** executed by a central **[Persona Runtime/Engine](#11-persona-runtimeengine-configuration-driven)** ([`IPersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs), [`PersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/PersonaRuntime.cs)) based on configuration.
+
+*   **Related Architecture:**
+    *   [Overall System Architecture](./00_ARCHITECTURE_OVERVIEW.md)
+    *   [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)
+    *   [Security Architecture](./06_ARCHITECTURE_SECURITY.md)
+    *   [Client Architecture](./05_ARCHITECTURE_CLIENTS.md) (and specific adapters in `../ClientAdapters/`)
+    *   [Processing Orchestration](./Processing/ARCHITECTURE_PROCESSING_ORCHESTRATION.md)
+    *   [Storage Architecture](./03_ARCHITECTURE_STORAGE.md)
+    *   [Database](./04_ARCHITECTURE_DATABASE.md)
+
+## 1. Core Concept: Personas as Specialized Agents
+
+Personas are distinct, configurable AI agents designed to address specific domains or user needs (e.g., education, business knowledge, personal finance). They encapsulate domain-specific logic, **agentic reasoning capabilities (operating through iterative, multi-step processing loops)**, analysis methods, and interaction patterns, **all defined via [configuration (`PersonaConfiguration`)](#113-personaconfiguration-overview) ([`PersonaConfiguration.cs`](../../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs)) and executed by the [Persona Runtime/Engine](#11-persona-runtimeengine-configuration-driven)**. They leverage the core platform's infrastructure for **secure metadata indexing (querying sanitized, derived knowledge stored in the database)**, processing (see [Processing Architecture](./01_ARCHITECTURE_PROCESSING.md)), **ephemeral artifact content retrieval (fetching full content transiently from user storage via [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) when needed)** using `ArtifactReference` (adhering to **strict security principles like Zero Trust for user content**), storage of derived knowledge ([Storage Architecture](./03_ARCHITECTURE_STORAGE.md)), and retrieval from the [Database](./04_ARCHITECTURE_DATABASE.md).
+
+*   **Key Data Structure:** Persona-generated insights are stored as [`PersonaKnowledgeEntry`](../../../Nucleus.Abstractions/Models/PersonaKnowledgeEntry.cs) records within dedicated Cosmos DB containers (see [Database](./04_ARCHITECTURE_DATABASE.md)). Crucially, the `AnalysisData` property of this record uses `System.Text.Json.JsonElement?`, allowing flexible, configuration-defined JSON structures instead of fixed C# types. The interpretation of this `JsonElement` is handled by the specific [`IAgenticStrategyHandler`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs) configured for the Persona.
+
+A key design principle is that a Persona exists as an abstraction *above* specific communication platforms. The same "Professional Colleague" persona, with its unique knowledge and capabilities, should be accessible via Teams, Email, Slack, etc., if configured.
+
+## 2. Conceptual Responsibilities (Handled by Runtime)
+
+While previously embodied in an `IPersona` interface (now deprecated, see Section 11.5), the core *functions* performed by the [Persona Runtime](#11-persona-runtimeengine-configuration-driven), guided by [configuration (`PersonaConfiguration`)](#113-personaconfiguration-overview), include:
+
+*   **Identification:** Using the `PersonaId` from the configuration to log and potentially tailor behavior.
+*   **Contextual Interpretation:** Understanding the user's query and the provided `InteractionContext`.
+*   **Agentic Reasoning & Planning:** Based on the configured `AgenticStrategy` (handled by an [`IAgenticStrategyHandler`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs)), determining the steps needed to fulfill the request. This might involve:
+    *   Querying internal knowledge stores (e.g., indexed metadata).
+    *   Retrieving full content of artifacts **ephemerally** using the configured [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) and provided `ArtifactReference`s.
+    *   Generating text responses or structured data.
+    *   Invoking external tools or APIs (if configured and enabled).
+*   **Response Generation:** Crafting the final output for the user or requesting system.
+*   **Knowledge Update (Optional):** Storing new insights or summaries derived from the interaction as `PersonaKnowledgeEntry` records.
+
+{{ ... sections 3-10 unchanged ... }}
+
+## 11. Configuration-Driven Model
+
+The architecture for Personas has been refactored to reflect a configuration-driven model executed by a generic [Persona Runtime/Engine](#11-persona-runtimeengine-configuration-driven) ([`IPersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs), [`PersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/PersonaRuntime.cs)), rather than distinct IPersona implementations for each persona type.
+
+### 11.1 Overview
+
+The Persona Runtime/Engine is a central component responsible for bringing a `PersonaConfiguration` to life. It acts as the orchestrator for a single persona's interaction turn. Key aspects:
+
+*   **Configuration-Driven:** Its behavior is entirely dictated by the loaded [`PersonaConfiguration`](../../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs).
+*   **Strategy Execution:** It selects and invokes the appropriate [`IAgenticStrategyHandler`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs) based on the `StrategyType` defined in the configuration.
+*   **Lifecycle Management:** Manages the flow of an interaction, from receiving the request to generating the final response.
+
+### 11.2 Core Steps in Runtime Execution
+
+1.  **Loading Configuration:** Retrieving and parsing a specific [`PersonaConfiguration`](../../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs) based on the `PersonaId` determined during [Routing](./Processing/Orchestration/ARCHITECTURE_ORCHESTRATION_ROUTING.md).
+2.  **Executing Agentic Loop:** Orchestrating the interaction lifecycle based on the loaded configuration's parameters (e.g., prompts, knowledge scope, agentic strategy, enabled tools).
+    *   This involves invoking the designated [`IAgenticStrategyHandler`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs).
+    *   The handler might perform RAG (Retrieval Augmented Generation), use tools, or follow a multi-step reasoning process.
+3.  **Artifact Handling:** Managing references to artifacts, and coordinating with [`IArtifactProvider`](../../../src/Nucleus.Abstractions/IArtifactProvider.cs) for ephemeral content retrieval when necessary and permitted by the `KnowledgeScopeStrategy`.
+4.  **Response Formatting:** Ensuring the response adheres to the `AdapterResponse` contract for the [API Service](../../Api/00_ARCHITECTURE_API.md).
+
+### 11.3 `PersonaConfiguration` Overview
+
+The [`PersonaConfiguration.cs`](../../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs) object is the blueprint for a persona. It defines everything the Runtime needs to know. See [Persona Configuration Details](./Personas/ARCHITECTURE_PERSONAS_CONFIGURATION.md) for a full schema breakdown. Key sections include:
+
+*   **Core Identification:** `PersonaId`, `DisplayName`, `Description`
+*   **Operational Settings:** `ShowYourWork`
+*   **Activation Rules:** `ActivationTriggers`, `ContextScope`
+*   **Capability Settings:**
+    *   `LlmConfiguration`: Provider, Models, Parameters
+    *   `EnabledTools`: List of allowed tools
+    *   `KnowledgeScope`: Strategy, Collections, `TargetKnowledgeContainerId`, Limits (Note: The `TargetKnowledgeContainerId` points to the Cosmos DB container holding `PersonaKnowledgeEntry` records with `JsonElement` analysis data for this persona)
+*   **Prompt Configuration:** `SystemMessage`, `ResponseGuidelines`
+*   **Agentic Strategy Configuration:** `StrategyType`, `MaxIterations`
+*   **Custom Properties:** Flexible key-value pairs for persona-specific data (e.g., `PedagogicalTreeRef` for Educator)
+
+### 11.4 Core Responsibilities (Executed by Runtime based on Config)
+
+{{ ... }}
+2.  **Implement Persona Runtime/Engine:** Develop the core service(s) in `Nucleus.Personas.Core` ([`IPersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IPersonaRuntime.cs), [`PersonaRuntime`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/PersonaRuntime.cs)) responsible for loading configurations and executing the agentic loop based on the defined strategies (`SimpleRag`, `MultiStepReasoning`, `ToolUsing`).
+3.  **Refactor Existing Code:** Adapt `OrchestrationService` and related components to invoke the Runtime with the appropriate [`PersonaConfiguration`](../../../src/Nucleus.Abstractions/Models/Configuration/PersonaConfiguration.cs) instead of resolving and calling specific `IPersona` implementations.
+4.  **(DONE)** ~~Update Specific Persona Docs: Modify `_BOOTSTRAPPER`, `_EDUCATOR`, `_PROFESSIONAL` docs to reflect their status as configurations, removing references to direct C# implementation of core logic.~~
+5.  **Define Configuration Storage/Loading:** Decide how configurations will be stored (e.g., `appsettings.json`, database) and implement the loading mechanism for the Runtime/API Service.
+6.  **Implement Agentic Strategies:** Build out the logic within the Runtime to handle the different `StrategyType` options, typically via implementations of [`IAgenticStrategyHandler`](../../../src/Nucleus.Domain/Personas/Nucleus.Personas.Core/Interfaces/IAgenticStrategyHandler.cs).

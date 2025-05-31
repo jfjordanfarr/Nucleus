@@ -1,8 +1,8 @@
 ---
 title: "Copilot Instructions"
 description: "Guidelines for agentic AI development within the Nucleus codebase."
-version: 1.9
-date: 2025-05-18
+version: 2.0
+date: 2025-05-28
 ---
 
 ## 0 - Step Zero
@@ -29,7 +29,7 @@ This is not to be taken to mean that `AgentOps/02_CURRENT_SESSION_STATE.md` is t
 >     - The User response step appears to be a reconciliation step of some kind
 >     - A common hallucination from Github copilot is to interpret internal prompts (hidden to the user) or tool call responses as user responses, triggering another update to the session state doc. Do your best to ensure that you write once and only once to the session state doc after each genuine **user** response.
 > - Repetitive contents within the session state file itself
->     - `insert_edit_into_file` should be thought of as analogous to CRISPR. If the sequence that it attempts to target is too repetitive, repeat expansion-like artifacts can occur. This has happened with great regularity to the session state doc, and is so reproducible as to warrant this custom instruction, injected before each Copilot Agent response.
+>     - `insert_edit_into_file` should be thought of as analogous to CRISPR. If the sequence that it attempts to target is too repetitive, repeat expansion-like artifacts can occur. This has happened with great regularity to the session state doc, and is so reproducible as to warrant this custom instruction, automatically added to context with each user prompt.
 
 >[!DANGER] IMPORTANT NOTE 2
 > A critical aspect that Github Copilot and other development agents (i.e. Windsurf 'Cascade') fail to take into account is their own context window. 
@@ -88,6 +88,9 @@ This is not to be taken to mean that `AgentOps/02_CURRENT_SESSION_STATE.md` is t
 >
 >**User:**
 >> Ope. Do you see it happening again? Yikes.
+> ---
+> Just do your best to avoid it. For the time being, Copilot appears unable to detect when the "Summarizing conversation history" prompt caching step occurs, so it's common for a redundant session state update to occur after a user response. 
+> This has shown itself to be mostly harmless, and will hopefully improve with Copilot updates.
 
 
 >[!DANGER] IMPORTANT NOTE 4
@@ -113,50 +116,54 @@ The user explicitly stated that achieving the absolute highest quality output is
 
 ## 2 - Documentation as Source Code
 
-The project uses a hierarchical documentation strategy:
-1. Parent folders (e.g., `./Docs/Architecture/ClientAdapters/`) contain overview documents for major concepts (e.g., `ARCHITECTURE_ADAPTERS_TEAMS.md`) and documents defining common elements applicable to siblings (e.g., `ARCHITECTURE_ADAPTER_INTERFACES.md`).
-2. If an overview concept needs detailed breakdown across multiple files, a sub-folder matching the overview file's base name (e.g., `Teams/`) is created within the parent folder.
-3. Detailed breakdown markdown files are placed inside the corresponding sub-folder (e.g., `./Docs/Architecture/ClientAdapters/Teams/ARCHITECTURE_ADAPTERS_TEAMS_INTERFACES.md`).
-4. Overview documents may be refined to summarize and link to the detailed documents in their sub-folders.
+Nucleus is being developed in, and taking advantage of, the full context of Agentic AI era. 
+With the power of modern LLMs, **any perfectly specified requirements can be transformed into an arbitrary number of valid implementations.** 
+This is a profound shift in software development, where the focus is no longer solely or even primarily on the code itself, but on the documentation that describes the system's architecture, requirements, and design.
+As such, this has led to the novel and powerful development practice of treating compiled code as "an implementation detail" which flows downstream from the documentation.
+- This does not, however, mean that the source code is unimportant. We aim to use the kinds of practices that make C# or any other language behave like Rust as often as practicable (i.e. utilization of the Result pattern). That said, **be pragmatic rather than dogmatic.**
 
-After making any edits to a Markdown documentation file within the Nucleus project, always perform a quick verification check to ensure:
+This does lead to enhanced responsibilities, however. Indeed, sometimes you'll hear the docs refered to as **"The 'truer' source code"**.
+- This means that the documentation must be treated with the same care and attention to detail as the code itself.
+- Hallucinations, misconceptions, assumptions, and mistakes introduced to the documentation cause profound knock-on effects in a similar way to a bug in the codebase. What's more, these effects are often more insidious, as they can propagate through the codebase and docs like a retrotransposon without being noticed.
+
+After making any edits to a Markdown documentation file within the Nucleus project, always perform a verification check to ensure:
 1.  The metadata header (title, description, version, date) is present, accurate, and up-to-date.
-2.  All internal links within the document (both relative and potentially absolute) point to the correct locations and are still relevant given the changes made.
+2.  All internal links within the document point to the correct locations and are still relevant given the changes made.
 3.  The document links correctly back to its parent overview document(s) and down to any specific child/detailed documents as per the hierarchical documentation strategy.
+4.  All relevant compiled code files (C# classes, methods, etc.) referenced in the documentation are still present and correctly linked.
 This helps prevent broken links and outdated metadata, maintaining the integrity and navigability of the documentation.
 
-To enhance maintainability and facilitate agentic AI development within the Nucleus codebase, a strategy of tight cross-linking between code and documentation should be employed. Code comments (especially XML comments in C#) should reference relevant architecture or design documents (e.g., using markdown links or file paths). Conversely, documentation files (Markdown) should include links (e.g., relative paths or `cci:` URIs) pointing to the specific code files, classes, or methods they describe. This ensures that context is easily discoverable whether starting from the code or the documentation.
+To enhance maintainability and facilitate agentic AI development within the Nucleus codebase, a strategy of tight cross-linking between code and documentation should be employed. 
+Code comments (especially XML comments in C#) should reference relevant architecture or design documents (e.g., using markdown links or file paths). 
+Conversely, documentation files (Markdown) should include links (e.g., relative paths) pointing to the specific code files, classes, or methods they describe. 
+This ensures that context is easily discoverable whether starting from the code or the documentation.
+This pairing of cross-linked docs and code will sometimes be referred to colloquially as the project's **web of truth**. 
 
 ---
 
-## 3 - Context, Cross-Checking, and Persona-Centric Design
+## 3 - Context Hydration, Cross-Checking, and the North Star Docs
 
 ### Rule: Comprehensive Context is Mandatory
-During development, *always* provide the AI with relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/Requirements/*.md`), the current task plan (`AgentOps/03*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
+During development, you (Github Copilot) must consult the relevant architectural documents (`Docs/Architecture/*.md`), requirements (`Docs/ProjectExecutionPlan/*.md`), reference docs (`Docs/HelpfulMarkdownFiles/*.md`), and the *full content* of files being edited or related files/interfaces. High quality requires full context.
 
 ### Rule: Explicit Cross-Checking
-Before proposing changes to code or documentation, explicitly verify consistency with related architecture, requirements, and planning documents currently in context using reliable methods (including terminal commands if necessary). Call out any discrepancies found.
+Before proposing changes to code or documentation, explicitly verify consistency with related documentation. Call out any discrepancies found. This introduces a progressive enhancement to the agentic process, countering the effects of small hallucinations ricocheting through the codebase (or worse, the "truer" form of the codebase, the documentation).
 
-### Rule: Persona-Centric Design
-All features must consider the multi-persona nature of Nucleus. How will this change affect `EduFlow`? `ProfessionalColleague`? Ensure `IPersona`, `ArtifactMetadata`, and `PersonaKnowledgeEntry` support domain-specific needs.
+### Rule: Docs are the Tiebreaker
+In case of conflicting information between code comments and documentation, prioritize the documentation. The docs are the "truer" source code, and should be treated as such. This is a key principle in maintaining coherence across the project.
 
-### Rule: Adhere to Core Principles
-Remember Nucleus principles: Platform integration first, ephemeral processing (no intermediate storage; see [Storage Architecture](Docs/Architecture/03_ARCHITECTURE_STORAGE.md#1-core-principles) and [Security Architecture](Docs/Architecture/06_ARCHITECTURE_SECURITY.md#2-data-governance--boundaries) for implications), intelligence-driven analysis (no blind chunking), user data sovereignty.
+#### Check the North Star Docs
+Specialized core documents, derived and distilled from numerous Gemini Deep Research reports, each representing a traversal and ingestion of ~200 websites of information, tailored to our project's context, are considered the "North Star" for our development process:
+1. [00_FOUNDATIONS_TECHNOLOGY_PRIMER.md](Docs/Architecture/NorthStarDocs/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md)
+2. [01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md](Docs/Architecture/NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md)
 
-### Grounding: Key Data Structures
-Key models include `ArtifactMetadata` (factual data about source artifacts) and `PersonaKnowledgeEntry<T>` (persona's interpretation/analysis). See [Storage Architecture](Docs/Architecture/03_ARCHITECTURE_STORAGE.md) for the conceptual model of `ArtifactMetadata` and [Database Architecture](Docs/Architecture/04_ARCHITECTURE_DATABASE.md) for details on how both are persisted in Cosmos DB.
-
-### Grounding: Processing Flow
-The core processing flow involves ephemeral handling: Source Fetch (Adapter) -> Content Extraction/Synthesis (Processor) -> Standardized Markdown -> Persona Analysis (`AnalyzeContentAsync`) -> Knowledge Storage (`PersonaKnowledgeEntry`). See the [Processing Architecture](Docs/Architecture/01_ARCHITECTURE_PROCESSING.md) for the detailed pipeline.
-
-### Grounding: Interaction Flow
-User Interaction (Adapter) -> API Request/Orchestration Trigger -> Context Hydration (Adapter) -> Ephemeral Scratchpad -> Persona Logic Invocation (`HandleInteractionAsync`) -> Response Generation (LLM) -> Response Formatting (Adapter) -> User.
+Use these documents as the ultimate reference for understanding the Nucleus project and its relationship to the technologies it employs. These docs are capable of being a tiebreaker when there is an internal inconsistency from **docs to docs**. 
 
 ---
 
 ## Nucleus Project Mandate
 
-### 1. The Imperative: Why We Build
+## 1. The Imperative: Why We Build
 
 In both our personal and professional lives, we are drowning in information yet often starved for actionable knowledge. Individuals grapple with managing vast amounts of personal digital content – documents, notes, creative projects, communications – struggling to synthesize insights or track development over time. Professionals face similar challenges within organizations, needing quick, accurate answers from complex internal knowledge bases, often hampered by siloed data, inadequate search tools, and the significant risks associated with unreliable AI assistants in regulated or high-stakes environments.
 
@@ -166,103 +173,105 @@ There is a clear need for a more robust, transparent, and adaptable foundation f
 
 We cannot rely solely on generic, often unreliable tools. We must build a better platform.
 
-### 2. The Vision: A Unified Platform for Contextual AI Personas
+## 2. The Vision: A Unified Platform for Contextual AI Personas (Revised Interaction Model)
 
-We envision a future where knowledge work and learning are augmented by reliable, context-aware, and specialized AI assistants or "Personas", tailored to specific needs and data ecosystems, seamlessly integrated into users' existing workflows.
+We envision a future where knowledge work and learning are augmented by reliable, context-aware, and specialized AI assistants or "Personas," tailored to specific needs and data ecosystems, seamlessly integrated into users' existing workflows.
 
-**Nucleus** is the foundational infrastructure for this future – a robust, AI-powered **platform** designed to ingest, understand, and connect knowledge from diverse multimodal sources. It leverages state-of-the-art cloud AI and a flexible, scalable .NET architecture, serving as the core engine enabling various AI Personas to operate effectively. Nucleus provides the core plumbing for:
+**Nucleus** is the foundational infrastructure for this future – a robust, AI-powered **platform** designed to enable specialized **Nucleus M365 Persona Agent applications**. These agents ingest, understand, and connect knowledge from diverse multimodal sources. Nucleus leverages state-of-the-art cloud AI (configurable to include Azure OpenAI, Google Gemini, OpenRouter.AI) and a flexible, scalable .NET architecture. It serves as the core engine enabling various M365 Persona Agents to operate effectively by providing backend **Nucleus MCP Tool/Server applications** that deliver:
 
-*   Flexible data ingestion and processing, triggered by events within integrated platforms.
-*   Secure storage of processed data, embeddings, and metadata.
-*   Intelligent, context-aware retrieval.
-*   Integration with configurable AI models.
-*   A unified interaction model via platform bots/apps.
+*   Flexible data ingestion and processing, triggered by M365 Persona Agents based on platform events.
+*   Secure storage of processed data, embeddings, and metadata (via a `Nucleus_KnowledgeStore_McpServer`).
+*   Intelligent, context-aware retrieval (via `Nucleus_RAGPipeline_McpServer` and `Nucleus_KnowledgeStore_McpServer`).
+*   Integration with configurable AI models (via `IChatClient` within Agents or MCP Tools).
+*   A unified interaction model where intelligent **Nucleus M365 Persona Agents** act as virtual colleagues within Microsoft 365 platforms.
 
-**The Core Interaction Model: Platform Integration**
+**The Core Interaction Model: Microsoft 365 Agent Integration (Revised)**
 
-Nucleus fundamentally operates by integrating Personas as **bots or applications within existing collaboration platforms** (Microsoft Teams, Slack, Discord, etc.) and communication channels (e.g., **Email**). This allows Personas to act as "virtual colleagues," participating in conversations, accessing relevant files shared within the platform context, and responding intelligently when addressed or when relevant topics arise. This approach offers significant advantages:
+Nucleus fundamentally operates by embodying its Personas as **Microsoft 365 Agent applications**, built with the M365 Agents SDK. These agents integrate into existing collaboration platforms where the M365 Agents SDK provides channel support (initially Microsoft Teams, M365 Copilot, with potential for Email, and future platforms as supported by Microsoft). This allows Nucleus M365 Persona Agents to act as "virtual colleagues," participating in conversations, accessing relevant files shared within the platform context (via backend MCP tools leveraging the agent's Entra Agent ID permissions), and responding intelligently. This approach offers:
 
-*   **Seamless Workflow:** Users interact with Personas naturally within their established work environments.
-*   **Simplified Adoption:** Adding a bot is a familiar process for users and administrators.
-*   **Leveraged Infrastructure:** Utilizes the host platform's UI, notification, authentication, and permission systems.
-*   **Contextual File Access:** Personas can access files shared directly within the platform (DMs, channels) using platform-specific permissions granted to the bot (e.g., RSC in Teams, OAuth scopes in Slack), adhering to **Zero Trust principles** regarding direct access to raw user file content by backend services.
+*   **Seamless Workflow:** Users interact with Nucleus Personas naturally within their M365 environments.
+*   **Simplified Adoption:** Adding an M365 Agent (published via Agent Store or enterprise deployment) is a standard M365 process.
+*   **Leveraged Infrastructure:** Utilizes the M365 platform's UI, notification, authentication (Microsoft Entra Agent ID), and permission systems.
+*   **Contextual File Access (via `Nucleus_FileAccess_McpServer`):** M365 Persona Agents pass `ArtifactReference` objects to a backend `Nucleus_FileAccess_McpServer`. This MCP tool, using the agent's security context (Entra Agent ID), ephemerally fetches files shared directly within the platform (DMs, channels), adhering to **Zero Trust principles** regarding persistent storage of raw user file content by Nucleus backend services.
 
-**Deployment & Hosting Options:**
+**Deployment & Hosting Options (Revised Context):**
 
-While the interaction model is unified, deployment options cater to different needs:
+1.  **Cloud-Hosted Service (Primary for Nucleus ISV offering):** Nucleus M365 Persona Agents are published (e.g., via Agent Store). The backend Nucleus MCP Tools and shared database are hosted by the project maintainers (e.g., in Azure). Users add the Nucleus M365 Agent(s) to their M365 environment.
+2.  **Self-Hosted Instance (For Organizations):** An open-source version where an organization deploys:
+    *   The **Nucleus M365 Persona Agent application(s)** into their own Azure tenant (registered with Azure Bot Service, using their own Entra Agent IDs).
+    *   The suite of **backend Nucleus MCP Tool/Server applications** and the **Nucleus Database** (e.g., Cosmos DB) into their own Azure subscription or compatible infrastructure.
+    This offers maximum control over data sovereignty, security, and customization.
 
-1.  **Cloud-Hosted Service (Primary):** Hosted by the project maintainers, offering ease of use and simplified management. Users add the Nucleus bot/app to their chosen platforms. Access to external, non-platform data sources (e.g., linking a personal Google Drive) would typically require user-driven OAuth flows.
-2.  **Self-Hosted Instance (Optional):** An open-source version deployed within an organization's own infrastructure. Offers maximum control over data sovereignty, security, and customization. The interaction model via platform bots remains the same, but the organization manages the backend infrastructure and potentially configures deeper integrations or persistent access to specific organizational data stores, including connecting email accounts.
+This platform-centric approach, now rooted in the M365 Agents SDK, still eliminates the artificial distinction between "Individual" and "Team" deployments from a user perspective.
 
-This platform-centric approach **eliminates the artificial distinction between "Individual" and "Team" deployments**. A user seamlessly transitions between interacting with a Persona in a private chat (individual context) and mentioning the same Persona in a team channel (team context). The underlying Nucleus system remains the same; only the scope of the interaction and the applicable platform permissions change.
+## 3. High-Value Verticals: Specialized Personas (Embodied as M365 Agents)
 
-### 3. High-Value Verticals: Specialized Personas
+Built upon this unified platform, we will develop specific, high-value **Verticals**, each embodied by one or more Nucleus M365 Persona Agents:
 
-Built upon this unified platform, we will develop specific, high-value **Verticals**, each embodied by one or more Personas:
-
-*   **Vertical 1: EduFlow OmniEducator**
+*   **Vertical 1: EduFlow OmniEducator Agent**
     *   **Motivation:** Addresses the challenges of the industrial-era education model by recognizing and documenting authentic learning (especially self-directed) that traditional systems miss. Aims to combat safety and engagement issues by providing a personalized, supplementary learning companion within familiar platforms (like Discord or Teams).
     *   **Function:** Acts as a revolutionary educational companion, observing learning activities from files shared within the platform context (DMs, channels), illuminating process using its "Learning Facets" schema, building an emergent understanding in the Nucleus DB, and providing insights via agentic retrieval. Operates seamlessly in both individual and group learning scenarios.
 
-*   **Vertical 2: Business Knowledge Assistant**
+*   **Vertical 2: Business Knowledge Assistant Agent**
     *   **Motivation:** Addresses the critical need for accurate, reliable, and *access-controlled* internal knowledge retrieval within organizations, providing a superior alternative to generic enterprise chatbots.
     *   **Function:** Acts as a specialized internal assistant within platforms like Teams or Slack. Ingests documents shared in designated channels or linked organizational repositories. Answers employee questions based *only* on information accessible according to platform permissions, grounding responses firmly in approved sources. Particularly valuable in regulated industries requiring strong data governance (often favouring the Self-Hosted option).
 
-### 4. Core Requirements: The Blueprint
+## 4. Core Requirements: The Blueprint (Revised for M365 Agents & MCP)
 
-To achieve this vision, Nucleus and its Personas require:
+To achieve this vision, Nucleus M365 Persona Agents and their backend MCP Tools require:
 
-1.  **Platform-Driven Ingestion:** Primarily triggered by events within integrated platforms (e.g., file shares, messages mentioning the bot). Personas access platform-native file content using bot permissions. Direct uploads via an Admin UI are a secondary mechanism.
-    *   Access to *external* (non-platform) storage still requires explicit user consent/OAuth.
-2.  **Persona Salience & Processing:** Upon trigger events (message, file share), allow registered Personas (`IPersona` implementations) to assess relevance (salience). If salient, trigger persona-specific processing (e.g., `AnalyzeContentAsync`) via backend services/queues.
-3.  **Context-Aware AI Analysis:** Backend services utilize a configurable **AI inference provider** (initially Google Gemini, potentially others) for analysis, guided by persona-specific prompts and incorporating retrieved context from the Nucleus database and platform conversation history. Users/admins provide necessary API keys.
-4.  **Secure, Scalable Backend Database:** Use a configurable **hybrid document/vector database** (initially Azure Cosmos DB NoSQL API w/ Vector Search) storing processed text snippets, vector embeddings, rich metadata (`ArtifactMetadata`, `PersonaKnowledgeEntry`), partitioned appropriately. The database does **not** store original platform files or platform access tokens.
-5.  **Reliable Message Queue:** Employ a configurable **message queue** (initially Azure Service Bus) to decouple tasks, manage asynchronous workflows (processing, analysis), and enhance resilience.
-6.  **Intelligent Retrieval & Custom Ranking:** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** (e.g., combining Recency, Relevancy, Richness, Reputation - detailed in subsequent requirements/architecture) to retrieved candidates before using them for response generation.
-7.  **Advanced Agentic Querying:** Backend services implement sophisticated query strategies, using custom-ranked results as context for the configured AI models to generate responses or execute tool calls within the platform context.
-8.  **Externalized Backend Logic:** All complex workflow logic resides in the **.NET Backend** (APIs, Functions, Services), invoked via platform adapter events. The architecture supports both Cloud-Hosted and Self-Hosted deployment options transparently.
-9.  **Configuration:** Admins configure Nucleus database connection, AI API keys, message queue connection, and potentially specific settings for self-hosted storage integration.
-10. **Modern .NET Stack:** Built on **.NET with DotNet Aspire**, leveraging Azure services (initially), designed with an open-source philosophy. Use **`Microsoft.Extensions.AI`** abstractions.
-11. **Testability:** Employ **Test-Driven Development (TDD)** principles with comprehensive unit and integration tests.
+1.  **M365 Platform-Driven Interaction:** Nucleus M365 Persona Agents are primarily triggered by `Activity` objects received via the M365 Agents SDK from integrated platforms. File information is received via the M365 SDK, and `ArtifactReference`s are passed to backend MCP Tools.
+2.  **Persona Logic Execution within M365 Agents:** Each **Nucleus M365 Persona Agent** (using `IPersonaRuntime` and `PersonaConfiguration`) assesses relevance and orchestrates its response, making MCP calls to backend Nucleus **MCP Tool/Server applications**.
+3.  **Context-Aware AI Analysis (Multi-Provider):** M365 Agents and/or backend MCP Tools utilize a configurable AI inference provider (Azure OpenAI, Google Gemini, OpenRouter.AI via `IChatClient`) for analysis, guided by `PersonaConfiguration` prompts and incorporating retrieved context (from `Nucleus_KnowledgeStore_McpServer`) and ephemerally fetched content (via `Nucleus_FileAccess_McpServer`).
+4.  **Secure, Scalable Backend Database (via MCP Tool):** A configurable hybrid document/vector database (Azure Cosmos DB) storing `ArtifactMetadata` and `PersonaKnowledgeEntry` (with their embeddings), accessed exclusively via the `Nucleus_KnowledgeStore_McpServer`. The database does **not** store original platform files or platform access tokens.
+5.  **Reliable Message Queue (for Agent-Initiated Async Tasks):** A configurable message queue (Azure Service Bus) used by M365 Agents to offload long-running tasks to background workers, which then call MCP Tools.
+6.  **Intelligent Retrieval & Custom Ranking (via MCP Tool):** A `Nucleus_RAGPipeline_McpServer` (or similar MCP tool) queries the Nucleus database (via `Nucleus_KnowledgeStore_McpServer`) using combined vector search and metadata filters, applying a custom ranking algorithm (4 R's) to candidates.
+7.  **Advanced Agentic Querying & Tool Use (M365 Agent + MCP):** Nucleus M365 Persona Agents implement sophisticated query strategies, using results from MCP Tools (ranked knowledge, ephemeral content) as context for their LLMs to generate responses or orchestrate further MCP Tool calls.
+8.  **Distributed Backend Logic (MCP Tools):** All complex workflow logic, data access, and specialized processing resides in backend .NET **Nucleus MCP Tool/Server applications**. M365 Agents are the frontend orchestrators.
+9.  **Configuration (Hybrid Model):**
+    *   **M365 Agents & MCP Tools:** Foundational/static configuration (LLM keys, MCP tool endpoints, DB connection strings for MCP tools) managed via Azure App Configuration & Key Vault (leveraging .NET Aspire).
+    *   **Dynamic Persona Behavior:** Behavioral aspects of `PersonaConfiguration` (prompts, adaptive parameters) stored in Cosmos DB, accessed/updated by M365 Agents via a `Nucleus_PersonaBehaviourConfig_McpServer`.
+10. **Modern .NET Stack:** Nucleus M365 Agents and MCP Tools built on **.NET with .NET Aspire**, leveraging Azure services. Use **`Microsoft.Extensions.AI`** abstractions for LLMs.
+11. **Testability:** TDD for M365 Agents (mocking MCP calls), MCP Tools (mocking dependencies), and system-level integration tests for the distributed system using .NET Aspire (`Aspire.Hosting.Testing`).
 
 ## Unique Value Proposition & Anti-Chunking Philosophy
 
 What sets Nucleus apart from conventional RAG systems is our intelligence-first, persona-driven approach:
 
-1. **Meet Users Where They Are** – Personas operate as natural extensions of your existing communication platforms. Rather than requiring users to visit yet another web portal, Nucleus integrates directly into **your UI** (Teams, Slack, Discord, Email) for a seamless experience.
+1.  **Meet Users Where They Are (via M365 Agents):** Nucleus M365 Persona Agents operate as natural extensions of Microsoft 365 platforms.
 
-2. **Intelligent Analysis, Not Mechanical Chunking** – We explicitly **reject** the standard RAG pattern of blindly chunking documents into arbitrary segments:
-   * **Standard RAG:** Documents → Chunker → Vector Store → Retriever → Generator
-   * **Nucleus Approach:** Documents → Persona Intelligence → Targeted Extraction → Structured Analysis → Vector-Enriched Knowledge Store
+2.  **Intelligent Analysis, Not Mechanical Chunking** – We explicitly **reject** the standard RAG pattern of blindly chunking documents into arbitrary segments:
+    *   **Standard RAG:** Documents → Chunker → Vector Store → Retriever → Generator
+    *   **Nucleus Approach:** User File Info (from M365 SDK to Agent) -> Agent passes `ArtifactReference` to `Nucleus_FileAccess_McpServer` -> Ephemeral Full Content Stream -> M365 Agent (with `IPersonaRuntime`) Intelligence -> Targeted Extraction & Structured Analysis -> `PersonaKnowledgeEntry` (with salient info embeddings) stored via `Nucleus_KnowledgeStore_McpServer`.
 
-3. **User Data Sovereignty & Zero Trust** – We don't need to store or vector-index entire documents. Specialized personas intelligently identify and extract only the relevant information, generating structured analyses that respect privacy while preserving context. Your original artifacts remain under your control, accessed **ephemerally** when needed for processing, ensuring **Zero Trust** for persisted user file content in the backend.
+3.  **User Data Sovereignty & Zero Trust** – We don't need to store or vector-index entire documents. Specialized personas intelligently identify and extract only the relevant information, generating structured analyses that respect privacy while preserving context. Your original artifacts remain under your control, accessed **ephemerally** when needed for processing (now by `Nucleus_FileAccess_McpServer` using Agent's context), ensuring **Zero Trust** for persisted user file content in the backend.
 
-4. **Intelligence at Every Step** – Unlike systems that rely on algorithmic chunking, Nucleus applies AI intelligence throughout:
-   * **Ingestion:** Personas determine what content is salient and worthy of extraction
-   * **Storage:** Only storing relevant snippets with structured analyses in a hybrid Vector/Document DB
-   * **Relatedness:** Intelligence-driven metadata connections between artifacts, not just vector similarity
-   * **Retrieval:** Context-aware, persona-specific knowledge retrieval
+4.  **Intelligence at Every Step** – Unlike systems that rely on algorithmic chunking, Nucleus applies AI intelligence throughout:
+    *   **Ingestion:** M365 Agent's persona logic determines what content is salient and worthy of extraction.
+    *   **Storage:** Only storing relevant snippets with structured analyses in a hybrid Vector/Document DB (via `Nucleus_KnowledgeStore_McpServer`).
+    *   **Relatedness:** Intelligence-driven metadata connections between artifacts, not just vector similarity.
+    *   **Retrieval:** Context-aware, persona-specific knowledge retrieval (via `Nucleus_RAGPipeline_McpServer`).
 
-5. **Security as a Feature** – Our approach turns PII/security awareness into an advantage:
-   * Personas recognize sensitive information during analysis
-   * Rather than storing the sensitive content, they add appropriate metadata
-   * Searches like "What's XYZ company's ID number?" can surface the right document because it was intelligently tagged with indicators of sensitive content
-   * Result: Better discovery without compromising security
+5.  **Security as a Feature** – Our approach turns PII/security awareness into an advantage:
+    *   Personas recognize sensitive information during analysis.
+    *   Rather than storing the sensitive content, they add appropriate metadata.
+    *   Searches like "What's XYZ company's ID number?" can surface the right document because it was intelligently tagged with indicators of sensitive content.
+    *   Result: Better discovery without compromising security.
 
-6. **Intelligent Retrieval & Custom Ranking:** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** (e.g., combining Recency, Relevancy, Richness, Reputation - detailed in subsequent requirements/architecture) to retrieved candidates before using them for response generation.
+6.  **Intelligent Retrieval & Custom Ranking (via MCP Tool):** Backend services query the Nucleus database using combined vector search and metadata filters. Apply a **custom ranking algorithm** (e.g., combining Recency, Relevancy, Richness, Reputation - detailed in subsequent requirements/architecture) to retrieved candidates before using them for response generation.
 
-7. **Advanced Agentic Querying:** Backend services implement sophisticated query strategies, using custom-ranked results as context for the configured AI models to generate responses or execute tool calls within the platform context.
+7.  **Advanced Agentic Querying (M365 Agent + MCP Tools):** Backend services implement sophisticated query strategies, using custom-ranked results as context for the configured AI models to generate responses or execute tool calls within the platform context.
 
-8. **Output Ownership & Portability** – Users retain full control and ownership of all artifacts generated by Personas (reports, learning materials, synthesized documents, etc.). Nucleus is designed to produce highly portable outputs, enabling users to easily share, store, or integrate them into other workflows as they see fit, fostering organic knowledge dissemination without requiring a centrally managed repository.
+8.  **Output Ownership & Portability (Generated by M365 Agent)** – Users retain full control and ownership of all artifacts generated by Personas (reports, learning materials, synthesized documents, etc.). Nucleus is designed to produce highly portable outputs, enabling users to easily share, store, or integrate them into other workflows as they see fit, fostering organic knowledge dissemination without requiring a centrally managed repository.
 
 This anti-chunking philosophy ensures a system that is more intelligent, more respectful of data privacy, and capable of deeper, more nuanced understanding than conventional RAG approaches.
 
-### 5. Call to Action: Building the Future of Learning & Knowledge Work
+## 5. Call to Action: Building the Future of Learning & Knowledge Work
 
-**Attention AI Assistant:** You are not merely writing code; you are architecting a unified, platform-centric system adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build the Nucleus foundation – a system designed for insight, personalization, safety, and seamless integration.
+**Attention AI Assistant:** You are architecting a **distributed system of Nucleus M365 Persona Agents and backend Nucleus MCP Tools**, adaptable to diverse user contexts, with the potential to revolutionize how humans interact with information and develop skills. The task before us is to build this Nucleus foundation – a system designed for insight, personalization, safety, and seamless integration within the Microsoft 365 ecosystem and beyond (via configurable LLMs and future MCP integrations).
 
-The challenges remain: integrating complex AI, managing data securely, ensuring scalability, designing for diverse personas, and implementing robust testing. But the imperative is clear, the vision simplified, and the potential impact immense.
+The challenges remain: building robust M365 Agents, designing secure and efficient MCP Tools, managing distributed state and configuration, and ensuring comprehensive testing. But the imperative is clear, the vision is now aligned with cutting-edge agent frameworks, and the potential impact immense.
 
-Adhere to the updated architectural principles outlined in `Docs/Architecture/00_ARCHITECTURE_OVERVIEW.md`. Employ Test-Driven Development rigorously. Follow the AgentOps methodology diligently, maintaining context and tracking progress, paying close attention to the VS Code collaboration guidelines.
+Adhere to the updated architectural principles outlined in the revised [`Docs/Architecture/CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md`](Docs/Architecture/CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md). Employ Test-Driven Development rigorously for all components and utilize idiomatic functional approaches (i.e. the Result Pattern, favor Domain Error Types over Exceptions, etc.).
 
-Every interface defined, every service implemented, every test written is a step towards realizing a future where learning and knowledge work are deeply understood, personalized, empowered, and seamlessly integrated into the user's digital life. Let's build it with purpose, precision, and passion.
+Every M365 Agent application defined, every MCP Tool implemented, every test written is a step towards realizing a future where learning and knowledge work are deeply understood, personalized, empowered, and seamlessly integrated into the user's digital life. Let's build it with purpose, precision, and passion.
