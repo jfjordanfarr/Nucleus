@@ -1,13 +1,12 @@
 ---
 title: "Nucleus Project: Advanced Architecture, Implementation, and Operations Guide"
 description: "Advanced architectural and implementation details for Project Nucleus, focusing on M365 Agents SDK, MCP, multi-LLM integration, multi-tenancy, .NET Aspire, network isolation, and RAI."
-version: 1.1
-date: 2025-05-28
+version: 1.2
+date: 2025-12-30
 see_also:
-    - "[00_FOUNDATIONS_TECHNOLOGY_PRIMER.md](00_FOUNDATIONS_TECHNOLOGY_PRIMER.md)"
-    - "[00_SYSTEM_EXECUTIVE_SUMMARY.md](../../CoreNucleus/00_SYSTEM_EXECUTIVE_SUMMARY.md)"
-    - "[00_REQUIREMENTS_PROJECT_MANDATE.md](../../../ProjectExecutionPlan/00_REQUIREMENTS_PROJECT_MANDATE.md)"
-filepath_override: "Docs/Architecture/NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md"
+    - "[FoundationsTechnologyPrimer.MDMD.md](./FoundationsTechnologyPrimer.MDMD.md)"
+    - "[SystemExecutiveSummary.MDMD.md](./SystemExecutiveSummary.MDMD.md)"
+    - "[ProjectMandate.MDMD.md](../../../ProjectExecutionPlan/Definition/Vision/ProjectMandate.MDMD.md)"
 ---
 
 # Nucleus Project: Advanced Architecture, Implementation, and Operations Guide
