@@ -2,7 +2,7 @@
 title: "Nucleus M365 Agents Overview"
 description: "Provides an overview of Nucleus M365 Persona Agents, their core technologies, responsibilities, and interaction with backend MCP Tools."
 version: 1.2
-date: 2025-05-29
+date: 2025-06-02
 parent: ../NorthStarDocs/01_NUCLEUS_SYSTEM_ARCHITECTURE_COMPREHENSIVE_GUIDE.md
 see_also:
   - title: "Comprehensive System Architecture"
@@ -43,43 +43,82 @@ see_also:
 
 # Nucleus M365 Agents Overview
 
-## 1. Introduction to Nucleus M365 Persona Agents
+````{composition}
+:title: M365 Agents Architectural Concepts
+:stratum: Specification/Concepts
+:connects_to: [Definition/Requirements, Specification/Implementations]
+:flows_from: [SystemExecutiveSummary, PersonaConceptsRequirements]
+
+```{unit}
+:title: M365 Persona Agent Foundation
+:type: architectural_concept
+:implements: agent_sdk_integration
+
 Nucleus Personas are primarily embodied as individual **Microsoft 365 Agent applications**, built using the .NET Microsoft 365 Agents SDK. These agents serve as the primary interface for user interactions on supported Microsoft 365 platforms (e.g., Microsoft Teams, M365 Copilot). Their core role involves handling platform-specific communication, executing persona-specific logic, performing high-level orchestration of tasks, and acting as Model Context Protocol (MCP) Clients to consume backend Nucleus capabilities.
 
-*   For a deeper understanding of the conceptual nature of Personas, see: `../../CoreNucleus/01_PERSONA_CONCEPTS.md`
-*   For foundational details on the M365 Agents SDK itself, refer to: `../../CoreNucleus/00_FOUNDATIONS_TECHNOLOGY_PRIMER.md#part-2-microsoft-365-agents-sdk-deep-dive` (Part 2).
+**Foundational Concepts:**
+- For a deeper understanding of the conceptual nature of Personas, see: [Persona Concepts](../../Definition/Requirements/PersonaConceptsRequirements.MDMD.md)
+- For foundational details on the M365 Agents SDK itself, refer to: [Foundations Technology Primer](../../Definition/Vision/FoundationsTechnologyPrimer.MDMD.md)
+```
 
-## 2. Core Technologies
+```{unit}
+:title: Core Technologies Stack
+:type: technical_concept
+:implements: technology_foundation
+
 The development and operation of Nucleus M365 Persona Agents rely on:
-*   **Microsoft 365 Agents SDK (.NET):** The primary framework for building the agent application, handling `Activity` objects, managing state, and interacting with M365 channels.
-*   **Azure Bot Service:** Used for channel connectivity and routing messages between the M365 platform and the deployed M365 Agent application.
-*   **Microsoft Entra Agent ID:** Provides a unique, manageable identity for each deployed M365 Agent within Microsoft Entra ID, crucial for security and accessing M365 resources (like Microsoft Graph) and backend Nucleus MCP Tools.
+- **Microsoft 365 Agents SDK (.NET):** The primary framework for building the agent application, handling `Activity` objects, managing state, and interacting with M365 channels.
+- **Azure Bot Service:** Used for channel connectivity and routing messages between the M365 platform and the deployed M365 Agent application.
+- **Microsoft Entra Agent ID:** Provides a unique, manageable identity for each deployed M365 Agent within Microsoft Entra ID, crucial for security and accessing M365 resources (like Microsoft Graph) and backend Nucleus MCP Tools.
+```
 
-## 3. Key Responsibilities of a Nucleus M365 Agent
+```{unit}
+:title: Agent Responsibilities Pattern
+:type: behavioral_concept
+:implements: agent_orchestration
+
 A Nucleus M365 Persona Agent is responsible for:
-*   Receiving and interpreting incoming `Activity` objects from the M365 platform via the M365 Agents SDK.
-*   Executing its specific Persona logic, primarily driven by its `IPersonaRuntime` and loaded `PersonaConfiguration`.
-*   Performing high-level orchestration of tasks, potentially including advanced patterns like parallelized reasoning or 'Cognitive Forking' for complex problem-solving.
-*   Making authenticated Model Context Protocol (MCP) calls to backend Nucleus MCP Tool Server applications for specialized data access, file processing, RAG, etc.
-*   Interacting with configured Large Language Models (LLMs) (e.g., Azure OpenAI, Google Gemini, OpenRouter.AI) via the `Microsoft.Extensions.AI.IChatClient` abstraction for reasoning, analysis, and response generation.
-*   Managing conversational state across turns using M365 Agents SDK mechanisms and a configured `Microsoft.Bot.Builder.IStorage` provider.
-*   Initiating and managing asynchronous long-running tasks by publishing messages to the `Nucleus.Shared.Kernel.Abstractions.Interfaces.IBackgroundTaskQueue` (Azure Service Bus).
-*   Handling proactive messages triggered by background workers to deliver results or notifications to the user.
-*   Formatting and sending responses back to the user via the M365 Agents SDK.
+- Receiving and interpreting incoming `Activity` objects from the M365 platform via the M365 Agents SDK.
+- Executing its specific Persona logic, primarily driven by its `IPersonaRuntime` and loaded `PersonaConfiguration`.
+- Performing high-level orchestration of tasks, potentially including advanced patterns like parallelized reasoning or 'Cognitive Forking' for complex problem-solving.
+- Making authenticated Model Context Protocol (MCP) calls to backend Nucleus MCP Tool Server applications for specialized data access, file processing, RAG, etc.
+- Interacting with configured Large Language Models (LLMs) (e.g., Azure OpenAI, Google Gemini, OpenRouter.AI) via the `Microsoft.Extensions.AI.IChatClient` abstraction for reasoning, analysis, and response generation.
+- Managing conversational state across turns using M365 Agents SDK mechanisms and a configured `Microsoft.Bot.Builder.IStorage` provider.
+- Initiating and managing asynchronous long-running tasks by publishing messages to the `Nucleus.Shared.Kernel.Abstractions.Interfaces.IBackgroundTaskQueue` (Azure Service Bus).
+- Handling proactive messages triggered by background workers to deliver results or notifications to the user.
+- Formatting and sending responses back to the user via the M365 Agents SDK.
+```
 
-## 4. Interaction with Backend Nucleus MCP Tools
+```{unit}
+:title: MCP Client Architecture
+:type: integration_concept
+:implements: backend_integration
+
 Nucleus M365 Persona Agents primarily act as **MCP Clients**. They discover and consume tools exposed by backend Nucleus MCP Tool Server applications. They do not typically *provide* MCP tools themselves in this model (unless a specific agent-to-agent skill-like interaction via MCP is designed, which is an advanced scenario).
-*   For an overview of the backend MCP Tools, see: `../../McpTools/01_MCP_TOOLS_OVERVIEW.md`
 
-## 5. Deployment & Hosting
-Each Nucleus M365 Persona Agent is a distinct .NET application, typically packaged as a container and deployed to Azure services like Azure Container Apps or Azure App Service.
-*   For detailed Azure deployment strategies, see: `../../Deployment/Hosting/ARCHITECTURE_HOSTING_AZURE.md`
+**Related Concepts:**
+- For an overview of the backend MCP Tools, see: [MCP Tools Overview](McpToolsOverview.MDMD.md)
+```
 
-## 6. Security Context
-The security of M365 Agents is paramount, centered around their Microsoft Entra Agent ID.
-*   For comprehensive security details, see: `../../Security/01_SECURITY_OVERVIEW_AND_GOVERNANCE.md`
+```{unit}
+:title: Deployment & Security Concepts
+:type: operational_concept
+:implements: production_readiness
 
-## 7. Specific Agent Implementations and Channel Considerations
+Each Nucleus M365 Persona Agent is a distinct .NET application, typically packaged as a container and deployed to Azure services like Azure Container Apps or Azure App Service. The security of M365 Agents is paramount, centered around their Microsoft Entra Agent ID.
+
+**Implementation References:**
+- For detailed Azure deployment strategies, see: [Deployment Overview](../Implementations/DeploymentStrategy.MDMD.md)
+- For comprehensive security details, see: [Security Requirements](../../Definition/Requirements/SecurityRequirements.MDMD.md)
+```
+
+```{unit}
+:title: Specific Implementation Patterns
+:type: reference_concept
+:implements: concrete_examples
+
 While this document provides a general overview, specific details for integrating with particular M365 channels or implementing individual personas can be found in:
-*   `./Teams/ARCHITECTURE_M365_AGENT_TEAMS_INTEGRATION.md` (for Microsoft Teams specifics)
-*   Detailed Persona Reference Implementations (e.g., in `./PersonaDesigns/Educator/` or `./PersonaDesigns/Professional/`)
+- Teams Integration: [M365 Agent Teams Integration](../Implementations/M365AgentTeamsIntegration.MDMD.md)
+- Persona Reference Implementations: [Persona Designs](../Implementations/PersonaEducatorDesign.MDMD.md), [Professional Persona](../Implementations/PersonaProfessionalDesign.MDMD.md), [Bootstrapper Persona](../Implementations/PersonaBootstrapperDesign.MDMD.md)
+```
+````
