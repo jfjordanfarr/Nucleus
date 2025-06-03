@@ -2,7 +2,7 @@
 title: "Definition Stratum Overview"
 description: "High-level vision and requirements that define what the Nucleus system should be and do."
 version: 1.0
-date: 2025-12-30
+date: 2025-06-02
 ---
 
 # Definition Stratum
